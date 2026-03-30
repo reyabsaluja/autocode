@@ -1,8 +1,10 @@
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 
 import { app, BrowserWindow } from 'electron';
 
 import { getDatabaseContext } from './database/client';
+import { AUTOCODE_APP_NAME } from './database/paths';
 import { registerProjectHandlers } from './ipc/register-project-handlers';
 import { createProjectService } from './services/project-service';
 
@@ -18,7 +20,7 @@ function createMainWindow(): BrowserWindow {
     backgroundColor: '#0f172a',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: resolvePreloadPath(),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
@@ -53,6 +55,7 @@ async function bootstrap(): Promise<void> {
   });
 }
 
+app.setName(AUTOCODE_APP_NAME);
 app.whenReady().then(bootstrap);
 
 app.on('window-all-closed', () => {
@@ -61,3 +64,17 @@ app.on('window-all-closed', () => {
   }
 });
 
+function resolvePreloadPath(): string {
+  const candidatePaths = [
+    path.join(__dirname, '../preload/index.mjs'),
+    path.join(__dirname, '../preload/index.js')
+  ];
+
+  const preloadPath = candidatePaths.find((candidate) => existsSync(candidate));
+
+  if (!preloadPath) {
+    throw new Error(`Unable to locate preload bundle. Checked: ${candidatePaths.join(', ')}`);
+  }
+
+  return preloadPath;
+}
