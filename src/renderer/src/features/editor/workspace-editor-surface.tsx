@@ -2,6 +2,8 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'r
 import CodeMirror from '@uiw/react-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
 
+import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
+
 import { WorkspaceDiffViewer } from '../workspace/workspace-diff-viewer';
 import { useWorkspaceDiffQuery } from '../workspace/workspace-hooks';
 import { inferLanguageSupport } from './editor-language';
@@ -15,6 +17,7 @@ export interface WorkspaceEditorHandle {
 }
 
 interface WorkspaceEditorSurfaceProps {
+  activeChange: WorkspaceChange | null;
   activeFilePath: string | null;
   mode: 'diff' | 'editor';
   onModeChange: (mode: 'diff' | 'editor') => void;
@@ -22,10 +25,13 @@ interface WorkspaceEditorSurfaceProps {
 }
 
 export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, WorkspaceEditorSurfaceProps>(
-  function WorkspaceEditorSurface({ activeFilePath, mode, onModeChange, taskId }, ref) {
+  function WorkspaceEditorSurface({ activeChange, activeFilePath, mode, onModeChange, taskId }, ref) {
     const shouldLoadFile = mode === 'editor';
+    // Keep the edit surface lightweight: change badges come from workspace status,
+    // while full git diffs only load when the user explicitly enters diff mode.
+    const shouldLoadDiff = mode === 'diff' && activeFilePath !== null;
     const fileQuery = useWorkspaceFileQuery(taskId, activeFilePath, shouldLoadFile);
-    const diffQuery = useWorkspaceDiffQuery(taskId, activeFilePath);
+    const diffQuery = useWorkspaceDiffQuery(taskId, activeFilePath, shouldLoadDiff);
     const writeFileMutation = useWriteWorkspaceFileMutation(taskId, activeFilePath);
     const [bufferContent, setBufferContent] = useState('');
     const [lastSavedContent, setLastSavedContent] = useState('');
@@ -37,17 +43,13 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
       () => (activeFilePath ? inferLanguageSupport(activeFilePath) : []),
       [activeFilePath]
     );
-    const diffMetadata = useMemo(() => {
-      if (!diffQuery.data?.text) {
-        return {
-          addedLinesCount: 0,
-          isModified: false,
-          removedLinesCount: 0
-        };
+    const diffLineSummary = useMemo(() => {
+      if (mode !== 'diff' || !diffQuery.data?.text) {
+        return null;
       }
 
       return parseDiffMetadata(diffQuery.data.text);
-    }, [diffQuery.data?.text]);
+    }, [diffQuery.data?.text, mode]);
 
     useEffect(() => {
       // Reset the editor only when the task/file identity changes. View-mode switches
@@ -147,7 +149,12 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-semibold text-white">{editorTitle}</p>
                 {isDirty ? <StateBadge tone="dirty" value="Unsaved" /> : null}
-                {diffMetadata.isModified ? <StateBadge tone="modified" value="Modified" /> : null}
+                {activeChange ? (
+                  <StateBadge
+                    tone="modified"
+                    value={formatWorkspaceChangeLabel(activeChange.status)}
+                  />
+                ) : null}
               </div>
               <p className="mt-1 truncate text-xs text-slate-500">
                 {activeFilePath ?? 'Select a file from the workspace tree to edit it here.'}
@@ -191,14 +198,18 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
               label="Lines"
               value={String(bufferContent.length === 0 ? 0 : bufferContent.split('\n').length)}
             />
-            <MetricPill
-              label="Added"
-              value={String(diffMetadata.addedLinesCount)}
-            />
-            <MetricPill
-              label="Removed"
-              value={String(diffMetadata.removedLinesCount)}
-            />
+            {diffLineSummary ? (
+              <>
+                <MetricPill
+                  label="Added"
+                  value={String(diffLineSummary.addedLinesCount)}
+                />
+                <MetricPill
+                  label="Removed"
+                  value={String(diffLineSummary.removedLinesCount)}
+                />
+              </>
+            ) : null}
             {fileQuery.data ? (
               <MetricPill
                 label="Bytes"
@@ -292,6 +303,10 @@ function parseDiffMetadata(diffText: string) {
     isModified: addedLinesCount > 0 || removedLinesCount > 0,
     removedLinesCount
   };
+}
+
+function formatWorkspaceChangeLabel(status: WorkspaceChange['status']) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function basename(relativePath: string) {

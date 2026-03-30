@@ -35,9 +35,13 @@ export function useWorkspaceChangesQuery(taskId: number | null) {
   });
 }
 
-export function useWorkspaceDiffQuery(taskId: number | null, relativePath: string | null) {
+export function useWorkspaceDiffQuery(
+  taskId: number | null,
+  relativePath: string | null,
+  enabled = true
+) {
   return useQuery({
-    enabled: taskId !== null && relativePath !== null,
+    enabled: taskId !== null && relativePath !== null && enabled,
     queryKey:
       taskId !== null && relativePath !== null
         ? queryKeys.workspaceDiff(taskId, relativePath)

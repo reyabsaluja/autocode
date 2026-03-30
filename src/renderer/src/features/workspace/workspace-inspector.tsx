@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
@@ -38,6 +38,10 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   const changes = changesQuery.data ?? [];
   const { dialogProps: fileSwitchDialogProps, requestTransition: requestFileTransition } =
     useUnsavedChangesGuard(editorRef);
+  const activeChange = useMemo(
+    () => changes.find((change) => change.relativePath === selectedPath) ?? null,
+    [changes, selectedPath]
+  );
 
   useImperativeHandle(
     ref,
@@ -151,6 +155,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
       <div className="min-w-0">
         <WorkspaceEditorSurface
           ref={editorRef}
+          activeChange={activeChange}
           activeFilePath={selectedPath}
           mode={centerMode}
           onModeChange={setCenterMode}
