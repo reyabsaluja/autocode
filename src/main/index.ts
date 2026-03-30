@@ -22,7 +22,7 @@ function createMainWindow(): BrowserWindow {
     minWidth: 1120,
     minHeight: 720,
     show: false,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#09090b',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: resolvePreloadPath(),

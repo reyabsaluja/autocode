@@ -1,5 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import clsx from 'clsx';
+import { Files, GitCompare, RefreshCw } from 'lucide-react';
 
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
@@ -151,7 +153,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
 
   return (
     <>
-    <section className="grid min-h-[calc(100vh-120px)] gap-3 xl:grid-cols-[minmax(0,1fr),360px]">
+    <section className="grid min-h-0 flex-1 gap-2.5 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0">
         <WorkspaceEditorSurface
           ref={editorRef}
@@ -163,14 +165,16 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
         />
       </div>
 
-      <aside className="flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/8 bg-[#121316] shadow-[0_24px_80px_rgba(0,0,0,0.32)]">
-        <div className="flex items-center gap-1 border-b border-white/6 px-3 py-3">
+      <aside className="flex min-h-0 flex-col overflow-hidden rounded-panel border border-border bg-surface-2 shadow-panel">
+        <div className="flex items-center gap-0.5 border-b border-border px-2 py-1.5">
           <SidebarTab
+            icon={<Files className="h-3.5 w-3.5" />}
             isActive={activeSidebarTab === 'files'}
             label="Files"
             onClick={() => setActiveSidebarTab('files')}
           />
           <SidebarTab
+            icon={<GitCompare className="h-3.5 w-3.5" />}
             isActive={activeSidebarTab === 'changes'}
             label="Changes"
             onClick={() => {
@@ -180,18 +184,17 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
           />
           <div className="ml-auto">
             <button
-              className="rounded-xl px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-200"
-              onClick={() => {
-                void handleRefresh();
-              }}
+              className="grid h-7 w-7 place-items-center rounded-control text-text-faint transition hover:bg-white/[0.06] hover:text-text-secondary"
+              onClick={() => { void handleRefresh(); }}
+              title="Refresh"
               type="button"
             >
-              Refresh
+              <RefreshCw className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden p-3">
+        <div className="min-h-0 flex-1 overflow-hidden p-2">
           {activeSidebarTab === 'files' ? (
             <WorkspaceFileExplorer
               expandedDirectories={expandedDirectories}
@@ -232,24 +235,28 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
 });
 
 function SidebarTab({
+  icon,
   isActive,
   label,
   onClick
 }: {
+  icon: React.ReactNode;
   isActive: boolean;
   label: string;
   onClick: () => void;
 }) {
   return (
     <button
-      className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+      className={clsx(
+        'flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[12px] font-medium transition',
         isActive
-          ? 'bg-white/[0.08] text-white'
-          : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-200'
-      }`}
+          ? 'bg-white/[0.08] text-text-primary'
+          : 'text-text-muted hover:bg-white/[0.04] hover:text-text-secondary'
+      )}
       onClick={onClick}
       type="button"
     >
+      {icon}
       {label}
     </button>
   );

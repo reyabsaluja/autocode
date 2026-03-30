@@ -195,42 +195,40 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#08090b] text-slate-100">
-      <div className="flex min-h-screen">
-        <WorkspaceSidebar
-          createErrorMessage={formatErrorMessage(createTaskMutation.error) ?? taskLoadError}
-          isAddingProject={addProjectMutation.isPending}
-          isCreatingTask={createTaskMutation.isPending}
-          isLoadingProjects={projectsQuery.isLoading}
-          isLoadingTasks={taskWorkspacesQuery.isLoading}
-          manualPath={manualRepositoryPath}
-          project={selectedProject}
-          projectErrorMessage={
-            projectActionError ??
-            formatErrorMessage(addProjectMutation.error) ??
-            projectLoadError
-          }
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          selectedTaskId={selectedTaskId}
-          taskWorkspaces={taskWorkspaces}
-          onAddRepository={handleAddRepository}
-          onCreateTask={handleCreateTask}
-          onManualPathChange={setManualRepositoryPath}
-          onSelectProject={requestProjectSelection}
-          onSelectTask={requestTaskSelection}
-          onSubmitManualPath={handleManualRepositoryAdd}
-        />
+    <div className="flex h-screen overflow-hidden bg-surface-0 text-text-primary">
+      <WorkspaceSidebar
+        createErrorMessage={formatErrorMessage(createTaskMutation.error) ?? taskLoadError}
+        isAddingProject={addProjectMutation.isPending}
+        isCreatingTask={createTaskMutation.isPending}
+        isLoadingProjects={projectsQuery.isLoading}
+        isLoadingTasks={taskWorkspacesQuery.isLoading}
+        manualPath={manualRepositoryPath}
+        project={selectedProject}
+        projectErrorMessage={
+          projectActionError ??
+          formatErrorMessage(addProjectMutation.error) ??
+          projectLoadError
+        }
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        selectedTaskId={selectedTaskId}
+        taskWorkspaces={taskWorkspaces}
+        onAddRepository={handleAddRepository}
+        onCreateTask={handleCreateTask}
+        onManualPathChange={setManualRepositoryPath}
+        onSelectProject={requestProjectSelection}
+        onSelectTask={requestTaskSelection}
+        onSubmitManualPath={handleManualRepositoryAdd}
+      />
 
-        <main className="min-w-0 flex-1 p-3">
-          <WorkspaceDetails
-            ref={editorRef}
-            isLoadingTasks={taskWorkspacesQuery.isLoading}
-            project={selectedProject}
-            taskWorkspace={selectedTaskWorkspace}
-          />
-        </main>
-      </div>
+      <main className="flex min-w-0 flex-1 flex-col gap-2.5 p-2.5">
+        <WorkspaceDetails
+          ref={editorRef}
+          isLoadingTasks={taskWorkspacesQuery.isLoading}
+          project={selectedProject}
+          taskWorkspace={selectedTaskWorkspace}
+        />
+      </main>
 
       <UnsavedChangesDialog
         {...contextSwitchDialogProps}

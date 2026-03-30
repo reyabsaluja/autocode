@@ -2,52 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --app-bg: #08090b;
-  --panel-bg: #101114;
-  --panel-bg-elevated: #15171b;
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --text-primary: #f3f4f6;
-  --text-secondary: #8f98a3;
-  --accent: #50c5b5;
-  color: var(--text-primary);
-  background:
-    radial-gradient(circle at top left, rgba(80, 197, 181, 0.08), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(83, 138, 255, 0.08), transparent 20%),
-    var(--app-bg);
-  font-family: "Avenir Next", "Neue Haas Grotesk Text Pro", sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  :root {
+    color-scheme: dark;
+    --app-bg: #09090b;
+    --surface-0: #09090b;
+    --surface-1: #0c0d10;
+    --surface-2: #111316;
+    --surface-3: #171a1f;
+    --surface-4: #1d2027;
+    --border-color: rgba(255, 255, 255, 0.06);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --border-strong: rgba(255, 255, 255, 0.10);
+    --accent: #2dd4a8;
+    --accent-dim: rgba(45, 212, 168, 0.10);
+    --accent-muted: rgba(45, 212, 168, 0.20);
+    --text-primary: #e4e4e7;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --text-faint: #52525b;
+
+    color: var(--text-primary);
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-synthesis: none;
+    font-optical-sizing: auto;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    margin: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--app-bg);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  ::selection {
+    background: rgba(45, 212, 168, 0.20);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
 }
 
-html,
-body,
-#root {
-  min-height: 100%;
-  margin: 0;
+@layer components {
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
 }
 
-body {
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(80, 197, 181, 0.08), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(83, 138, 255, 0.08), transparent 20%),
-    var(--app-bg);
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-::selection {
-  background: rgba(80, 197, 181, 0.24);
+@layer utilities {
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 250ms; }
 }

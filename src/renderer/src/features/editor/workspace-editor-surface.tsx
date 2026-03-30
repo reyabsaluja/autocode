@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
+import clsx from 'clsx';
+import { AlertTriangle, FileCode, Loader2, Minus, Plus, Save, Undo2 } from 'lucide-react';
 
 import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 
@@ -27,8 +29,6 @@ interface WorkspaceEditorSurfaceProps {
 export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, WorkspaceEditorSurfaceProps>(
   function WorkspaceEditorSurface({ activeChange, activeFilePath, mode, onModeChange, taskId }, ref) {
     const shouldLoadFile = mode === 'editor';
-    // Keep the edit surface lightweight: change badges come from workspace status,
-    // while full git diffs only load when the user explicitly enters diff mode.
     const shouldLoadDiff = mode === 'diff' && activeFilePath !== null;
     const fileQuery = useWorkspaceFileQuery(taskId, activeFilePath, shouldLoadFile);
     const diffQuery = useWorkspaceDiffQuery(taskId, activeFilePath, shouldLoadDiff);
@@ -49,8 +49,6 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
     }, [diffQuery.data?.text, mode]);
 
     useEffect(() => {
-      // Reset the editor only when the task/file identity changes. View-mode switches
-      // must preserve the in-memory buffer so diff/edit toggles stay non-destructive.
       setBufferContent('');
       setLastSavedContent('');
       setSaveNotice(null);
@@ -136,15 +134,16 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
     const isBinary = shouldLoadFile && Boolean(fileQuery.data?.isBinary);
     const loadErrorMessage = shouldLoadFile ? formatError(fileQuery.error) : null;
     const saveErrorMessage = formatError(writeFileMutation.error);
-    const editorTitle = activeFilePath ? basename(activeFilePath) : 'Workspace editor';
+    const editorTitle = activeFilePath ? basename(activeFilePath) : 'Editor';
 
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/8 bg-[#0b0d10] shadow-[0_30px_90px_rgba(0,0,0,0.36)]">
-        <div className="border-b border-white/6 px-4 py-3">
-          <div className="flex items-center gap-3">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-panel border border-border bg-surface-2 shadow-panel">
+        <div className="border-b border-border px-3 py-2">
+          <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-white">{editorTitle}</p>
+                <FileCode className="h-3.5 w-3.5 shrink-0 text-text-faint" />
+                <p className="truncate text-[13px] font-semibold text-text-primary">{editorTitle}</p>
                 {isDirty ? <StateBadge tone="dirty" value="Unsaved" /> : null}
                 {activeChange ? (
                   <StateBadge
@@ -153,12 +152,12 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
                   />
                 ) : null}
               </div>
-              <p className="mt-1 truncate text-xs text-slate-500">
-                {activeFilePath ?? 'Select a file from the workspace tree to edit it here.'}
+              <p className="mt-0.5 truncate pl-[22px] text-[11px] text-text-faint">
+                {activeFilePath ?? 'Select a file to edit'}
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <ModeToggle
                 isActive={mode === 'editor'}
                 label="Edit"
@@ -169,68 +168,84 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
                 label="Diff"
                 onClick={() => onModeChange('diff')}
               />
+              <div className="mx-1 h-4 w-px bg-border" />
               <button
-                className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                className={clsx(
+                  'flex items-center gap-1 rounded-control px-2 py-1 text-[11px] font-medium transition',
+                  'text-text-muted hover:bg-white/[0.06] hover:text-text-secondary',
+                  'disabled:cursor-not-allowed disabled:opacity-40'
+                )}
                 disabled={!activeFilePath || !isDirty}
                 onClick={() => setBufferContent(lastSavedContent)}
+                title="Discard changes"
                 type="button"
               >
+                <Undo2 className="h-3 w-3" />
                 Discard
               </button>
               <button
-                className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className={clsx(
+                  'flex items-center gap-1 rounded-control bg-accent px-2.5 py-1 text-[11px] font-semibold text-surface-0 transition',
+                  'hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40'
+                )}
                 disabled={!activeFilePath || isBinary || writeFileMutation.isPending || !isDirty}
-                onClick={() => {
-                  void persistFile();
-                }}
+                onClick={() => { void persistFile(); }}
                 type="button"
               >
-                {writeFileMutation.isPending ? 'Saving…' : 'Save'}
+                {writeFileMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3" />
+                )}
+                {writeFileMutation.isPending ? 'Saving' : 'Save'}
               </button>
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <MetricPill
-              label="Lines"
-              value={String(bufferContent.length === 0 ? 0 : bufferContent.split('\n').length)}
-            />
-            {diffLineSummary ? (
-              <>
-                <MetricPill
-                  label="Added"
-                  value={String(diffLineSummary.addedLinesCount)}
-                />
-                <MetricPill
-                  label="Removed"
-                  value={String(diffLineSummary.removedLinesCount)}
-                />
-              </>
-            ) : null}
-            {fileQuery.data ? (
+          {(diffLineSummary || fileQuery.data) ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">
               <MetricPill
-                label="Bytes"
-                value={String(fileQuery.data.sizeBytes)}
+                label="Lines"
+                value={String(bufferContent.length === 0 ? 0 : bufferContent.split('\n').length)}
               />
-            ) : null}
-          </div>
+              {diffLineSummary ? (
+                <>
+                  <MetricPill
+                    icon={<Plus className="h-2.5 w-2.5 text-emerald-400" />}
+                    value={String(diffLineSummary.addedLinesCount)}
+                  />
+                  <MetricPill
+                    icon={<Minus className="h-2.5 w-2.5 text-rose-400" />}
+                    value={String(diffLineSummary.removedLinesCount)}
+                  />
+                </>
+              ) : null}
+              {fileQuery.data ? (
+                <MetricPill
+                  label="Bytes"
+                  value={String(fileQuery.data.sizeBytes)}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {saveNotice ? (
-          <div className="border-b border-emerald-400/10 bg-emerald-400/8 px-4 py-3 text-sm text-emerald-200">
+          <div className="border-b border-emerald-500/10 bg-emerald-500/[0.04] px-4 py-2 text-[12px] text-emerald-400">
             {saveNotice}
           </div>
         ) : null}
 
         {saveErrorMessage ? (
-          <div className="border-b border-rose-400/10 bg-rose-400/8 px-4 py-3 text-sm text-rose-200">
+          <div className="flex items-center gap-2 border-b border-rose-500/10 bg-rose-500/[0.04] px-4 py-2 text-[12px] text-rose-400">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             {saveErrorMessage}
           </div>
         ) : null}
 
         {mode === 'diff' && isDirty ? (
-          <div className="border-b border-amber-400/10 bg-amber-400/8 px-4 py-3 text-sm text-amber-200">
-            Diff view reflects the last saved file on disk. Save to refresh it.
+          <div className="border-b border-amber-500/10 bg-amber-500/[0.04] px-4 py-2 text-[12px] text-amber-400">
+            Diff reflects the last saved version. Save to refresh.
           </div>
         ) : null}
 
@@ -238,11 +253,16 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
           {!activeFilePath ? (
             <EditorEmptyState />
           ) : fileQuery.isLoading && loadedIdentity !== activeIdentity ? (
-            <EditorMessage label="Opening file…" />
+            <EditorMessage>
+              <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+              Opening file...
+            </EditorMessage>
           ) : loadErrorMessage ? (
-            <EditorMessage label={loadErrorMessage} tone="error" />
+            <EditorMessage tone="error">{loadErrorMessage}</EditorMessage>
           ) : isBinary ? (
-            <EditorMessage label="Binary files can be inspected through the workspace tree, but they are not editable in Autocode yet." />
+            <EditorMessage>
+              Binary files are not editable in Autocode yet.
+            </EditorMessage>
           ) : mode === 'diff' ? (
             <WorkspaceDiffViewer
               diffText={diffQuery.data?.text ?? null}
@@ -251,7 +271,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
               selectedPath={activeFilePath}
             />
           ) : (
-            <div className="h-full bg-[#0a0b0d]">
+            <div className="h-full bg-surface-1">
               <CodeMirror
                 basicSetup={{
                   foldGutter: false,
@@ -322,11 +342,12 @@ function ModeToggle({
 }) {
   return (
     <button
-      className={`rounded-2xl px-3 py-2 text-sm font-medium transition ${
+      className={clsx(
+        'rounded-control px-2.5 py-1 text-[11px] font-medium transition',
         isActive
-          ? 'bg-white/[0.08] text-white'
-          : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-200'
-      }`}
+          ? 'bg-white/[0.08] text-text-primary'
+          : 'text-text-muted hover:bg-white/[0.04] hover:text-text-secondary'
+      )}
       onClick={onClick}
       type="button"
     >
@@ -336,22 +357,24 @@ function ModeToggle({
 }
 
 function StateBadge({ tone, value }: { tone: 'dirty' | 'modified'; value: string }) {
-  const styles =
-    tone === 'dirty'
-      ? 'border-amber-400/20 bg-amber-400/10 text-amber-200'
-      : 'border-sky-400/20 bg-sky-400/10 text-sky-200';
-
   return (
-    <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${styles}`}>
+    <span className={clsx(
+      'rounded-control border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em]',
+      tone === 'dirty'
+        ? 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+        : 'border-sky-500/20 bg-sky-500/10 text-sky-400'
+    )}>
       {value}
     </span>
   );
 }
 
-function MetricPill({ label, value }: { label: string; value: string }) {
+function MetricPill({ icon, label, value }: { icon?: React.ReactNode; label?: string; value: string }) {
   return (
-    <span className="rounded-full border border-white/8 bg-white/[0.03] px-2 py-1">
-      <span className="text-slate-500">{label}</span> {value}
+    <span className="flex items-center gap-1 rounded-full border border-border bg-white/[0.02] px-2 py-0.5 text-[10px] text-text-faint">
+      {icon}
+      {label ? <span>{label}</span> : null}
+      <span className="tabular-nums text-text-muted">{value}</span>
     </span>
   );
 }
@@ -359,21 +382,25 @@ function MetricPill({ label, value }: { label: string; value: string }) {
 function EditorEmptyState() {
   return (
     <div className="grid h-full place-items-center px-8">
-      <div className="max-w-md text-center">
-        <p className="text-sm font-medium text-slate-200">Select a workspace file to begin editing.</p>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          This editor only opens files from the active task worktree, so edits stay scoped to the selected workspace.
+      <div className="max-w-sm text-center">
+        <FileCode className="mx-auto mb-3 h-8 w-8 text-text-faint" />
+        <p className="text-[13px] font-medium text-text-secondary">Select a file to begin editing.</p>
+        <p className="mt-1 text-[12px] text-text-faint">
+          Edits are scoped to the active task worktree.
         </p>
       </div>
     </div>
   );
 }
 
-function EditorMessage({ label, tone = 'subtle' }: { label: string; tone?: 'error' | 'subtle' }) {
+function EditorMessage({ children, tone = 'subtle' }: { children: React.ReactNode; tone?: 'error' | 'subtle' }) {
   return (
     <div className="grid h-full place-items-center px-8">
-      <p className={`max-w-xl text-center text-sm leading-6 ${tone === 'error' ? 'text-rose-300' : 'text-slate-500'}`}>
-        {label}
+      <p className={clsx(
+        'max-w-xl text-center text-[13px]',
+        tone === 'error' ? 'text-rose-400' : 'text-text-faint'
+      )}>
+        {children}
       </p>
     </div>
   );

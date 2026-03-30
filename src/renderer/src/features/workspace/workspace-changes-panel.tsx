@@ -1,3 +1,6 @@
+import clsx from 'clsx';
+import { GitCommitHorizontal, Loader2, RefreshCw } from 'lucide-react';
+
 import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 
 interface WorkspaceChangesPanelProps {
@@ -30,61 +33,56 @@ export function WorkspaceChangesPanel({
   selectedPath
 }: WorkspaceChangesPanelProps) {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border border-white/6 bg-[#0d0e11]">
-      <div className="border-b border-white/6 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Workspace changes
-            </p>
-          </div>
-          <button
-            className="rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/[0.08]"
-            onClick={() => {
-              void onRefresh();
-            }}
-            type="button"
-          >
-            Refresh
-          </button>
-        </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface-1">
+      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+          Changes
+        </p>
+        <button
+          className="grid h-6 w-6 place-items-center rounded-control text-text-faint transition hover:bg-white/[0.06] hover:text-text-secondary"
+          onClick={() => { void onRefresh(); }}
+          title="Refresh changes"
+          type="button"
+        >
+          <RefreshCw className="h-3 w-3" />
+        </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
-        {isLoading ? <PanelMessage label="Checking workspace changes" /> : null}
-        {loadErrorMessage ? <PanelMessage label={loadErrorMessage} tone="error" /> : null}
+      <div className="min-h-0 flex-1 overflow-auto px-1 py-1">
+        {isLoading ? (
+          <PanelMessage>
+            <Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" />
+            Checking changes
+          </PanelMessage>
+        ) : null}
+
+        {loadErrorMessage ? (
+          <PanelMessage tone="error">{loadErrorMessage}</PanelMessage>
+        ) : null}
+
         {!isLoading && !loadErrorMessage && changes.length === 0 ? (
-          <PanelMessage label="No changes in this workspace right now." />
+          <PanelMessage>No changes detected.</PanelMessage>
         ) : null}
 
         {!isLoading && !loadErrorMessage ? (
-          <ul className="space-y-2">
+          <ul className="space-y-0.5">
             {changes.map((change) => {
               const isSelected = change.relativePath === selectedPath;
 
               return (
                 <li key={`${change.status}:${change.relativePath}`}>
                   <button
-                    className={`w-full rounded-xl border px-3 py-3 text-left transition ${
+                    className={clsx(
+                      'flex w-full items-center gap-2 rounded-control px-2 py-[5px] text-left transition',
                       isSelected
-                        ? 'border-white/10 bg-white/[0.08]'
-                        : 'border-white/6 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.05]'
-                    }`}
+                        ? 'bg-white/[0.08] text-text-primary'
+                        : 'text-text-secondary hover:bg-white/[0.04] hover:text-text-primary'
+                    )}
                     onClick={() => onSelectChange(change.relativePath)}
                     type="button"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="truncate text-sm font-medium text-slate-100">
-                          {change.relativePath}
-                        </p>
-                      <ChangeStatusBadge status={change.status} />
-                    </div>
-
-                    {change.previousPath ? (
-                      <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-                        From {change.previousPath}
-                      </p>
-                    ) : null}
+                    <ChangeStatusIndicator status={change.status} />
+                    <span className="min-w-0 truncate text-[12px]">{change.relativePath}</span>
                   </button>
                 </li>
               );
@@ -93,38 +91,46 @@ export function WorkspaceChangesPanel({
         ) : null}
       </div>
 
-      <div className="border-t border-white/6 px-4 py-4">
-        <label className="block">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+      <div className="border-t border-border px-3 py-3">
+        <div className="flex items-center gap-1.5 mb-2">
+          <GitCommitHorizontal className="h-3 w-3 text-text-faint" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
             Commit
           </span>
-          <textarea
-            className="mt-3 min-h-[88px] w-full rounded-xl border border-white/8 bg-[#090a0c] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-teal-400/40 focus:ring-2 focus:ring-teal-400/10"
-            onChange={(event) => onCommitMessageChange(event.target.value)}
-            placeholder="Describe the workspace changes"
-            value={commitMessage}
-          />
-        </label>
+        </div>
+        <textarea
+          className={clsx(
+            'min-h-[68px] w-full resize-none rounded-control border border-border bg-surface-0 px-3 py-2 text-[12px] text-text-primary outline-none transition',
+            'placeholder:text-text-faint focus:border-accent-muted focus:ring-1 focus:ring-accent-dim'
+          )}
+          onChange={(event) => onCommitMessageChange(event.target.value)}
+          placeholder="Describe changes..."
+          value={commitMessage}
+        />
 
         <button
-          className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className={clsx(
+            'mt-2 flex w-full items-center justify-center rounded-control bg-accent px-3 py-2 text-[12px] font-semibold text-surface-0 transition',
+            'hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
+          )}
           disabled={isCommitting || changes.length === 0 || commitMessage.trim().length === 0}
-          onClick={() => {
-            void onCommit();
-          }}
+          onClick={() => { void onCommit(); }}
           type="button"
         >
-          {isCommitting ? 'Committing changes...' : 'Commit selected workspace changes'}
+          {isCommitting ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : null}
+          {isCommitting ? 'Committing...' : 'Commit changes'}
         </button>
 
         {commitNotice ? (
-          <p className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-3 text-sm text-emerald-200">
+          <p className="mt-2 rounded-control border border-emerald-500/20 bg-emerald-500/[0.06] px-2.5 py-2 text-[12px] text-emerald-400">
             {commitNotice}
           </p>
         ) : null}
 
         {commitErrorMessage ? (
-          <p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-3 text-sm text-rose-200">
+          <p className="mt-2 rounded-control border border-rose-500/20 bg-rose-500/[0.06] px-2.5 py-2 text-[12px] text-rose-400">
             {commitErrorMessage}
           </p>
         ) : null}
@@ -133,26 +139,31 @@ export function WorkspaceChangesPanel({
   );
 }
 
-function ChangeStatusBadge({ status }: { status: WorkspaceChange['status'] }) {
-  const styles: Record<WorkspaceChange['status'], string> = {
-    added: 'border border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
-    deleted: 'border border-rose-400/20 bg-rose-400/10 text-rose-200',
-    modified: 'border border-sky-400/20 bg-sky-400/10 text-sky-200',
-    renamed: 'border border-violet-400/20 bg-violet-400/10 text-violet-200',
-    untracked: 'border border-amber-400/20 bg-amber-400/10 text-amber-200'
+function ChangeStatusIndicator({ status }: { status: WorkspaceChange['status'] }) {
+  const config: Record<WorkspaceChange['status'], { color: string; letter: string }> = {
+    added: { color: 'text-emerald-400', letter: 'A' },
+    deleted: { color: 'text-rose-400', letter: 'D' },
+    modified: { color: 'text-sky-400', letter: 'M' },
+    renamed: { color: 'text-violet-400', letter: 'R' },
+    untracked: { color: 'text-amber-400', letter: 'U' }
   };
 
+  const { color, letter } = config[status];
+
   return (
-    <span className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase ${styles[status]}`}>
-      {status}
+    <span className={clsx('shrink-0 font-mono text-[11px] font-bold', color)}>
+      {letter}
     </span>
   );
 }
 
-function PanelMessage({ label, tone = 'subtle' }: { label: string; tone?: 'error' | 'subtle' }) {
+function PanelMessage({ children, tone = 'subtle' }: { children: React.ReactNode; tone?: 'error' | 'subtle' }) {
   return (
-    <p className={`px-2 py-2 text-sm ${tone === 'error' ? 'text-rose-300' : 'text-slate-500'}`}>
-      {label}
+    <p className={clsx(
+      'px-2 py-2 text-[12px]',
+      tone === 'error' ? 'text-rose-400' : 'text-text-faint'
+    )}>
+      {children}
     </p>
   );
 }

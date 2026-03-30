@@ -1,3 +1,6 @@
+import clsx from 'clsx';
+import { ChevronDown, ChevronRight, File, Folder, Loader2 } from 'lucide-react';
+
 import { useWorkspaceExplorerDirectoryQuery } from './workspace-hooks';
 
 interface WorkspaceFileExplorerProps {
@@ -18,22 +21,27 @@ export function WorkspaceFileExplorer({
   const rootDirectoryQuery = useWorkspaceExplorerDirectoryQuery(taskId, '');
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border border-white/6 bg-[#0d0e11]">
-      <div className="border-b border-white/6 px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface-1">
+      <div className="border-b border-border px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
           Workspace files
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
-        {rootDirectoryQuery.isLoading ? <ExplorerMessage label="Loading files" /> : null}
+      <div className="min-h-0 flex-1 overflow-auto px-1 py-1">
+        {rootDirectoryQuery.isLoading ? (
+          <ExplorerMessage>
+            <Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" />
+            Loading files
+          </ExplorerMessage>
+        ) : null}
 
         {rootDirectoryQuery.error ? (
-          <ExplorerMessage label={formatError(rootDirectoryQuery.error)} tone="error" />
+          <ExplorerMessage tone="error">{formatError(rootDirectoryQuery.error)}</ExplorerMessage>
         ) : null}
 
         {rootDirectoryQuery.data ? (
-          <ul className="space-y-1">
+          <ul>
             {rootDirectoryQuery.data.entries.map((entry) => (
               <WorkspaceFileTreeNode
                 key={entry.relativePath}
@@ -80,16 +88,17 @@ function WorkspaceFileTreeNode({
   const isExpanded = isDirectory && expandedDirectories.includes(entry.relativePath);
   const childrenQuery = useWorkspaceExplorerDirectoryQuery(taskId, entry.relativePath, isExpanded);
   const isSelected = entry.relativePath === selectedPath;
-  const paddingLeft = 12 + depth * 16;
+  const paddingLeft = 8 + depth * 14;
 
   return (
     <li>
       <button
-        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition ${
+        className={clsx(
+          'flex w-full items-center gap-1.5 rounded-control py-[5px] text-left text-[12px] transition',
           isSelected
-            ? 'bg-white/[0.08] text-white'
-            : 'text-slate-300 hover:bg-white/[0.04]'
-        }`}
+            ? 'bg-white/[0.08] text-text-primary'
+            : 'text-text-secondary hover:bg-white/[0.04] hover:text-text-primary'
+        )}
         onClick={() => {
           if (isDirectory) {
             onToggleDirectory(entry.relativePath);
@@ -101,32 +110,38 @@ function WorkspaceFileTreeNode({
         style={{ paddingLeft }}
         type="button"
       >
-        <span className="w-4 text-center text-slate-500">
-          {isDirectory ? (isExpanded ? '▾' : '▸') : '•'}
-        </span>
-        <span className={isDirectory ? 'font-medium text-slate-100' : ''}>{entry.name}</span>
+        {isDirectory ? (
+          isExpanded ? (
+            <ChevronDown className="h-3 w-3 shrink-0 text-text-faint" />
+          ) : (
+            <ChevronRight className="h-3 w-3 shrink-0 text-text-faint" />
+          )
+        ) : (
+          <File className="h-3 w-3 shrink-0 text-text-faint" />
+        )}
+        {isDirectory ? (
+          <Folder className="h-3 w-3 shrink-0 text-amber-400/70" />
+        ) : null}
+        <span className={clsx(isDirectory && 'font-medium')}>{entry.name}</span>
       </button>
 
       {isDirectory && isExpanded ? (
-        <div className="mt-1">
+        <div>
           {childrenQuery.isLoading ? (
-            <ExplorerMessage
-              label="Loading folder"
-              paddingLeft={paddingLeft + 28}
-              tone="subtle"
-            />
+            <ExplorerMessage paddingLeft={paddingLeft + 22} size="sm">
+              <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+              Loading
+            </ExplorerMessage>
           ) : null}
 
           {childrenQuery.error ? (
-            <ExplorerMessage
-              label={formatError(childrenQuery.error)}
-              paddingLeft={paddingLeft + 28}
-              tone="error"
-            />
+            <ExplorerMessage paddingLeft={paddingLeft + 22} size="sm" tone="error">
+              {formatError(childrenQuery.error)}
+            </ExplorerMessage>
           ) : null}
 
           {childrenQuery.data ? (
-            <ul className="space-y-1">
+            <ul>
               {childrenQuery.data.entries.map((childEntry) => (
                 <WorkspaceFileTreeNode
                   key={childEntry.relativePath}
@@ -148,20 +163,26 @@ function WorkspaceFileTreeNode({
 }
 
 function ExplorerMessage({
-  label,
-  paddingLeft = 12,
+  children,
+  paddingLeft = 8,
+  size = 'default',
   tone = 'subtle'
 }: {
-  label: string;
+  children: React.ReactNode;
   paddingLeft?: number;
+  size?: 'default' | 'sm';
   tone?: 'error' | 'subtle';
 }) {
   return (
     <p
-      className={`py-2 text-sm ${tone === 'error' ? 'text-rose-300' : 'text-slate-500'}`}
+      className={clsx(
+        'py-1.5',
+        size === 'sm' ? 'text-[11px]' : 'text-[12px]',
+        tone === 'error' ? 'text-rose-400' : 'text-text-faint'
+      )}
       style={{ paddingLeft }}
     >
-      {label}
+      {children}
     </p>
   );
 }
