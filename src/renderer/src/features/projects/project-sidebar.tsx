@@ -5,8 +5,11 @@ interface ProjectSidebarProps {
   isLoading: boolean;
   isAddingProject: boolean;
   errorMessage: string | null;
+  manualPath: string;
   selectedProjectId: number | null;
   onAddRepository: () => Promise<void>;
+  onManualPathChange: (value: string) => void;
+  onSubmitManualPath: () => Promise<void>;
   onSelectProject: (projectId: number | null) => void;
 }
 
@@ -15,8 +18,11 @@ export function ProjectSidebar({
   isLoading,
   isAddingProject,
   errorMessage,
+  manualPath,
   selectedProjectId,
   onAddRepository,
+  onManualPathChange,
+  onSubmitManualPath,
   onSelectProject
 }: ProjectSidebarProps) {
   return (
@@ -37,6 +43,30 @@ export function ProjectSidebar({
         >
           {isAddingProject ? 'Adding repository...' : 'Add local repository'}
         </button>
+
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+            Or enter a repo path
+          </p>
+          <div className="mt-3 space-y-3">
+            <input
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-accent focus:ring-2 focus:ring-teal-500/20"
+              onChange={(event) => onManualPathChange(event.target.value)}
+              placeholder="/Users/reyab/Code/my-repo"
+              value={manualPath}
+            />
+            <button
+              className="inline-flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isAddingProject || manualPath.trim().length === 0}
+              onClick={() => {
+                void onSubmitManualPath();
+              }}
+              type="button"
+            >
+              {isAddingProject ? 'Connecting repository...' : 'Use this path'}
+            </button>
+          </div>
+        </div>
 
         {errorMessage ? <p className="mt-3 text-sm text-rose-300">{errorMessage}</p> : null}
       </div>
@@ -102,4 +132,3 @@ function EmptyState() {
     </div>
   );
 }
-

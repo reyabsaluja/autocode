@@ -6,7 +6,9 @@ import { app, BrowserWindow, dialog } from 'electron';
 import { getDatabaseContext } from './database/client';
 import { AUTOCODE_APP_NAME } from './database/paths';
 import { registerProjectHandlers } from './ipc/register-project-handlers';
+import { registerTaskHandlers } from './ipc/register-task-handlers';
 import { createProjectService } from './services/project-service';
+import { createTaskService } from './services/task-service';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -21,7 +23,10 @@ function createMainWindow(): BrowserWindow {
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: resolvePreloadPath(),
-      sandbox: true,
+      // The current IPC bridge depends on a preload environment that remains stable
+      // across dev and packaged builds. Re-enable Electron sandboxing once the bridge
+      // is adapted and verified there.
+      sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -43,8 +48,10 @@ function createMainWindow(): BrowserWindow {
 async function bootstrap(): Promise<void> {
   const { db } = getDatabaseContext();
   const projectService = createProjectService(db);
+  const taskService = createTaskService(db);
 
   registerProjectHandlers(projectService);
+  registerTaskHandlers(taskService);
 
   mainWindow = createMainWindow();
 

@@ -14,6 +14,10 @@ export function resolveAutocodeDatabasePath(): string {
   return path.join(resolveAutocodeUserDataPath(), 'data', AUTOCODE_DB_FILENAME);
 }
 
+export function resolveAutocodeWorktreesRoot(): string {
+  return path.join(resolveAutocodeUserDataPath(), 'worktrees');
+}
+
 function resolveAutocodeUserDataPath(): string {
   const overrideDir = process.env.AUTOCODE_DATA_DIR;
 

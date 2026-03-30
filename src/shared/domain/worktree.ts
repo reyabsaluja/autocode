@@ -13,7 +13,7 @@ export const worktreeStatusSchema = z.enum(worktreeStatusValues);
 export const worktreeSchema = z.object({
   id: z.number().int().positive(),
   projectId: z.number().int().positive(),
-  taskId: z.number().int().positive().nullable(),
+  taskId: z.number().int().positive(),
   branchName: z.string().min(1),
   worktreePath: z.string().min(1),
   status: worktreeStatusSchema,
@@ -23,4 +23,3 @@ export const worktreeSchema = z.object({
 
 export type WorktreeStatus = z.infer<typeof worktreeStatusSchema>;
 export type Worktree = z.infer<typeof worktreeSchema>;
-

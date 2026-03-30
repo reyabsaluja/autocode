@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 export const taskStatusValues = [
   'draft',
-  'queued',
-  'running',
-  'review',
+  'ready',
+  'in_progress',
+  'needs_review',
   'completed',
-  'failed',
-  'cancelled'
+  'archived',
+  'failed'
 ] as const;
 
 export const taskStatusSchema = z.enum(taskStatusValues);
@@ -18,10 +18,10 @@ export const taskSchema = z.object({
   title: z.string().min(1),
   description: z.string().nullable(),
   status: taskStatusSchema,
+  lastError: z.string().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });
 
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 export type Task = z.infer<typeof taskSchema>;
-
