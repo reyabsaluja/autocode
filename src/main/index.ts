@@ -21,7 +21,7 @@ function createMainWindow(): BrowserWindow {
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: resolvePreloadPath(),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }

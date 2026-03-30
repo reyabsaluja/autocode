@@ -1,6 +1,12 @@
 import type { AutocodeApi } from '@shared/contracts/electron-api';
 
-function getApi(): AutocodeApi {
+let apiOverride: AutocodeApi | null = null;
+
+export function getAutocodeApi(): AutocodeApi {
+  if (apiOverride) {
+    return apiOverride;
+  }
+
   if (!window.autocode) {
     throw new Error('Autocode preload API is not available.');
   }
@@ -8,5 +14,14 @@ function getApi(): AutocodeApi {
   return window.autocode;
 }
 
-export const autocodeApi = getApi();
+export function setAutocodeApiForTesting(api: AutocodeApi | null): void {
+  apiOverride = api;
+}
 
+export const autocodeApi: AutocodeApi = {
+  projects: {
+    list: () => getAutocodeApi().projects.list(),
+    pickPath: () => getAutocodeApi().projects.pickPath(),
+    add: (input) => getAutocodeApi().projects.add(input)
+  }
+};
