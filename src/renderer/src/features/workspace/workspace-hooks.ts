@@ -18,6 +18,7 @@ export function useWorkspaceDirectoryQuery(
         relativePath,
         taskId: taskId!
       } satisfies WorkspaceDirectoryInput),
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     staleTime: 0
   });
@@ -28,6 +29,7 @@ export function useWorkspaceChangesQuery(taskId: number | null) {
     enabled: taskId !== null,
     queryKey: taskId !== null ? queryKeys.workspaceChanges(taskId) : ['workspace', 'idle', 'changes'],
     queryFn: () => autocodeApi.workspaces.listChanges({ taskId: taskId! }),
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     staleTime: 0
   });
@@ -45,6 +47,7 @@ export function useWorkspaceDiffQuery(taskId: number | null, relativePath: strin
         relativePath: relativePath!,
         taskId: taskId!
       } satisfies WorkspaceDiffInput),
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     staleTime: 0
   });

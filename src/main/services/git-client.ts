@@ -58,7 +58,13 @@ export async function listRegisteredWorktrees(gitRoot: string): Promise<Set<stri
       continue;
     }
 
-    worktreePaths.add(line.slice('worktree '.length));
+    const worktreePath = line.slice('worktree '.length);
+
+    try {
+      worktreePaths.add(await realpath(worktreePath));
+    } catch {
+      worktreePaths.add(path.resolve(worktreePath));
+    }
   }
 
   return worktreePaths;
@@ -126,6 +132,12 @@ function createGitCommandError(error: unknown): Error {
     return new Error('Git is not installed or is not available on PATH.');
   }
 
+  const stderr = extractCommandStderr(error);
+
+  if (stderr) {
+    return new Error(stderr);
+  }
+
   return error instanceof Error ? error : new Error('Autocode could not run the requested Git command.');
 }
 
@@ -159,6 +171,14 @@ function isAllowedExitCode(error: unknown, allowedExitCodes: number[]): boolean 
 function extractCommandStdout(error: unknown): string {
   if (error && typeof error === 'object' && 'stdout' in error) {
     return String((error as { stdout?: string }).stdout ?? '');
+  }
+
+  return '';
+}
+
+function extractCommandStderr(error: unknown): string {
+  if (error && typeof error === 'object' && 'stderr' in error) {
+    return String((error as { stderr?: string }).stderr ?? '').trim();
   }
 
   return '';

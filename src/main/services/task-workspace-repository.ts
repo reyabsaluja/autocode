@@ -3,7 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import type { Project } from '../../shared/domain/project';
 import type { TaskWorkspace } from '../../shared/domain/task-workspace';
 import type { Task, TaskStatus } from '../../shared/domain/task';
-import type { Worktree } from '../../shared/domain/worktree';
+import type { Worktree, WorktreeStatus } from '../../shared/domain/worktree';
 import type { AppDatabase } from '../database/client';
 import { projectsTable, tasksTable, worktreesTable } from '../database/schema';
 
@@ -154,10 +154,19 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       db.transaction((tx) => {
         tx.update(tasksTable)
           .set({
+            lastError: null,
             status: nextStatus,
             updatedAt: timestamp
           })
           .where(eq(tasksTable.id, taskId))
+          .run();
+
+        tx.update(worktreesTable)
+          .set({
+            status: 'ready',
+            updatedAt: timestamp
+          })
+          .where(eq(worktreesTable.taskId, taskId))
           .run();
 
         tx.update(projectsTable)
@@ -165,6 +174,25 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
             updatedAt: timestamp
           })
           .where(eq(projectsTable.id, projectId))
+          .run();
+      });
+    },
+
+    recordWorkspaceObservation(taskId: number, worktreeStatus: WorktreeStatus, lastError: string | null, timestamp: string): void {
+      db.transaction((tx) => {
+        tx.update(tasksTable)
+          .set({
+            lastError
+          })
+          .where(eq(tasksTable.id, taskId))
+          .run();
+
+        tx.update(worktreesTable)
+          .set({
+            status: worktreeStatus,
+            updatedAt: timestamp
+          })
+          .where(eq(worktreesTable.taskId, taskId))
           .run();
       });
     }

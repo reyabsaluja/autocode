@@ -24,6 +24,7 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
   const commitMutation = useCommitWorkspaceMutation(taskId);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'changes' | 'files'>('changes');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState<'changes' | 'files'>('changes');
   const [expandedDirectories, setExpandedDirectories] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
   useEffect(() => {
     setActiveSidebarTab('changes');
     setSelectedPath(null);
+    setSelectionMode('changes');
     setExpandedDirectories([]);
     setCommitMessage('');
     setCommitNotice(null);
@@ -41,15 +43,26 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
 
   useEffect(() => {
     if (changes.length === 0) {
-      setSelectedPath(null);
+      setSelectedPath((currentPath) => (selectionMode === 'changes' ? null : currentPath));
       return;
     }
 
-    setSelectedPath((currentPath) => currentPath ?? changes[0]?.relativePath ?? null);
-  }, [changes]);
+    setSelectedPath((currentPath) => {
+      if (selectionMode === 'files') {
+        return currentPath;
+      }
+
+      if (currentPath && changes.some((change) => change.relativePath === currentPath)) {
+        return currentPath;
+      }
+
+      return changes[0]?.relativePath ?? null;
+    });
+  }, [changes, selectionMode]);
 
   const handleRefresh = async () => {
     setCommitNotice(null);
+    commitMutation.reset();
     await queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
     await queryClient.invalidateQueries({ queryKey: ['tasks'] });
   };
@@ -93,16 +106,33 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
           <SidebarTab
             isActive={activeSidebarTab === 'changes'}
             label="Changes"
-            onClick={() => setActiveSidebarTab('changes')}
+            onClick={() => {
+              setSelectionMode('changes');
+              setActiveSidebarTab('changes');
+            }}
           />
+          <div className="ml-auto">
+            <button
+              className="rounded-xl px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-200"
+              onClick={() => {
+                void handleRefresh();
+              }}
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-3">
           {activeSidebarTab === 'files' ? (
             <WorkspaceFileExplorer
               expandedDirectories={expandedDirectories}
-              onSelectPath={setSelectedPath}
               onToggleDirectory={toggleDirectory}
+              onSelectPath={(path) => {
+                setSelectionMode('files');
+                setSelectedPath(path);
+              }}
               selectedPath={selectedPath}
               taskId={taskId}
             />
@@ -119,6 +149,7 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
               onCommitMessageChange={setCommitMessage}
               onRefresh={handleRefresh}
               onSelectChange={(path) => {
+                setSelectionMode('changes');
                 setSelectedPath(path);
                 setActiveSidebarTab('changes');
               }}
