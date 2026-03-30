@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 
 import { useAddProjectMutation, useProjectsQuery } from '../features/projects/project-hooks';
-import { ProjectSidebar } from '../features/projects/project-sidebar';
 import { useCreateTaskWorkspaceMutation, useTaskWorkspacesQuery } from '../features/tasks/task-hooks';
-import { TaskSidebar } from '../features/tasks/task-sidebar';
 import { WorkspaceDetails } from '../features/tasks/workspace-details';
 import { autocodeApi } from '../lib/autocode-api';
 import { useWorkspaceStore } from '../stores/workspace-store';
+import { WorkspaceSidebar } from '../features/workspace/workspace-sidebar';
 
 export function App() {
   const projectsQuery = useProjectsQuery();
@@ -50,7 +49,7 @@ export function App() {
 
   useEffect(() => {
     createTaskMutation.reset();
-  }, [createTaskMutation, selectedProjectId]);
+  }, [selectedProjectId]);
 
   useEffect(() => {
     if (selectedProjectId === null) {
@@ -140,70 +139,34 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(15,118,110,0.16),_transparent_26%),linear-gradient(180deg,_#f7f4ee_0%,_#efe5d3_100%)] text-slate-900">
-      <div className="mx-auto flex min-h-screen max-w-[1760px] gap-6 px-6 py-6">
-        <ProjectSidebar
-          projects={projects}
-          isLoading={projectsQuery.isLoading}
+    <div className="min-h-screen bg-[#08090b] text-slate-100">
+      <div className="flex min-h-screen">
+        <WorkspaceSidebar
+          createErrorMessage={formatErrorMessage(createTaskMutation.error) ?? taskLoadError}
           isAddingProject={addProjectMutation.isPending}
-          errorMessage={
+          isCreatingTask={createTaskMutation.isPending}
+          isLoadingProjects={projectsQuery.isLoading}
+          isLoadingTasks={taskWorkspacesQuery.isLoading}
+          manualPath={manualRepositoryPath}
+          project={selectedProject}
+          projectErrorMessage={
             projectActionError ??
             formatErrorMessage(addProjectMutation.error) ??
             projectLoadError
           }
-          manualPath={manualRepositoryPath}
+          projects={projects}
           selectedProjectId={selectedProjectId}
-          onAddRepository={handleAddRepository}
-          onManualPathChange={setManualRepositoryPath}
-          onSubmitManualPath={handleManualRepositoryAdd}
-          onSelectProject={selectProject}
-        />
-
-        <TaskSidebar
-          createErrorMessage={formatErrorMessage(createTaskMutation.error) ?? taskLoadError}
-          isCreatingTask={createTaskMutation.isPending}
-          isLoading={taskWorkspacesQuery.isLoading}
-          project={selectedProject}
           selectedTaskId={selectedTaskId}
-          tasks={taskWorkspaces}
+          taskWorkspaces={taskWorkspaces}
+          onAddRepository={handleAddRepository}
           onCreateTask={handleCreateTask}
+          onManualPathChange={setManualRepositoryPath}
+          onSelectProject={selectProject}
           onSelectTask={selectTask}
+          onSubmitManualPath={handleManualRepositoryAdd}
         />
 
-        <main className="flex min-w-0 flex-1 flex-col gap-6">
-          <section className="rounded-[32px] border border-white/60 bg-white/70 p-8 shadow-panel backdrop-blur">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.28em] text-accent">
-                  AI Agent IDE
-                </p>
-                <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-950">
-                  Coordinate coding agents without losing the plot.
-                </h1>
-                <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-                  Autocode is the control plane for repo-aware tasks, isolated worktrees, and
-                  resumable agent sessions. Tasks now behave like durable workspaces you can reopen
-                  instantly instead of one-off actions.
-                </p>
-              </div>
-
-              <div className="grid gap-3 rounded-3xl border border-slate-200/80 bg-slate-950 px-5 py-4 text-slate-100 sm:grid-cols-3">
-                <StatCard
-                  label="Projects"
-                  value={projects.length.toString().padStart(2, '0')}
-                />
-                <StatCard
-                  label="Tasks"
-                  value={taskWorkspaces.length.toString().padStart(2, '0')}
-                />
-                <StatCard
-                  label="Workspace"
-                  value={selectedTaskWorkspace ? 'OPEN' : 'IDLE'}
-                />
-              </div>
-            </div>
-          </section>
-
+        <main className="min-w-0 flex-1 p-3">
           <WorkspaceDetails
             isLoadingTasks={taskWorkspacesQuery.isLoading}
             project={selectedProject}
@@ -222,13 +185,4 @@ function formatErrorMessage(error: unknown): string | null {
 interface StatCardProps {
   label: string;
   value: string;
-}
-
-function StatCard({ label, value }: StatCardProps) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.22em] text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
-    </div>
-  );
 }

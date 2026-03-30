@@ -7,8 +7,10 @@ import { getDatabaseContext } from './database/client';
 import { AUTOCODE_APP_NAME } from './database/paths';
 import { registerProjectHandlers } from './ipc/register-project-handlers';
 import { registerTaskHandlers } from './ipc/register-task-handlers';
+import { registerWorkspaceHandlers } from './ipc/register-workspace-handlers';
 import { createProjectService } from './services/project-service';
 import { createTaskService } from './services/task-service';
+import { createWorkspaceService } from './services/workspace-service';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -49,9 +51,11 @@ async function bootstrap(): Promise<void> {
   const { db } = getDatabaseContext();
   const projectService = createProjectService(db);
   const taskService = createTaskService(db);
+  const workspaceService = createWorkspaceService(db);
 
   registerProjectHandlers(projectService);
   registerTaskHandlers(taskService);
+  registerWorkspaceHandlers(workspaceService);
 
   mainWindow = createMainWindow();
 

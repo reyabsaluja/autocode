@@ -11,6 +11,10 @@ export interface GitRepositoryMetadata {
   name: string;
 }
 
+interface ExecGitOptions {
+  allowedExitCodes?: number[];
+}
+
 export async function resolveGitRepository(candidatePath: string): Promise<GitRepositoryMetadata> {
   const resolvedInput = await resolveExistingDirectory(candidatePath);
 
@@ -23,11 +27,15 @@ export async function resolveGitRepository(candidatePath: string): Promise<GitRe
   };
 }
 
-export async function execGit(args: string[], gitRoot: string): Promise<string> {
+export async function execGit(args: string[], gitRoot: string, options: ExecGitOptions = {}): Promise<string> {
   try {
     const { stdout } = await execFileAsync('git', ['-C', gitRoot, ...args]);
     return stdout.trim();
   } catch (error) {
+    if (isAllowedExitCode(error, options.allowedExitCodes ?? [])) {
+      return extractCommandStdout(error).trim();
+    }
+
     throw createGitCommandError(error);
   }
 }
@@ -137,4 +145,21 @@ function isMissingPathError(error: unknown): boolean {
       'code' in error &&
       (error as { code?: string }).code === 'ENOENT'
   );
+}
+
+function isAllowedExitCode(error: unknown, allowedExitCodes: number[]): boolean {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return false;
+  }
+
+  const code = (error as { code?: number | string }).code;
+  return typeof code === 'number' && allowedExitCodes.includes(code);
+}
+
+function extractCommandStdout(error: unknown): string {
+  if (error && typeof error === 'object' && 'stdout' in error) {
+    return String((error as { stdout?: string }).stdout ?? '');
+  }
+
+  return '';
 }
