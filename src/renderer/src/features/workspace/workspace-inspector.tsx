@@ -1,57 +1,81 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
+import { UnsavedChangesDialog } from '../editor/unsaved-changes-dialog';
+import {
+  WorkspaceEditorSurface,
+  type WorkspaceEditorHandle
+} from '../editor/workspace-editor-surface';
 import { queryKeys } from '../../lib/query-keys';
 import {
   useCommitWorkspaceMutation,
-  useWorkspaceChangesQuery,
-  useWorkspaceDiffQuery
+  useWorkspaceChangesQuery
 } from './workspace-hooks';
 import { WorkspaceChangesPanel } from './workspace-changes-panel';
-import { WorkspaceDiffViewer } from './workspace-diff-viewer';
 import { WorkspaceFileExplorer } from './workspace-file-explorer';
 
 interface WorkspaceInspectorProps {
   taskWorkspace: TaskWorkspace;
 }
 
-export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
+export const WorkspaceInspector = forwardRef<WorkspaceEditorHandle, WorkspaceInspectorProps>(
+function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   const queryClient = useQueryClient();
+  const editorRef = useRef<WorkspaceEditorHandle | null>(null);
   const taskId = taskWorkspace.task.id;
   const changesQuery = useWorkspaceChangesQuery(taskId);
   const commitMutation = useCommitWorkspaceMutation(taskId);
-  const [activeSidebarTab, setActiveSidebarTab] = useState<'changes' | 'files'>('changes');
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'changes' | 'files'>('files');
+  const [centerMode, setCenterMode] = useState<'diff' | 'editor'>('editor');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [selectionMode, setSelectionMode] = useState<'changes' | 'files'>('changes');
+  const [selectionMode, setSelectionMode] = useState<'changes' | 'files'>('files');
   const [expandedDirectories, setExpandedDirectories] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
+  const [isResolvingFileSwitch, setIsResolvingFileSwitch] = useState(false);
+  const [pendingFileSwitch, setPendingFileSwitch] = useState<{
+    mode: 'diff' | 'editor';
+    path: string;
+    selectionMode: 'changes' | 'files';
+  } | null>(null);
   const changes = changesQuery.data ?? [];
-  const diffQuery = useWorkspaceDiffQuery(taskId, selectedPath);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      discardUnsavedChanges: () => editorRef.current?.discardUnsavedChanges(),
+      getActiveFilePath: () => editorRef.current?.getActiveFilePath() ?? null,
+      hasUnsavedChanges: () => editorRef.current?.hasUnsavedChanges() ?? false,
+      saveActiveFile: async () => (await editorRef.current?.saveActiveFile()) ?? false
+    }),
+    []
+  );
 
   useEffect(() => {
-    setActiveSidebarTab('changes');
+    setActiveSidebarTab('files');
+    setCenterMode('editor');
     setSelectedPath(null);
-    setSelectionMode('changes');
+    setSelectionMode('files');
     setExpandedDirectories([]);
     setCommitMessage('');
     setCommitNotice(null);
+    setPendingFileSwitch(null);
     commitMutation.reset();
   }, [taskId]);
 
   useEffect(() => {
+    if (selectionMode !== 'changes') {
+      return;
+    }
+
     if (changes.length === 0) {
-      setSelectedPath((currentPath) => (selectionMode === 'changes' ? null : currentPath));
+      setSelectedPath(null);
       return;
     }
 
     setSelectedPath((currentPath) => {
-      if (selectionMode === 'files') {
-        return currentPath;
-      }
-
       if (currentPath && changes.some((change) => change.relativePath === currentPath)) {
         return currentPath;
       }
@@ -85,14 +109,84 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
     );
   };
 
+  const requestFileSelection = (
+    path: string,
+    nextSelectionMode: 'changes' | 'files',
+    nextCenterMode: 'diff' | 'editor'
+  ) => {
+    if (path === selectedPath) {
+      setSelectionMode(nextSelectionMode);
+      setCenterMode(nextCenterMode);
+      return;
+    }
+
+    if (editorRef.current?.hasUnsavedChanges()) {
+      setPendingFileSwitch({
+        mode: nextCenterMode,
+        path,
+        selectionMode: nextSelectionMode
+      });
+      return;
+    }
+
+    applyFileSelection(path, nextSelectionMode, nextCenterMode);
+  };
+
+  const applyFileSelection = (
+    path: string,
+    nextSelectionMode: 'changes' | 'files',
+    nextCenterMode: 'diff' | 'editor'
+  ) => {
+    setSelectedPath(path);
+    setSelectionMode(nextSelectionMode);
+    setCenterMode(nextCenterMode);
+  };
+
+  const handlePendingFileSave = async () => {
+    if (!pendingFileSwitch) {
+      return;
+    }
+
+    setIsResolvingFileSwitch(true);
+    const didSave = (await editorRef.current?.saveActiveFile()) ?? false;
+    setIsResolvingFileSwitch(false);
+
+    if (!didSave) {
+      return;
+    }
+
+    applyFileSelection(
+      pendingFileSwitch.path,
+      pendingFileSwitch.selectionMode,
+      pendingFileSwitch.mode
+    );
+    setPendingFileSwitch(null);
+  };
+
+  const handlePendingFileDiscard = () => {
+    if (!pendingFileSwitch) {
+      return;
+    }
+
+    editorRef.current?.discardUnsavedChanges();
+    applyFileSelection(
+      pendingFileSwitch.path,
+      pendingFileSwitch.selectionMode,
+      pendingFileSwitch.mode
+    );
+    setPendingFileSwitch(null);
+  };
+
   return (
+    <>
     <section className="grid min-h-[calc(100vh-120px)] gap-3 xl:grid-cols-[minmax(0,1fr),360px]">
       <div className="min-w-0">
-        <WorkspaceDiffViewer
-          diffText={diffQuery.data?.text ?? null}
-          errorMessage={formatError(diffQuery.error)}
-          isLoading={diffQuery.isLoading}
-          selectedPath={selectedPath}
+        <WorkspaceEditorSurface
+          ref={editorRef}
+          activeFilePath={selectedPath}
+          mode={centerMode}
+          onModeChange={setCenterMode}
+          taskId={taskId}
         />
       </div>
 
@@ -130,8 +224,7 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
               expandedDirectories={expandedDirectories}
               onToggleDirectory={toggleDirectory}
               onSelectPath={(path) => {
-                setSelectionMode('files');
-                setSelectedPath(path);
+                requestFileSelection(path, 'files', 'editor');
               }}
               selectedPath={selectedPath}
               taskId={taskId}
@@ -149,8 +242,7 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
               onCommitMessageChange={setCommitMessage}
               onRefresh={handleRefresh}
               onSelectChange={(path) => {
-                setSelectionMode('changes');
-                setSelectedPath(path);
+                requestFileSelection(path, 'changes', 'diff');
                 setActiveSidebarTab('changes');
               }}
               selectedPath={selectedPath}
@@ -159,8 +251,22 @@ export function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps) {
         </div>
       </aside>
     </section>
+      <UnsavedChangesDialog
+        body={`Save or discard your changes to ${editorRef.current?.getActiveFilePath() ?? 'the current file'} before opening another file.`}
+        isOpen={pendingFileSwitch !== null}
+        isSaving={isResolvingFileSwitch}
+        onCancel={() => {
+          setPendingFileSwitch(null);
+        }}
+        onDiscard={handlePendingFileDiscard}
+        onSave={() => {
+          void handlePendingFileSave();
+        }}
+        title="Unsaved file edits"
+      />
+    </>
   );
-}
+});
 
 function SidebarTab({
   isActive,

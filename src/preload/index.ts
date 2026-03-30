@@ -17,7 +17,9 @@ const api: AutocodeApi = {
     listDirectory: (input) => ipcRenderer.invoke(workspaceChannels.listDirectory, input),
     listChanges: (input) => ipcRenderer.invoke(workspaceChannels.listChanges, input),
     getDiff: (input) => ipcRenderer.invoke(workspaceChannels.getDiff, input),
-    commitAll: (input) => ipcRenderer.invoke(workspaceChannels.commitAll, input)
+    commitAll: (input) => ipcRenderer.invoke(workspaceChannels.commitAll, input),
+    readFile: (input) => ipcRenderer.invoke(workspaceChannels.readFile, input),
+    writeFile: (input) => ipcRenderer.invoke(workspaceChannels.writeFile, input)
   }
 };
 

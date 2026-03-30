@@ -32,6 +32,8 @@ export const autocodeApi: AutocodeApi = {
     listDirectory: (input) => getAutocodeApi().workspaces.listDirectory(input),
     listChanges: (input) => getAutocodeApi().workspaces.listChanges(input),
     getDiff: (input) => getAutocodeApi().workspaces.getDiff(input),
-    commitAll: (input) => getAutocodeApi().workspaces.commitAll(input)
+    commitAll: (input) => getAutocodeApi().workspaces.commitAll(input),
+    readFile: (input) => getAutocodeApi().workspaces.readFile(input),
+    writeFile: (input) => getAutocodeApi().workspaces.writeFile(input)
   }
 };

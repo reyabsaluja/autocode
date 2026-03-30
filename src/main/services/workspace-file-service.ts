@@ -1,0 +1,82 @@
+import { readFile, stat, writeFile } from 'node:fs/promises';
+
+import type {
+  WorkspaceFileReadInput,
+  WorkspaceFileReadResult,
+  WorkspaceFileWriteInput,
+  WorkspaceFileWriteResult
+} from '../../shared/contracts/workspace-files';
+import type { AppDatabase } from '../database/client';
+import {
+  createWorkspaceRuntime,
+  isMissingPathError,
+  isNotDirectoryError,
+  normalizeNonEmptyRelativePath,
+  resolveWorkspacePath
+} from './workspace-runtime';
+
+export function createWorkspaceFileService(db: AppDatabase) {
+  const workspaceRuntime = createWorkspaceRuntime(db);
+
+  return {
+    async readFile(input: WorkspaceFileReadInput): Promise<WorkspaceFileReadResult> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      const relativePath = normalizeNonEmptyRelativePath(input.relativePath);
+      const absolutePath = resolveWorkspacePath(context.worktreePath, relativePath);
+      const fileStats = await readWorkspaceFileStats(absolutePath);
+
+      const buffer = await readFile(absolutePath);
+      const isBinary = buffer.includes(0);
+
+      return {
+        content: isBinary ? null : buffer.toString('utf8'),
+        isBinary,
+        relativePath,
+        sizeBytes: fileStats.size
+      };
+    },
+
+    async writeFile(input: WorkspaceFileWriteInput): Promise<WorkspaceFileWriteResult> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      const relativePath = normalizeNonEmptyRelativePath(input.relativePath);
+      const absolutePath = resolveWorkspacePath(context.worktreePath, relativePath);
+
+      await readWorkspaceFileStats(absolutePath);
+      await writeFile(absolutePath, input.content, 'utf8');
+
+      return {
+        relativePath,
+        savedAt: new Date().toISOString(),
+        sizeBytes: Buffer.byteLength(input.content, 'utf8')
+      };
+    }
+  };
+}
+
+async function readWorkspaceFileStats(absolutePath: string) {
+  try {
+    const fileStats = await stat(absolutePath);
+
+    if (!fileStats.isFile()) {
+      throw new Error('Selected path is not a file inside this workspace.');
+    }
+
+    return fileStats;
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      throw new Error('This file no longer exists in the selected workspace.');
+    }
+
+    if (isNotDirectoryError(error)) {
+      throw new Error('Selected file path is invalid for this workspace.');
+    }
+
+    if (error instanceof Error && error.message === 'Selected path is not a file inside this workspace.') {
+      throw error;
+    }
+
+    throw error instanceof Error
+      ? error
+      : new Error('Autocode could not access this workspace file.');
+  }
+}

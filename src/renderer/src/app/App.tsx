@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import type { WorkspaceEditorHandle } from '../features/editor/workspace-editor-surface';
+import { UnsavedChangesDialog } from '../features/editor/unsaved-changes-dialog';
 import { useAddProjectMutation, useProjectsQuery } from '../features/projects/project-hooks';
 import { useCreateTaskWorkspaceMutation, useTaskWorkspacesQuery } from '../features/tasks/task-hooks';
 import { WorkspaceDetails } from '../features/tasks/workspace-details';
@@ -8,8 +10,15 @@ import { useWorkspaceStore } from '../stores/workspace-store';
 import { WorkspaceSidebar } from '../features/workspace/workspace-sidebar';
 
 export function App() {
+  const editorRef = useRef<WorkspaceEditorHandle | null>(null);
   const projectsQuery = useProjectsQuery();
   const addProjectMutation = useAddProjectMutation();
+  const [isResolvingContextSwitch, setIsResolvingContextSwitch] = useState(false);
+  const [pendingContextSwitch, setPendingContextSwitch] = useState<
+    | { projectId: number | null; type: 'project' }
+    | { taskId: number | null; type: 'task' }
+    | null
+  >(null);
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
   const [manualRepositoryPath, setManualRepositoryPath] = useState('');
   const selectedTaskId = useWorkspaceStore((state) => state.selectedTaskId);
@@ -123,19 +132,81 @@ export function App() {
 
   const handleCreateTask = async (input: { description: string; title: string }) => {
     const workspace = await createTaskMutation.mutateAsync(input);
-    selectTask(workspace.task.id);
+    requestTaskSelection(workspace.task.id);
   };
 
   async function connectProjectPath(path: string) {
     const project = await addProjectMutation.mutateAsync({ path });
-    selectProject(project.id);
-    selectTask(null);
+    requestProjectSelection(project.id);
     setManualRepositoryPath('');
   }
 
   function resetProjectActionState() {
     setProjectActionError(null);
     addProjectMutation.reset();
+  }
+
+  function requestProjectSelection(projectId: number | null) {
+    if (projectId === selectedProjectId) {
+      return;
+    }
+
+    if (editorRef.current?.hasUnsavedChanges()) {
+      setPendingContextSwitch({
+        projectId,
+        type: 'project'
+      });
+      return;
+    }
+
+    selectProject(projectId);
+  }
+
+  function requestTaskSelection(taskId: number | null) {
+    if (taskId === selectedTaskId) {
+      return;
+    }
+
+    if (editorRef.current?.hasUnsavedChanges()) {
+      setPendingContextSwitch({
+        taskId,
+        type: 'task'
+      });
+      return;
+    }
+
+    selectTask(taskId);
+  }
+
+  function applyPendingContextSwitch() {
+    if (!pendingContextSwitch) {
+      return;
+    }
+
+    if (pendingContextSwitch.type === 'project') {
+      selectProject(pendingContextSwitch.projectId);
+    } else {
+      selectTask(pendingContextSwitch.taskId);
+    }
+
+    setPendingContextSwitch(null);
+  }
+
+  async function handlePendingContextSave() {
+    setIsResolvingContextSwitch(true);
+    const didSave = (await editorRef.current?.saveActiveFile()) ?? false;
+    setIsResolvingContextSwitch(false);
+
+    if (!didSave) {
+      return;
+    }
+
+    applyPendingContextSwitch();
+  }
+
+  function handlePendingContextDiscard() {
+    editorRef.current?.discardUnsavedChanges();
+    applyPendingContextSwitch();
   }
 
   return (
@@ -161,19 +232,34 @@ export function App() {
           onAddRepository={handleAddRepository}
           onCreateTask={handleCreateTask}
           onManualPathChange={setManualRepositoryPath}
-          onSelectProject={selectProject}
-          onSelectTask={selectTask}
+          onSelectProject={requestProjectSelection}
+          onSelectTask={requestTaskSelection}
           onSubmitManualPath={handleManualRepositoryAdd}
         />
 
         <main className="min-w-0 flex-1 p-3">
           <WorkspaceDetails
+            ref={editorRef}
             isLoadingTasks={taskWorkspacesQuery.isLoading}
             project={selectedProject}
             taskWorkspace={selectedTaskWorkspace}
           />
         </main>
       </div>
+
+      <UnsavedChangesDialog
+        body={`Save or discard your changes to ${editorRef.current?.getActiveFilePath() ?? 'the current file'} before leaving this workspace.`}
+        isOpen={pendingContextSwitch !== null}
+        isSaving={isResolvingContextSwitch}
+        onCancel={() => {
+          setPendingContextSwitch(null);
+        }}
+        onDiscard={handlePendingContextDiscard}
+        onSave={() => {
+          void handlePendingContextSave();
+        }}
+        title="Unsaved workspace edits"
+      />
     </div>
   );
 }

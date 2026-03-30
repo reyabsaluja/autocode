@@ -10,6 +10,12 @@ import type {
   WorkspaceDirectoryInput,
   WorkspaceDirectoryResult
 } from './workspaces';
+import type {
+  WorkspaceFileReadInput,
+  WorkspaceFileReadResult,
+  WorkspaceFileWriteInput,
+  WorkspaceFileWriteResult
+} from './workspace-files';
 import type { Project } from '../domain/project';
 import type { TaskWorkspace } from '../domain/task-workspace';
 
@@ -28,5 +34,7 @@ export interface AutocodeApi {
     listChanges: (input: WorkspaceChangesInput) => Promise<WorkspaceChangesResult>;
     getDiff: (input: WorkspaceDiffInput) => Promise<WorkspaceDiffResult>;
     commitAll: (input: WorkspaceCommitInput) => Promise<WorkspaceCommitResult>;
+    readFile: (input: WorkspaceFileReadInput) => Promise<WorkspaceFileReadResult>;
+    writeFile: (input: WorkspaceFileWriteInput) => Promise<WorkspaceFileWriteResult>;
   };
 }

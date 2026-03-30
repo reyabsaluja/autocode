@@ -4,3 +4,4 @@ export * from './worktree';
 export * from './agent-session';
 export * from './task-workspace';
 export * from './workspace-inspection';
+export * from './workspace-file';

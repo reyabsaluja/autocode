@@ -9,6 +9,7 @@ import { registerProjectHandlers } from './ipc/register-project-handlers';
 import { registerTaskHandlers } from './ipc/register-task-handlers';
 import { registerWorkspaceHandlers } from './ipc/register-workspace-handlers';
 import { createProjectService } from './services/project-service';
+import { createWorkspaceFileService } from './services/workspace-file-service';
 import { createTaskService } from './services/task-service';
 import { createWorkspaceService } from './services/workspace-service';
 
@@ -52,10 +53,11 @@ async function bootstrap(): Promise<void> {
   const projectService = createProjectService(db);
   const taskService = createTaskService(db);
   const workspaceService = createWorkspaceService(db);
+  const workspaceFileService = createWorkspaceFileService(db);
 
   registerProjectHandlers(projectService);
   registerTaskHandlers(taskService);
-  registerWorkspaceHandlers(workspaceService);
+  registerWorkspaceHandlers(workspaceService, workspaceFileService);
 
   mainWindow = createMainWindow();
 

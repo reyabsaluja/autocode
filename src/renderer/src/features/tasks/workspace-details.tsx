@@ -1,7 +1,10 @@
+import { forwardRef } from 'react';
+
 import type { Project } from '@shared/domain/project';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 import type { WorktreeStatus } from '@shared/domain/worktree';
 
+import type { WorkspaceEditorHandle } from '../editor/workspace-editor-surface';
 import { WorkspaceInspector } from '../workspace/workspace-inspector';
 
 interface WorkspaceDetailsProps {
@@ -10,11 +13,11 @@ interface WorkspaceDetailsProps {
   taskWorkspace: TaskWorkspace | null;
 }
 
-export function WorkspaceDetails({
+export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetailsProps>(function WorkspaceDetails({
   isLoadingTasks,
   project,
   taskWorkspace
-}: WorkspaceDetailsProps) {
+}, ref) {
   if (!project) {
     return (
       <section className="grid h-full place-items-center rounded-[28px] border border-white/6 bg-[#101114] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.32)]">
@@ -72,6 +75,7 @@ export function WorkspaceDetails({
       {worktree ? (
         <WorkspaceInspector
           key={taskWorkspace.task.id}
+          ref={ref}
           taskWorkspace={taskWorkspace}
         />
       ) : (
@@ -83,7 +87,7 @@ export function WorkspaceDetails({
       )}
     </section>
   );
-}
+});
 
 function CompactBadge({
   tone = 'neutral',
