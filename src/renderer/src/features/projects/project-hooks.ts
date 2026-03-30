@@ -4,12 +4,11 @@ import type { AddProjectInput } from '@shared/contracts/projects';
 import type { Project } from '@shared/domain/project';
 
 import { autocodeApi } from '../../lib/autocode-api';
-
-const projectsQueryKey = ['projects'];
+import { queryKeys } from '../../lib/query-keys';
 
 export function useProjectsQuery() {
   return useQuery({
-    queryKey: projectsQueryKey,
+    queryKey: queryKeys.projects,
     queryFn: () => autocodeApi.projects.list()
   });
 }
@@ -19,14 +18,11 @@ export function useAddProjectMutation() {
 
   return useMutation({
     mutationFn: (input: AddProjectInput) => autocodeApi.projects.add(input),
-    onSuccess: async (project) => {
-      queryClient.setQueryData<Project[]>(projectsQueryKey, (current) => {
+    onSuccess: (project) => {
+      queryClient.setQueryData<Project[]>(queryKeys.projects, (current) => {
         const next = current ? current.filter((entry) => entry.id !== project.id) : [];
         return [project, ...next].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
       });
-
-      await queryClient.invalidateQueries({ queryKey: projectsQueryKey });
     }
   });
 }
-

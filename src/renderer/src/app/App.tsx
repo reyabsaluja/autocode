@@ -49,6 +49,10 @@ export function App() {
   }, [projects, selectedProjectId, selectedTaskId, selectProject, selectTask]);
 
   useEffect(() => {
+    createTaskMutation.reset();
+  }, [createTaskMutation, selectedProjectId]);
+
+  useEffect(() => {
     if (selectedProjectId === null) {
       if (selectedTaskId !== null) {
         selectTask(null);
@@ -83,20 +87,15 @@ export function App() {
   ]);
 
   const handleAddRepository = async () => {
-    setProjectActionError(null);
-    addProjectMutation.reset();
-
     try {
+      resetProjectActionState();
       const selectedPath = await autocodeApi.projects.pickPath();
 
       if (!selectedPath) {
         return;
       }
 
-      const project = await addProjectMutation.mutateAsync({ path: selectedPath });
-      selectProject(project.id);
-      selectTask(null);
-      setManualRepositoryPath('');
+      await connectProjectPath(selectedPath);
     } catch (error) {
       setProjectActionError(
         error instanceof Error ? error.message : 'Autocode could not open the repository picker.'
@@ -111,14 +110,9 @@ export function App() {
       return;
     }
 
-    setProjectActionError(null);
-    addProjectMutation.reset();
-
     try {
-      const project = await addProjectMutation.mutateAsync({ path });
-      selectProject(project.id);
-      selectTask(null);
-      setManualRepositoryPath('');
+      resetProjectActionState();
+      await connectProjectPath(path);
     } catch (error) {
       setProjectActionError(
         error instanceof Error
@@ -132,6 +126,18 @@ export function App() {
     const workspace = await createTaskMutation.mutateAsync(input);
     selectTask(workspace.task.id);
   };
+
+  async function connectProjectPath(path: string) {
+    const project = await addProjectMutation.mutateAsync({ path });
+    selectProject(project.id);
+    selectTask(null);
+    setManualRepositoryPath('');
+  }
+
+  function resetProjectActionState() {
+    setProjectActionError(null);
+    addProjectMutation.reset();
+  }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(15,118,110,0.16),_transparent_26%),linear-gradient(180deg,_#f7f4ee_0%,_#efe5d3_100%)] text-slate-900">

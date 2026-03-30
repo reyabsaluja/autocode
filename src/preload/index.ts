@@ -1,8 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { projectChannels } from '../shared/contracts/projects';
-import { taskChannels } from '../shared/contracts/tasks';
 import type { AutocodeApi } from '../shared/contracts/electron-api';
+import { projectChannels, taskChannels } from '../shared/ipc/channels';
 
 const api: AutocodeApi = {
   projects: {

@@ -12,12 +12,7 @@ export interface GitRepositoryMetadata {
 }
 
 export async function resolveGitRepository(candidatePath: string): Promise<GitRepositoryMetadata> {
-  const resolvedInput = await realpath(path.resolve(candidatePath));
-  const stats = await stat(resolvedInput);
-
-  if (!stats.isDirectory()) {
-    throw new Error('Selected path is not a directory.');
-  }
+  const resolvedInput = await resolveExistingDirectory(candidatePath);
 
   const gitRoot = await resolveGitRoot(resolvedInput);
 
@@ -29,8 +24,12 @@ export async function resolveGitRepository(candidatePath: string): Promise<GitRe
 }
 
 export async function execGit(args: string[], gitRoot: string): Promise<string> {
-  const { stdout } = await execFileAsync('git', ['-C', gitRoot, ...args]);
-  return stdout.trim();
+  try {
+    const { stdout } = await execFileAsync('git', ['-C', gitRoot, ...args]);
+    return stdout.trim();
+  } catch (error) {
+    throw createGitCommandError(error);
+  }
 }
 
 export async function gitRefExists(gitRoot: string, ref: string): Promise<boolean> {
@@ -85,4 +84,57 @@ async function tryExecGit(args: string[], gitRoot: string): Promise<string | nul
   } catch {
     return null;
   }
+}
+
+async function resolveExistingDirectory(candidatePath: string): Promise<string> {
+  const absolutePath = path.resolve(candidatePath);
+
+  try {
+    const resolvedPath = await realpath(absolutePath);
+    const stats = await stat(resolvedPath);
+
+    if (!stats.isDirectory()) {
+      throw new Error('Selected path is not a directory.');
+    }
+
+    return resolvedPath;
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      throw new Error('Selected path does not exist.');
+    }
+
+    if (error instanceof Error && error.message === 'Selected path is not a directory.') {
+      throw error;
+    }
+
+    throw new Error('Autocode could not inspect the selected path.', {
+      cause: error
+    });
+  }
+}
+
+function createGitCommandError(error: unknown): Error {
+  if (isMissingGitBinaryError(error)) {
+    return new Error('Git is not installed or is not available on PATH.');
+  }
+
+  return error instanceof Error ? error : new Error('Autocode could not run the requested Git command.');
+}
+
+function isMissingGitBinaryError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as { code?: string }).code === 'ENOENT'
+  );
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as { code?: string }).code === 'ENOENT'
+  );
 }

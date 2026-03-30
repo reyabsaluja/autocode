@@ -2,11 +2,6 @@ import { z } from 'zod';
 
 import { taskWorkspaceSchema } from '../domain/task-workspace';
 
-export const taskChannels = {
-  create: 'tasks:create',
-  listByProject: 'tasks:listByProject'
-} as const;
-
 export const createTaskInputSchema = z.object({
   projectId: z.number().int().positive(),
   title: z.string().trim().min(1).max(160),

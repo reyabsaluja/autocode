@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
 
-import { addProjectInputSchema, projectChannels } from '../../shared/contracts/projects';
+import { addProjectInputSchema } from '../../shared/contracts/projects';
+import { projectChannels } from '../../shared/ipc/channels';
 import { createProjectService } from '../services/project-service';
 
 export type ProjectService = ReturnType<typeof createProjectService>;

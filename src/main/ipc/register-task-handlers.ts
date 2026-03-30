@@ -1,10 +1,7 @@
 import { ipcMain } from 'electron';
 
-import {
-  createTaskInputSchema,
-  listTasksByProjectInputSchema,
-  taskChannels
-} from '../../shared/contracts/tasks';
+import { createTaskInputSchema, listTasksByProjectInputSchema } from '../../shared/contracts/tasks';
+import { taskChannels } from '../../shared/ipc/channels';
 import { createTaskService } from '../services/task-service';
 
 export type TaskService = ReturnType<typeof createTaskService>;
