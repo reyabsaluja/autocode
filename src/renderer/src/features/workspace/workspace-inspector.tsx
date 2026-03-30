@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import { UnsavedChangesDialog } from '../editor/unsaved-changes-dialog';
+import { useUnsavedChangesGuard } from '../editor/use-unsaved-changes-guard';
 import {
   WorkspaceEditorSurface,
   type WorkspaceEditorHandle
@@ -34,13 +35,9 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   const [expandedDirectories, setExpandedDirectories] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
-  const [isResolvingFileSwitch, setIsResolvingFileSwitch] = useState(false);
-  const [pendingFileSwitch, setPendingFileSwitch] = useState<{
-    mode: 'diff' | 'editor';
-    path: string;
-    selectionMode: 'changes' | 'files';
-  } | null>(null);
   const changes = changesQuery.data ?? [];
+  const { dialogProps: fileSwitchDialogProps, requestTransition: requestFileTransition } =
+    useUnsavedChangesGuard(editorRef);
 
   useImperativeHandle(
     ref,
@@ -61,7 +58,6 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     setExpandedDirectories([]);
     setCommitMessage('');
     setCommitNotice(null);
-    setPendingFileSwitch(null);
     commitMutation.reset();
   }, [taskId]);
 
@@ -71,18 +67,25 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     }
 
     if (changes.length === 0) {
-      setSelectedPath(null);
+      if (!editorRef.current?.hasUnsavedChanges()) {
+        setSelectedPath(null);
+      }
+
       return;
     }
 
-    setSelectedPath((currentPath) => {
-      if (currentPath && changes.some((change) => change.relativePath === currentPath)) {
-        return currentPath;
-      }
+    if (selectedPath && changes.some((change) => change.relativePath === selectedPath)) {
+      return;
+    }
 
-      return changes[0]?.relativePath ?? null;
-    });
-  }, [changes, selectionMode]);
+    const nextPath = changes[0]?.relativePath ?? null;
+
+    if (!nextPath) {
+      return;
+    }
+
+    requestFileSelection(nextPath, 'changes', 'diff');
+  }, [changes, selectedPath, selectionMode]);
 
   const handleRefresh = async () => {
     setCommitNotice(null);
@@ -109,73 +112,38 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     );
   };
 
-  const requestFileSelection = (
+  function requestFileSelection(
     path: string,
     nextSelectionMode: 'changes' | 'files',
     nextCenterMode: 'diff' | 'editor'
-  ) => {
+  ) {
     if (path === selectedPath) {
       setSelectionMode(nextSelectionMode);
       setCenterMode(nextCenterMode);
       return;
     }
 
-    if (editorRef.current?.hasUnsavedChanges()) {
-      setPendingFileSwitch({
-        mode: nextCenterMode,
-        path,
-        selectionMode: nextSelectionMode
-      });
-      return;
-    }
+    requestFileTransition({
+      body: `Save or discard your changes to ${
+        editorRef.current?.getActiveFilePath() ?? 'the current file'
+      } before opening another file.`,
+      key: `file:${taskId}:${path}:${nextSelectionMode}:${nextCenterMode}`,
+      run: () => {
+        applyFileSelection(path, nextSelectionMode, nextCenterMode);
+      },
+      title: 'Unsaved file edits'
+    });
+  }
 
-    applyFileSelection(path, nextSelectionMode, nextCenterMode);
-  };
-
-  const applyFileSelection = (
+  function applyFileSelection(
     path: string,
     nextSelectionMode: 'changes' | 'files',
     nextCenterMode: 'diff' | 'editor'
-  ) => {
+  ) {
     setSelectedPath(path);
     setSelectionMode(nextSelectionMode);
     setCenterMode(nextCenterMode);
-  };
-
-  const handlePendingFileSave = async () => {
-    if (!pendingFileSwitch) {
-      return;
-    }
-
-    setIsResolvingFileSwitch(true);
-    const didSave = (await editorRef.current?.saveActiveFile()) ?? false;
-    setIsResolvingFileSwitch(false);
-
-    if (!didSave) {
-      return;
-    }
-
-    applyFileSelection(
-      pendingFileSwitch.path,
-      pendingFileSwitch.selectionMode,
-      pendingFileSwitch.mode
-    );
-    setPendingFileSwitch(null);
-  };
-
-  const handlePendingFileDiscard = () => {
-    if (!pendingFileSwitch) {
-      return;
-    }
-
-    editorRef.current?.discardUnsavedChanges();
-    applyFileSelection(
-      pendingFileSwitch.path,
-      pendingFileSwitch.selectionMode,
-      pendingFileSwitch.mode
-    );
-    setPendingFileSwitch(null);
-  };
+  }
 
   return (
     <>
@@ -252,17 +220,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
       </aside>
     </section>
       <UnsavedChangesDialog
-        body={`Save or discard your changes to ${editorRef.current?.getActiveFilePath() ?? 'the current file'} before opening another file.`}
-        isOpen={pendingFileSwitch !== null}
-        isSaving={isResolvingFileSwitch}
-        onCancel={() => {
-          setPendingFileSwitch(null);
-        }}
-        onDiscard={handlePendingFileDiscard}
-        onSave={() => {
-          void handlePendingFileSave();
-        }}
-        title="Unsaved file edits"
+        {...fileSwitchDialogProps}
       />
     </>
   );
