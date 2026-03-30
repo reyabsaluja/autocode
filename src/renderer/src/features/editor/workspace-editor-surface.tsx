@@ -6,7 +6,7 @@ import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 
 import { WorkspaceDiffViewer } from '../workspace/workspace-diff-viewer';
 import { useWorkspaceDiffQuery } from '../workspace/workspace-hooks';
-import { inferLanguageSupport } from './editor-language';
+import { useWorkspaceLanguageSupport } from './editor-language';
 import { useWorkspaceFileQuery, useWriteWorkspaceFileMutation } from './editor-hooks';
 
 export interface WorkspaceEditorHandle {
@@ -39,10 +39,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
     const [saveNotice, setSaveNotice] = useState<string | null>(null);
     const activeIdentity = activeFilePath ? `${taskId}:${activeFilePath}` : null;
     const isDirty = bufferContent !== lastSavedContent;
-    const languageExtensions = useMemo(
-      () => (activeFilePath ? inferLanguageSupport(activeFilePath) : []),
-      [activeFilePath]
-    );
+    const languageExtensions = useWorkspaceLanguageSupport(activeFilePath);
     const diffLineSummary = useMemo(() => {
       if (mode !== 'diff' || !diffQuery.data?.text) {
         return null;

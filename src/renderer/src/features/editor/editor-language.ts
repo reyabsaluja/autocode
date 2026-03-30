@@ -1,62 +1,98 @@
+import { useEffect, useState } from 'react';
+
 import type { Extension } from '@codemirror/state';
-import { css } from '@codemirror/lang-css';
-import { go } from '@codemirror/lang-go';
-import { html } from '@codemirror/lang-html';
-import { java } from '@codemirror/lang-java';
-import { javascript } from '@codemirror/lang-javascript';
-import { json } from '@codemirror/lang-json';
-import { markdown } from '@codemirror/lang-markdown';
-import { php } from '@codemirror/lang-php';
-import { python } from '@codemirror/lang-python';
-import { rust } from '@codemirror/lang-rust';
-import { sql } from '@codemirror/lang-sql';
-import { xml } from '@codemirror/lang-xml';
-import { yaml } from '@codemirror/lang-yaml';
 
-export function inferLanguageSupport(relativePath: string): Extension[] {
-  const extension = relativePath.split('.').pop()?.toLowerCase();
+type LanguageLoader = () => Promise<Extension[]>;
 
-  if (!extension) {
-    return [];
+const languageLoaderCache = new Map<string, Promise<Extension[]>>();
+
+const languageLoaders: Record<string, LanguageLoader> = {
+  css: async () => [(await import('@codemirror/lang-css')).css()],
+  go: async () => [(await import('@codemirror/lang-go')).go()],
+  html: async () => [(await import('@codemirror/lang-html')).html()],
+  java: async () => [(await import('@codemirror/lang-java')).java()],
+  js: async () => [(await import('@codemirror/lang-javascript')).javascript()],
+  jsx: async () => [(await import('@codemirror/lang-javascript')).javascript({ jsx: true })],
+  json: async () => [(await import('@codemirror/lang-json')).json()],
+  less: async () => [(await import('@codemirror/lang-css')).css()],
+  md: async () => [(await import('@codemirror/lang-markdown')).markdown()],
+  mdx: async () => [(await import('@codemirror/lang-markdown')).markdown()],
+  php: async () => [(await import('@codemirror/lang-php')).php()],
+  py: async () => [(await import('@codemirror/lang-python')).python()],
+  rs: async () => [(await import('@codemirror/lang-rust')).rust()],
+  scss: async () => [(await import('@codemirror/lang-css')).css()],
+  sql: async () => [(await import('@codemirror/lang-sql')).sql()],
+  svg: async () => [(await import('@codemirror/lang-xml')).xml()],
+  ts: async () => [(await import('@codemirror/lang-javascript')).javascript({ typescript: true })],
+  tsx: async () => [(await import('@codemirror/lang-javascript')).javascript({ jsx: true, typescript: true })],
+  xml: async () => [(await import('@codemirror/lang-xml')).xml()],
+  yaml: async () => [(await import('@codemirror/lang-yaml')).yaml()],
+  yml: async () => [(await import('@codemirror/lang-yaml')).yaml()]
+};
+
+export function useWorkspaceLanguageSupport(relativePath: string | null) {
+  const languageKey = getLanguageKey(relativePath);
+  const [extensions, setExtensions] = useState<Extension[]>([]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!languageKey) {
+      setExtensions([]);
+      return;
+    }
+
+    // Load language packages on demand so the editor bundle stays focused on the
+    // active file type instead of eagerly shipping every supported language.
+    loadLanguageSupport(languageKey)
+      .then((nextExtensions) => {
+        if (!isCancelled) {
+          setExtensions(nextExtensions);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setExtensions([]);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [languageKey]);
+
+  return extensions;
+}
+
+function getLanguageKey(relativePath: string | null): string | null {
+  const extension = relativePath?.split('.').pop()?.toLowerCase();
+
+  if (!extension || !(extension in languageLoaders)) {
+    return null;
   }
 
-  switch (extension) {
-    case 'js':
-    case 'jsx':
-      return [javascript({ jsx: extension === 'jsx' })];
-    case 'ts':
-    case 'tsx':
-      return [javascript({ jsx: extension === 'tsx', typescript: true })];
-    case 'json':
-      return [json()];
-    case 'html':
-      return [html()];
-    case 'css':
-    case 'scss':
-    case 'less':
-      return [css()];
-    case 'md':
-    case 'mdx':
-      return [markdown()];
-    case 'py':
-      return [python()];
-    case 'rs':
-      return [rust()];
-    case 'go':
-      return [go()];
-    case 'java':
-      return [java()];
-    case 'php':
-      return [php()];
-    case 'sql':
-      return [sql()];
-    case 'xml':
-    case 'svg':
-      return [xml()];
-    case 'yaml':
-    case 'yml':
-      return [yaml()];
-    default:
-      return [];
+  return extension;
+}
+
+function loadLanguageSupport(languageKey: string): Promise<Extension[]> {
+  const cached = languageLoaderCache.get(languageKey);
+
+  if (cached) {
+    return cached;
   }
+
+  const loader = languageLoaders[languageKey];
+  if (!loader) {
+    return Promise.resolve([]);
+  }
+
+  const pendingLoad = loader()
+    .then((extensions) => extensions)
+    .catch((error) => {
+      languageLoaderCache.delete(languageKey);
+      throw error;
+    });
+
+  languageLoaderCache.set(languageKey, pendingLoad);
+  return pendingLoad;
 }
