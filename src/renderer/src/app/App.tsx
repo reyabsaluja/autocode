@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PanelLeft } from 'lucide-react';
 
 import type { WorkspaceEditorHandle } from '../features/editor/workspace-editor-surface';
 import { UnsavedChangesDialog } from '../features/editor/unsaved-changes-dialog';
@@ -12,6 +13,7 @@ import { WorkspaceSidebar } from '../features/workspace/workspace-sidebar';
 
 export function App() {
   const editorRef = useRef<WorkspaceEditorHandle | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const projectsQuery = useProjectsQuery();
   const addProjectMutation = useAddProjectMutation();
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
@@ -195,31 +197,45 @@ export function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-0 text-text-primary">
-      <WorkspaceSidebar
-        createErrorMessage={formatErrorMessage(createTaskMutation.error) ?? taskLoadError}
-        isAddingProject={addProjectMutation.isPending}
-        isCreatingTask={createTaskMutation.isPending}
-        isLoadingProjects={projectsQuery.isLoading}
-        isLoadingTasks={taskWorkspacesQuery.isLoading}
-        manualPath={manualRepositoryPath}
-        project={selectedProject}
-        projectErrorMessage={
-          projectActionError ??
-          formatErrorMessage(addProjectMutation.error) ??
-          projectLoadError
-        }
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        selectedTaskId={selectedTaskId}
-        taskWorkspaces={taskWorkspaces}
-        onAddRepository={handleAddRepository}
-        onCreateTask={handleCreateTask}
-        onManualPathChange={setManualRepositoryPath}
-        onSelectProject={requestProjectSelection}
-        onSelectTask={requestTaskSelection}
-        onSubmitManualPath={handleManualRepositoryAdd}
-      />
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-surface-0 text-text-primary outline-none ring-0">
+      {isSidebarOpen ? (
+        <WorkspaceSidebar
+          createErrorMessage={formatErrorMessage(createTaskMutation.error) ?? taskLoadError}
+          isAddingProject={addProjectMutation.isPending}
+          isCreatingTask={createTaskMutation.isPending}
+          isLoadingProjects={projectsQuery.isLoading}
+          isLoadingTasks={taskWorkspacesQuery.isLoading}
+          manualPath={manualRepositoryPath}
+          project={selectedProject}
+          projectErrorMessage={
+            projectActionError ??
+            formatErrorMessage(addProjectMutation.error) ??
+            projectLoadError
+          }
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          selectedTaskId={selectedTaskId}
+          taskWorkspaces={taskWorkspaces}
+          onAddRepository={handleAddRepository}
+          onCreateTask={handleCreateTask}
+          onManualPathChange={setManualRepositoryPath}
+          onSelectProject={requestProjectSelection}
+          onSelectTask={requestTaskSelection}
+          onSubmitManualPath={handleManualRepositoryAdd}
+          onToggleSidebar={() => setIsSidebarOpen(false)}
+        />
+      ) : (
+        <div className="drag-region absolute left-0 top-0 z-10 flex h-[38px] items-center pl-[68px] pr-2">
+          <button
+            className="no-drag grid h-7 w-7 place-items-center rounded-control text-text-faint transition hover:bg-white/[0.08] hover:text-text-secondary"
+            onClick={() => setIsSidebarOpen(true)}
+            title="Show sidebar"
+            type="button"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <main className="flex min-w-0 flex-1 flex-col gap-2.5 p-2.5">
         <WorkspaceDetails

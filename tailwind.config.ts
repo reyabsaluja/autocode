@@ -32,6 +32,7 @@ export default {
       },
       fontFamily: {
         sans: ['"Outfit"', 'system-ui', 'sans-serif'],
+        geist: ['"Geist"', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
       },
       borderRadius: {
