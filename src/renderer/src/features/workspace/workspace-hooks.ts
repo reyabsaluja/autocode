@@ -5,7 +5,10 @@ import type { WorkspaceCommitInput, WorkspaceDirectoryInput, WorkspaceDiffInput 
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
 
-export function useWorkspaceDirectoryQuery(
+const WORKSPACE_EXPLORER_DIRECTORY_STALE_TIME_MS = 60_000;
+const WORKSPACE_EXPLORER_DIRECTORY_GC_TIME_MS = 10 * 60_000;
+
+export function useWorkspaceExplorerDirectoryQuery(
   taskId: number | null,
   relativePath: string,
   enabled = true
@@ -18,9 +21,11 @@ export function useWorkspaceDirectoryQuery(
         relativePath,
         taskId: taskId!
       } satisfies WorkspaceDirectoryInput),
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    staleTime: 0
+    // Explorer structure can stay cached until the workspace is explicitly refreshed or invalidated.
+    gcTime: WORKSPACE_EXPLORER_DIRECTORY_GC_TIME_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: WORKSPACE_EXPLORER_DIRECTORY_STALE_TIME_MS
   });
 }
 

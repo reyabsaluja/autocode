@@ -1,4 +1,4 @@
-import { useWorkspaceDirectoryQuery } from './workspace-hooks';
+import { useWorkspaceExplorerDirectoryQuery } from './workspace-hooks';
 
 interface WorkspaceFileExplorerProps {
   expandedDirectories: string[];
@@ -15,7 +15,7 @@ export function WorkspaceFileExplorer({
   selectedPath,
   taskId
 }: WorkspaceFileExplorerProps) {
-  const rootDirectoryQuery = useWorkspaceDirectoryQuery(taskId, '');
+  const rootDirectoryQuery = useWorkspaceExplorerDirectoryQuery(taskId, '');
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[20px] border border-white/6 bg-[#0d0e11]">
@@ -78,7 +78,7 @@ function WorkspaceFileTreeNode({
 }: WorkspaceFileTreeNodeProps) {
   const isDirectory = entry.kind === 'directory';
   const isExpanded = isDirectory && expandedDirectories.includes(entry.relativePath);
-  const childrenQuery = useWorkspaceDirectoryQuery(taskId, entry.relativePath, isExpanded);
+  const childrenQuery = useWorkspaceExplorerDirectoryQuery(taskId, entry.relativePath, isExpanded);
   const isSelected = entry.relativePath === selectedPath;
   const paddingLeft = 12 + depth * 16;
 
