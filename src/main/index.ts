@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 
 import { getDatabaseContext } from './database/client';
 import { AUTOCODE_APP_NAME } from './database/paths';
@@ -56,7 +56,13 @@ async function bootstrap(): Promise<void> {
 }
 
 app.setName(AUTOCODE_APP_NAME);
-app.whenReady().then(bootstrap);
+app.whenReady().then(bootstrap).catch((error) => {
+  const message = error instanceof Error ? `${error.message}\n\n${error.stack ?? ''}` : String(error);
+
+  console.error('Failed to bootstrap Autocode', error);
+  dialog.showErrorBox('Autocode failed to start', message);
+  app.quit();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
