@@ -56,6 +56,8 @@ async function bootstrap(): Promise<void> {
   const workspaceService = createWorkspaceService(db);
   const workspaceFileService = createWorkspaceFileService(db);
 
+  await taskService.reconcileProvisioningTaskWorkspaces();
+
   registerProjectHandlers(projectService);
   registerTaskHandlers(taskService);
   registerWorkspaceHandlers(workspaceService, workspaceFileService);

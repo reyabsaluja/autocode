@@ -1,6 +1,6 @@
 import path from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
-import { realpath } from 'node:fs/promises';
+import { existsSync, mkdirSync, realpathSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 
 import type { Project } from '../../shared/domain/project';
 import type { Task } from '../../shared/domain/task';
@@ -8,8 +8,14 @@ import { resolveAutocodeWorktreesRoot } from '../database/paths';
 import { execGit, gitRefExists, listRegisteredWorktrees } from './git-client';
 
 interface CreateTaskWorktreeInput {
+  plannedWorktree?: TaskWorktreePlan;
   project: Project;
   task: Task;
+}
+
+export interface TaskWorktreePlan {
+  branchName: string;
+  worktreePath: string;
 }
 
 export interface ProvisionedWorktree {
@@ -20,34 +26,17 @@ export interface ProvisionedWorktree {
 
 export function createGitWorktreeService() {
   return {
-    async createTaskWorktree({ project, task }: CreateTaskWorktreeInput): Promise<ProvisionedWorktree> {
-      const branchName = createTaskBranchName(task.id, task.title);
-      const worktreePath = await resolveTaskWorktreePath(project.id, task.id, task.title);
-      const registeredWorktrees = await listRegisteredWorktrees(project.gitRoot);
+    planTaskWorktree(projectId: number, taskId: number, title: string): TaskWorktreePlan {
+      return createTaskWorktreePlan(projectId, taskId, title);
+    },
 
-      mkdirSync(path.dirname(worktreePath), { recursive: true });
-
-      if (registeredWorktrees.has(worktreePath)) {
-        return {
-          branchName,
-          created: false,
-          worktreePath
-        };
-      }
-
-      if (existsSync(worktreePath)) {
-        throw new Error('Task workspace path already exists on disk. Please remove it before retrying.');
-      }
-
-      const baseRef = await resolveBaseRef(project.gitRoot, project.defaultBranch);
-
-      await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
-
-      return {
-        branchName,
-        created: true,
-        worktreePath
-      };
+    async createTaskWorktree({
+      plannedWorktree,
+      project,
+      task
+    }: CreateTaskWorktreeInput): Promise<ProvisionedWorktree> {
+      const worktreePlan = plannedWorktree ?? createTaskWorktreePlan(project.id, task.id, task.title);
+      return ensureTaskWorktree(project, worktreePlan);
     },
 
     async cleanupTaskWorktree(project: Project, branchName: string, worktreePath: string): Promise<void> {
@@ -59,6 +48,10 @@ export function createGitWorktreeService() {
 
       if (await gitRefExists(project.gitRoot, branchName)) {
         await execGit(['branch', '-D', branchName], project.gitRoot);
+      }
+
+      if (existsSync(worktreePath)) {
+        await rm(worktreePath, { force: true, recursive: true });
       }
     }
   };
@@ -80,11 +73,53 @@ async function resolveBaseRef(gitRoot: string, defaultBranch: string | null): Pr
   return 'HEAD';
 }
 
-async function resolveTaskWorktreePath(projectId: number, taskId: number, title: string): Promise<string> {
+async function ensureTaskWorktree(
+  project: Project,
+  worktreePlan: TaskWorktreePlan
+): Promise<ProvisionedWorktree> {
+  const { branchName, worktreePath } = worktreePlan;
+  const registeredWorktrees = await listRegisteredWorktrees(project.gitRoot);
+
+  mkdirSync(path.dirname(worktreePath), { recursive: true });
+
+  if (registeredWorktrees.has(worktreePath)) {
+    return {
+      branchName,
+      created: false,
+      worktreePath
+    };
+  }
+
+  if (existsSync(worktreePath)) {
+    await rm(worktreePath, { force: true, recursive: true });
+  }
+
+  if (await gitRefExists(project.gitRoot, branchName)) {
+    await execGit(['worktree', 'add', worktreePath, branchName], project.gitRoot);
+  } else {
+    const baseRef = await resolveBaseRef(project.gitRoot, project.defaultBranch);
+    await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
+  }
+
+  return {
+    branchName,
+    created: true,
+    worktreePath
+  };
+}
+
+function createTaskWorktreePlan(projectId: number, taskId: number, title: string): TaskWorktreePlan {
+  return {
+    branchName: createTaskBranchName(taskId, title),
+    worktreePath: resolveTaskWorktreePath(projectId, taskId, title)
+  };
+}
+
+function resolveTaskWorktreePath(projectId: number, taskId: number, title: string): string {
   const directory = path.join(resolveAutocodeWorktreesRoot(), `project-${projectId}`);
   mkdirSync(directory, { recursive: true });
 
-  return path.join(await realpath(directory), `task-${taskId}-${slugify(title)}`);
+  return path.join(realpathSync(directory), `task-${taskId}-${slugify(title)}`);
 }
 
 function createTaskBranchName(taskId: number, title: string): string {

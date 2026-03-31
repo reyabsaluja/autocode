@@ -15,6 +15,10 @@ export function createTaskService(db: AppDatabase) {
 
     async createTaskWorkspace(input: CreateTaskInput): Promise<TaskWorkspace> {
       return taskWorkspaceCreationService.createTaskWorkspace(input);
+    },
+
+    async reconcileProvisioningTaskWorkspaces(): Promise<void> {
+      await taskWorkspaceCreationService.reconcileProvisioningTaskWorkspaces();
     }
   };
 }

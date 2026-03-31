@@ -1,15 +1,19 @@
 import type { CreateTaskInput } from '../../shared/contracts/tasks';
 import type { Project } from '../../shared/domain/project';
-import type { Task } from '../../shared/domain/task';
 import type { TaskWorkspace } from '../../shared/domain/task-workspace';
 import type { AppDatabase } from '../database/client';
-import { createGitWorktreeService, type ProvisionedWorktree } from './git-worktree-service';
-import { createTaskWorkspaceRepository } from './task-workspace-repository';
+import {
+  createGitWorktreeService,
+  type ProvisionedWorktree,
+  type TaskWorktreePlan
+} from './git-worktree-service';
+import {
+  createTaskWorkspaceRepository,
+} from './task-workspace-repository';
 
 interface PreparedTaskWorkspaceCreation {
   project: Project;
-  task: Task;
-  timestamp: string;
+  taskWorkspace: TaskWorkspace;
 }
 
 export function createTaskWorkspaceCreationService(db: AppDatabase) {
@@ -18,38 +22,39 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
 
   return {
     async createTaskWorkspace(input: CreateTaskInput): Promise<TaskWorkspace> {
-      const creation = prepareTaskWorkspaceCreation(input, taskWorkspaceRepository);
-      let provisionedWorktree: ProvisionedWorktree | null = null;
+      const creation = prepareTaskWorkspaceCreation(
+        input,
+        gitWorktreeService,
+        taskWorkspaceRepository
+      );
+      return provisionTaskWorkspace(
+        creation.project,
+        creation.taskWorkspace,
+        gitWorktreeService,
+        taskWorkspaceRepository
+      );
+    },
 
-      try {
-        provisionedWorktree = await gitWorktreeService.createTaskWorktree({
-          project: creation.project,
-          task: creation.task
-        });
+    async reconcileProvisioningTaskWorkspaces(): Promise<void> {
+      const recoverableTaskWorkspaces = taskWorkspaceRepository.listRecoverableTaskWorkspaces();
 
-        return taskWorkspaceRepository.finalizeTaskWorkspace({
-          branchName: provisionedWorktree.branchName,
-          projectId: creation.project.id,
-          taskId: creation.task.id,
-          timestamp: creation.timestamp,
-          worktreePath: provisionedWorktree.worktreePath
-        });
-      } catch (error) {
-        const message = extractErrorMessage(error);
-
-        await cleanupProvisionedWorktree(
-          gitWorktreeService,
-          creation.project,
-          provisionedWorktree
-        );
-
-        taskWorkspaceRepository.markTaskFailed(
-          creation.task.id,
-          message,
-          new Date().toISOString()
-        );
-
-        throw new Error(message);
+      for (const recoverableTaskWorkspace of recoverableTaskWorkspaces) {
+        try {
+          await provisionTaskWorkspace(
+            recoverableTaskWorkspace.project,
+            {
+              task: recoverableTaskWorkspace.task,
+              worktree: recoverableTaskWorkspace.worktree
+            },
+            gitWorktreeService,
+            taskWorkspaceRepository
+          );
+        } catch (error) {
+          console.error(
+            `Failed to reconcile task workspace ${recoverableTaskWorkspace.task.id}`,
+            error
+          );
+        }
       }
     }
   };
@@ -57,6 +62,7 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
 
 function prepareTaskWorkspaceCreation(
   input: CreateTaskInput,
+  gitWorktreeService: ReturnType<typeof createGitWorktreeService>,
   taskWorkspaceRepository: ReturnType<typeof createTaskWorkspaceRepository>
 ): PreparedTaskWorkspaceCreation {
   const project = taskWorkspaceRepository.findProjectById(input.projectId);
@@ -66,17 +72,71 @@ function prepareTaskWorkspaceCreation(
   }
 
   const timestamp = new Date().toISOString();
-  const task = taskWorkspaceRepository.createDraftTask(
-    project.id,
-    input.title.trim(),
-    input.description ?? null,
-    timestamp
-  );
+  const taskWorkspace = taskWorkspaceRepository.createProvisioningTaskWorkspace({
+    buildProvisioningWorktree: (task) =>
+      gitWorktreeService.planTaskWorktree(project.id, task.id, task.title),
+    description: input.description ?? null,
+    projectId: project.id,
+    timestamp,
+    title: input.title.trim()
+  });
 
   return {
     project,
-    task,
-    timestamp
+    taskWorkspace
+  };
+}
+
+async function provisionTaskWorkspace(
+  project: Project,
+  taskWorkspace: TaskWorkspace,
+  gitWorktreeService: ReturnType<typeof createGitWorktreeService>,
+  taskWorkspaceRepository: ReturnType<typeof createTaskWorkspaceRepository>
+): Promise<TaskWorkspace> {
+  let provisionedWorktree: ProvisionedWorktree | null = null;
+
+  try {
+    provisionedWorktree = await gitWorktreeService.createTaskWorktree({
+      plannedWorktree: resolveTaskWorktreePlan(taskWorkspace),
+      project,
+      task: taskWorkspace.task
+    });
+
+    return taskWorkspaceRepository.finalizeTaskWorkspace({
+      branchName: provisionedWorktree.branchName,
+      projectId: project.id,
+      taskId: taskWorkspace.task.id,
+      timestamp: new Date().toISOString(),
+      worktreePath: provisionedWorktree.worktreePath
+    });
+  } catch (error) {
+    const message = extractErrorMessage(error);
+
+    await cleanupProvisionedWorktree(
+      gitWorktreeService,
+      project,
+      provisionedWorktree
+    );
+
+    taskWorkspaceRepository.markTaskFailed(
+      taskWorkspace.task.id,
+      project.id,
+      message,
+      new Date().toISOString()
+    );
+
+    throw new Error(message);
+  }
+}
+
+function resolveTaskWorktreePlan(taskWorkspace: TaskWorkspace): TaskWorktreePlan | undefined {
+  if (!taskWorkspace.worktree) {
+    return undefined;
+  }
+
+  return {
+    branchName: taskWorkspace.worktree.branchName,
+    worktreePath: taskWorkspace.worktree.worktreePath
   };
 }
 

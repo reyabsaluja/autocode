@@ -13,12 +13,31 @@ export interface TaskWorkspaceContext {
   worktree: Worktree;
 }
 
+export interface RecoverableTaskWorkspaceContext {
+  project: Project;
+  task: Task;
+  worktree: Worktree | null;
+}
+
 export interface FinalizeTaskWorkspaceInput {
   branchName: string;
   projectId: number;
   taskId: number;
   timestamp: string;
   worktreePath: string;
+}
+
+interface ProvisioningWorktreeRecord {
+  branchName: string;
+  worktreePath: string;
+}
+
+interface CreateProvisioningTaskWorkspaceInput {
+  buildProvisioningWorktree: (task: Task) => ProvisioningWorktreeRecord;
+  description: string | null;
+  projectId: number;
+  timestamp: string;
+  title: string;
 }
 
 export function createTaskWorkspaceRepository(db: AppDatabase) {
@@ -49,20 +68,73 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       }));
     },
 
-    createDraftTask(projectId: number, title: string, description: string | null, timestamp: string): Task {
-      return db
-        .insert(tasksTable)
-        .values({
-          projectId,
-          title,
-          description,
-          status: 'draft',
-          lastError: null,
-          createdAt: timestamp,
-          updatedAt: timestamp
+    listRecoverableTaskWorkspaces(): RecoverableTaskWorkspaceContext[] {
+      const rows = db
+        .select({
+          project: projectsTable,
+          task: tasksTable,
+          worktree: worktreesTable
         })
-        .returning()
-        .get();
+        .from(tasksTable)
+        .innerJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
+        .leftJoin(worktreesTable, eq(worktreesTable.taskId, tasksTable.id))
+        .where(eq(tasksTable.status, 'draft'))
+        .orderBy(desc(tasksTable.updatedAt), desc(tasksTable.id))
+        .all();
+
+      return rows.map((row) => ({
+        project: row.project,
+        task: row.task,
+        worktree: row.worktree?.id ? row.worktree : null
+      }));
+    },
+
+    createProvisioningTaskWorkspace(
+      input: CreateProvisioningTaskWorkspaceInput
+    ): TaskWorkspace {
+      return db.transaction((tx) => {
+        const task = tx
+          .insert(tasksTable)
+          .values({
+            projectId: input.projectId,
+            title: input.title,
+            description: input.description,
+            status: 'draft',
+            lastError: null,
+            createdAt: input.timestamp,
+            updatedAt: input.timestamp
+          })
+          .returning()
+          .get();
+
+        const provisioningWorktree = input.buildProvisioningWorktree(task);
+
+        const worktree = tx
+          .insert(worktreesTable)
+          .values({
+            projectId: input.projectId,
+            taskId: task.id,
+            branchName: provisioningWorktree.branchName,
+            worktreePath: provisioningWorktree.worktreePath,
+            status: 'provisioning',
+            createdAt: input.timestamp,
+            updatedAt: input.timestamp
+          })
+          .returning()
+          .get();
+
+        tx.update(projectsTable)
+          .set({
+            updatedAt: input.timestamp
+          })
+          .where(eq(projectsTable.id, input.projectId))
+          .run();
+
+        return {
+          task,
+          worktree
+        };
+      });
     },
 
     finalizeTaskWorkspace(input: FinalizeTaskWorkspaceInput): TaskWorkspace {
@@ -115,15 +187,32 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       });
     },
 
-    markTaskFailed(taskId: number, message: string, timestamp: string): void {
-      db.update(tasksTable)
-        .set({
-          status: 'failed',
-          lastError: message,
-          updatedAt: timestamp
-        })
-        .where(eq(tasksTable.id, taskId))
-        .run();
+    markTaskFailed(taskId: number, projectId: number, message: string, timestamp: string): void {
+      db.transaction((tx) => {
+        tx.update(tasksTable)
+          .set({
+            status: 'failed',
+            lastError: message,
+            updatedAt: timestamp
+          })
+          .where(eq(tasksTable.id, taskId))
+          .run();
+
+        tx.update(worktreesTable)
+          .set({
+            status: 'failed',
+            updatedAt: timestamp
+          })
+          .where(eq(worktreesTable.taskId, taskId))
+          .run();
+
+        tx.update(projectsTable)
+          .set({
+            updatedAt: timestamp
+          })
+          .where(eq(projectsTable.id, projectId))
+          .run();
+      });
     },
 
     findWorkspaceContextByTaskId(taskId: number): TaskWorkspaceContext | null {
