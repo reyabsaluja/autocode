@@ -16,7 +16,7 @@ import {
   isNotDirectoryError,
   normalizeNonEmptyRelativePath,
   normalizeRelativePath,
-  resolveWorkspacePath
+  resolveWorkspaceTargetPath
 } from './workspace-runtime';
 
 export function createWorkspaceService(db: AppDatabase) {
@@ -27,8 +27,7 @@ export function createWorkspaceService(db: AppDatabase) {
     async listDirectory(input: WorkspaceDirectoryInput): Promise<WorkspaceDirectorySnapshot> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
       const relativePath = normalizeRelativePath(input.relativePath ?? '');
-      const absoluteDirectoryPath = resolveWorkspacePath(context.worktreePath, relativePath);
-      const entries = await readDirectoryEntries(absoluteDirectoryPath);
+      const entries = await readDirectoryEntries(context.worktreePath, relativePath);
 
       const directoryEntries: WorkspaceDirectoryEntry[] = entries
         .filter((entry) => entry.name !== '.git')
@@ -260,8 +259,9 @@ function getEmptyFileReference(): string {
   return process.platform === 'win32' ? 'NUL' : '/dev/null';
 }
 
-async function readDirectoryEntries(directoryPath: string) {
+async function readDirectoryEntries(worktreePath: string, relativePath: string) {
   try {
+    const directoryPath = await resolveWorkspaceTargetPath(worktreePath, relativePath);
     return await readdir(directoryPath, {
       withFileTypes: true
     });

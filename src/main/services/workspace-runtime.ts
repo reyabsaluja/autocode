@@ -99,13 +99,27 @@ export function normalizeNonEmptyRelativePath(relativePath: string): string {
 export function resolveWorkspacePath(worktreePath: string, relativePath: string): string {
   const normalizedRelativePath = normalizeRelativePath(relativePath);
   const resolvedPath = path.resolve(worktreePath, normalizedRelativePath);
-  const rootWithSeparator = `${worktreePath}${path.sep}`;
-
-  if (resolvedPath !== worktreePath && !resolvedPath.startsWith(rootWithSeparator)) {
+  if (!isPathWithinRoot(worktreePath, resolvedPath)) {
     throw new Error('Requested path is outside the selected workspace.');
   }
 
   return resolvedPath;
+}
+
+export async function resolveWorkspaceTargetPath(
+  worktreePath: string,
+  relativePath: string
+): Promise<string> {
+  const candidatePath = resolveWorkspacePath(worktreePath, relativePath);
+  // Resolve symlinks before touching the filesystem so workspace-scoped requests
+  // cannot escape the validated worktree root through an in-tree link target.
+  const targetPath = await realpath(candidatePath);
+
+  if (!isPathWithinRoot(worktreePath, targetPath)) {
+    throw new Error('Requested path is outside the selected workspace.');
+  }
+
+  return targetPath;
 }
 
 export function normalizeWorkspaceError(error: unknown): string {
@@ -138,6 +152,11 @@ export function isNotDirectoryError(error: unknown): boolean {
       'code' in error &&
       (error as { code?: string }).code === 'ENOTDIR'
   );
+}
+
+function isPathWithinRoot(worktreePath: string, candidatePath: string): boolean {
+  const rootWithSeparator = `${worktreePath}${path.sep}`;
+  return candidatePath === worktreePath || candidatePath.startsWith(rootWithSeparator);
 }
 
 async function resolveWorkspaceRoot(worktreePath: string): Promise<string> {

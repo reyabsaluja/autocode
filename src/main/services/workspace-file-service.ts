@@ -12,7 +12,7 @@ import {
   isMissingPathError,
   isNotDirectoryError,
   normalizeNonEmptyRelativePath,
-  resolveWorkspacePath
+  resolveWorkspaceTargetPath
 } from './workspace-runtime';
 
 export function createWorkspaceFileService(db: AppDatabase) {
@@ -22,10 +22,12 @@ export function createWorkspaceFileService(db: AppDatabase) {
     async readFile(input: WorkspaceFileReadInput): Promise<WorkspaceFileReadResult> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
       const relativePath = normalizeNonEmptyRelativePath(input.relativePath);
-      const absolutePath = resolveWorkspacePath(context.worktreePath, relativePath);
-      const fileStats = await readWorkspaceFileStats(absolutePath);
+      const { fileStats, targetPath } = await resolveWorkspaceFileTarget(
+        context.worktreePath,
+        relativePath
+      );
 
-      const buffer = await readFile(absolutePath);
+      const buffer = await readFile(targetPath);
       const isBinary = buffer.includes(0);
 
       return {
@@ -39,10 +41,12 @@ export function createWorkspaceFileService(db: AppDatabase) {
     async writeFile(input: WorkspaceFileWriteInput): Promise<WorkspaceFileWriteResult> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
       const relativePath = normalizeNonEmptyRelativePath(input.relativePath);
-      const absolutePath = resolveWorkspacePath(context.worktreePath, relativePath);
+      const { targetPath } = await resolveWorkspaceFileTarget(
+        context.worktreePath,
+        relativePath
+      );
 
-      await readWorkspaceFileStats(absolutePath);
-      await writeFile(absolutePath, input.content, 'utf8');
+      await writeFile(targetPath, input.content, 'utf8');
 
       return {
         relativePath,
@@ -53,15 +57,19 @@ export function createWorkspaceFileService(db: AppDatabase) {
   };
 }
 
-async function readWorkspaceFileStats(absolutePath: string) {
+async function resolveWorkspaceFileTarget(worktreePath: string, relativePath: string) {
   try {
-    const fileStats = await stat(absolutePath);
+    const targetPath = await resolveWorkspaceTargetPath(worktreePath, relativePath);
+    const fileStats = await stat(targetPath);
 
     if (!fileStats.isFile()) {
       throw new Error('Selected path is not a file inside this workspace.');
     }
 
-    return fileStats;
+    return {
+      fileStats,
+      targetPath
+    };
   } catch (error) {
     if (isMissingPathError(error)) {
       throw new Error('This file no longer exists in the selected workspace.');
