@@ -187,7 +187,7 @@ export function WorkspaceSidebar({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {project ? (
           <>
-            <div className="group/ws flex w-full items-center gap-2 py-3 pl-[11px] pr-2 transition hover:bg-white/[0.08]">
+            <div className="group/ws flex w-full items-center gap-1 py-3 pl-[11px] pr-2 transition hover:bg-white/[0.08]">
               <button
                 className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                 onClick={() => setIsTasksExpanded((c) => !c)}
@@ -199,11 +199,6 @@ export function WorkspaceSidebar({
                 <span className="min-w-0 truncate font-geist text-[14px] font-medium text-white/90">
                   {project.name}
                 </span>
-                {isTasksExpanded ? (
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/40" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/40" />
-                )}
               </button>
               <button
                 className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/50 transition hover:bg-white/[0.12] hover:text-white"
@@ -212,6 +207,18 @@ export function WorkspaceSidebar({
                 type="button"
               >
                 <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+              </button>
+              <button
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/50 transition hover:bg-white/[0.12] hover:text-white"
+                onClick={() => setIsTasksExpanded((c) => !c)}
+                title={isTasksExpanded ? 'Collapse tasks' : 'Expand tasks'}
+                type="button"
+              >
+                {isTasksExpanded ? (
+                  <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+                )}
               </button>
             </div>
 

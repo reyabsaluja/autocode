@@ -15,12 +15,12 @@ export function WorkspaceDiffViewer({
   selectedPath
 }: WorkspaceDiffViewerProps) {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-panel border border-border bg-surface-1 shadow-panel">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-2">
+        <span className="font-geist text-[10px] font-semibold uppercase tracking-[0.12em] text-white/40">
           Diff
         </span>
-        <span className="max-w-[60%] truncate text-[12px] text-text-faint">
+        <span className="max-w-[60%] truncate font-geist text-[12px] text-white/30">
           {selectedPath ?? 'Select a changed file'}
         </span>
       </div>
@@ -44,7 +44,7 @@ export function WorkspaceDiffViewer({
         ) : null}
 
         {!isLoading && !errorMessage && diffText ? (
-          <pre className="whitespace-pre-wrap break-words px-4 py-4 font-mono text-[12px] leading-[1.7] text-text-secondary">
+          <pre className="whitespace-pre-wrap break-words px-4 py-4 font-mono text-[12px] leading-[1.7] text-white/60">
             {diffText.split('\n').map((line, index) => (
               <span
                 key={index}
@@ -52,7 +52,7 @@ export function WorkspaceDiffViewer({
                   'block px-1',
                   line.startsWith('+') && !line.startsWith('+++') && 'bg-emerald-500/[0.06] text-emerald-300',
                   line.startsWith('-') && !line.startsWith('---') && 'bg-rose-500/[0.06] text-rose-300',
-                  line.startsWith('@@') && 'text-sky-400/80'
+                  line.startsWith('@@') && 'text-sky-400/70'
                 )}
               >
                 {line}
@@ -68,8 +68,8 @@ export function WorkspaceDiffViewer({
 function DiffMessage({ children, tone = 'subtle' }: { children: React.ReactNode; tone?: 'error' | 'subtle' }) {
   return (
     <p className={clsx(
-      'px-4 py-4 text-[13px]',
-      tone === 'error' ? 'text-rose-400' : 'text-text-faint'
+      'px-4 py-4 font-geist text-[13px]',
+      tone === 'error' ? 'text-rose-300' : 'text-white/30'
     )}>
       {children}
     </p>

@@ -33,22 +33,8 @@ export function WorkspaceChangesPanel({
   selectedPath
 }: WorkspaceChangesPanelProps) {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface-1">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
-          Changes
-        </p>
-        <button
-          className="grid h-6 w-6 place-items-center rounded-control text-text-faint transition hover:bg-white/[0.06] hover:text-text-secondary"
-          onClick={() => { void onRefresh(); }}
-          title="Refresh changes"
-          type="button"
-        >
-          <RefreshCw className="h-3 w-3" />
-        </button>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto px-1 py-1">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-auto py-1">
         {isLoading ? (
           <PanelMessage>
             <Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" />
@@ -65,7 +51,7 @@ export function WorkspaceChangesPanel({
         ) : null}
 
         {!isLoading && !loadErrorMessage ? (
-          <ul className="space-y-0.5">
+          <ul>
             {changes.map((change) => {
               const isSelected = change.relativePath === selectedPath;
 
@@ -73,10 +59,10 @@ export function WorkspaceChangesPanel({
                 <li key={`${change.status}:${change.relativePath}`}>
                   <button
                     className={clsx(
-                      'flex w-full items-center gap-2 rounded-control px-2 py-[5px] text-left transition',
+                      'flex w-full items-center gap-2.5 py-[6px] pl-3 pr-2 text-left font-geist transition',
                       isSelected
-                        ? 'bg-white/[0.08] text-text-primary'
-                        : 'text-text-secondary hover:bg-white/[0.04] hover:text-text-primary'
+                        ? 'bg-white/[0.10] text-white'
+                        : 'text-white/60 hover:bg-white/[0.06] hover:text-white/90'
                     )}
                     onClick={() => onSelectChange(change.relativePath)}
                     type="button"
@@ -91,27 +77,27 @@ export function WorkspaceChangesPanel({
         ) : null}
       </div>
 
-      <div className="border-t border-border px-3 py-3">
-        <div className="flex items-center gap-1.5 mb-2">
-          <GitCommitHorizontal className="h-3 w-3 text-text-faint" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+      <div className="border-t border-white/[0.08] px-3 py-3">
+        <div className="mb-2 flex items-center gap-1.5">
+          <GitCommitHorizontal className="h-3 w-3 text-white/30" />
+          <span className="font-geist text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">
             Commit
           </span>
         </div>
         <textarea
           className={clsx(
-            'min-h-[68px] w-full resize-none rounded-control border border-border bg-surface-0 px-3 py-2 text-[12px] text-text-primary outline-none transition',
-            'placeholder:text-text-faint focus:border-accent-muted focus:ring-1 focus:ring-accent-dim'
+            'min-h-[60px] w-full resize-none rounded-md border border-white/[0.10] bg-black/[0.20] px-3 py-2 font-geist text-[12px] text-white outline-none transition',
+            'placeholder:text-white/30 focus:border-white/[0.20] focus:ring-1 focus:ring-white/[0.06]'
           )}
           onChange={(event) => onCommitMessageChange(event.target.value)}
-          placeholder="Describe changes..."
+          placeholder="Commit message"
           value={commitMessage}
         />
 
         <button
           className={clsx(
-            'mt-2 flex w-full items-center justify-center rounded-control bg-accent px-3 py-2 text-[12px] font-semibold text-surface-0 transition',
-            'hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50'
+            'mt-2 flex w-full items-center justify-center rounded-md bg-white px-3 py-2 font-geist text-[12px] font-semibold text-[#1c1c1c] transition',
+            'hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50'
           )}
           disabled={isCommitting || changes.length === 0 || commitMessage.trim().length === 0}
           onClick={() => { void onCommit(); }}
@@ -120,17 +106,17 @@ export function WorkspaceChangesPanel({
           {isCommitting ? (
             <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           ) : null}
-          {isCommitting ? 'Committing...' : 'Commit changes'}
+          {isCommitting ? 'Committing...' : 'Commit'}
         </button>
 
         {commitNotice ? (
-          <p className="mt-2 rounded-control border border-emerald-500/20 bg-emerald-500/[0.06] px-2.5 py-2 text-[12px] text-emerald-400">
+          <p className="mt-2 rounded-md border border-emerald-500/20 bg-emerald-500/[0.06] px-2.5 py-2 font-geist text-[12px] text-emerald-300">
             {commitNotice}
           </p>
         ) : null}
 
         {commitErrorMessage ? (
-          <p className="mt-2 rounded-control border border-rose-500/20 bg-rose-500/[0.06] px-2.5 py-2 text-[12px] text-rose-400">
+          <p className="mt-2 rounded-md border border-rose-500/20 bg-rose-500/[0.06] px-2.5 py-2 font-geist text-[12px] text-rose-300">
             {commitErrorMessage}
           </p>
         ) : null}
@@ -160,8 +146,8 @@ function ChangeStatusIndicator({ status }: { status: WorkspaceChange['status'] }
 function PanelMessage({ children, tone = 'subtle' }: { children: React.ReactNode; tone?: 'error' | 'subtle' }) {
   return (
     <p className={clsx(
-      'px-2 py-2 text-[12px]',
-      tone === 'error' ? 'text-rose-400' : 'text-text-faint'
+      'px-3 py-2 font-geist text-[12px]',
+      tone === 'error' ? 'text-rose-300' : 'text-white/40'
     )}>
       {children}
     </p>

@@ -153,8 +153,8 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
 
   return (
     <>
-    <section className="grid min-h-0 flex-1 gap-2.5 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="min-w-0">
+    <section className="flex min-h-0 flex-1 gap-0">
+      <div className="min-w-0 flex-1">
         <WorkspaceEditorSurface
           ref={editorRef}
           activeChange={activeChange}
@@ -165,8 +165,8 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
         />
       </div>
 
-      <aside className="flex min-h-0 flex-col overflow-hidden rounded-panel border border-border bg-surface-2 shadow-panel">
-        <div className="flex items-center gap-0.5 border-b border-border px-2 py-1.5">
+      <aside className="flex min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#1c1c1c]">
+        <div className="flex items-center gap-1 border-b border-white/[0.08] px-3 py-2">
           <SidebarTab
             icon={<Files className="h-3.5 w-3.5" />}
             isActive={activeSidebarTab === 'files'}
@@ -182,9 +182,9 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
               setActiveSidebarTab('changes');
             }}
           />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
             <button
-              className="grid h-7 w-7 place-items-center rounded-control text-text-faint transition hover:bg-white/[0.06] hover:text-text-secondary"
+              className="grid h-7 w-7 place-items-center rounded-md text-white/40 transition hover:bg-white/[0.08] hover:text-white/70"
               onClick={() => { void handleRefresh(); }}
               title="Refresh"
               type="button"
@@ -194,7 +194,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden p-2">
+        <div className="min-h-0 flex-1 overflow-hidden">
           {activeSidebarTab === 'files' ? (
             <WorkspaceFileExplorer
               expandedDirectories={expandedDirectories}
@@ -248,10 +248,10 @@ function SidebarTab({
   return (
     <button
       className={clsx(
-        'flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[12px] font-medium transition',
+        'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-geist text-[12px] font-medium transition',
         isActive
-          ? 'bg-white/[0.08] text-text-primary'
-          : 'text-text-muted hover:bg-white/[0.04] hover:text-text-secondary'
+          ? 'bg-white/[0.10] text-white'
+          : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
       )}
       onClick={onClick}
       type="button"

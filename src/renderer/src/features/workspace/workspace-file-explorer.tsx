@@ -21,14 +21,8 @@ export function WorkspaceFileExplorer({
   const rootDirectoryQuery = useWorkspaceExplorerDirectoryQuery(taskId, '');
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-card border border-border bg-surface-1">
-      <div className="border-b border-border px-3 py-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
-          Workspace files
-        </p>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto px-1 py-1">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-auto py-1">
         {rootDirectoryQuery.isLoading ? (
           <ExplorerMessage>
             <Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" />
@@ -94,10 +88,10 @@ function WorkspaceFileTreeNode({
     <li>
       <button
         className={clsx(
-          'flex w-full items-center gap-1.5 rounded-control py-[5px] text-left text-[12px] transition',
+          'flex w-full items-center gap-1.5 py-[5px] pr-3 text-left font-geist text-[12px] transition',
           isSelected
-            ? 'bg-white/[0.08] text-text-primary'
-            : 'text-text-secondary hover:bg-white/[0.04] hover:text-text-primary'
+            ? 'bg-white/[0.10] text-white'
+            : 'text-white/60 hover:bg-white/[0.06] hover:text-white/90'
         )}
         onClick={() => {
           if (isDirectory) {
@@ -112,15 +106,15 @@ function WorkspaceFileTreeNode({
       >
         {isDirectory ? (
           isExpanded ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-text-faint" />
+            <ChevronDown className="h-3 w-3 shrink-0 text-white/30" />
           ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-text-faint" />
+            <ChevronRight className="h-3 w-3 shrink-0 text-white/30" />
           )
         ) : (
-          <File className="h-3 w-3 shrink-0 text-text-faint" />
+          <File className="h-3 w-3 shrink-0 text-white/30" />
         )}
         {isDirectory ? (
-          <Folder className="h-3 w-3 shrink-0 text-amber-400/70" />
+          <Folder className="h-3 w-3 shrink-0 text-amber-400/60" />
         ) : null}
         <span className={clsx(isDirectory && 'font-medium')}>{entry.name}</span>
       </button>
@@ -164,7 +158,7 @@ function WorkspaceFileTreeNode({
 
 function ExplorerMessage({
   children,
-  paddingLeft = 8,
+  paddingLeft = 12,
   size = 'default',
   tone = 'subtle'
 }: {
@@ -176,9 +170,9 @@ function ExplorerMessage({
   return (
     <p
       className={clsx(
-        'py-1.5',
+        'py-1.5 font-geist',
         size === 'sm' ? 'text-[11px]' : 'text-[12px]',
-        tone === 'error' ? 'text-rose-400' : 'text-text-faint'
+        tone === 'error' ? 'text-rose-300' : 'text-white/40'
       )}
       style={{ paddingLeft }}
     >

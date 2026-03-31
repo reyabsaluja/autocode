@@ -237,7 +237,7 @@ export function App() {
         </div>
       )}
 
-      <main className="flex min-w-0 flex-1 flex-col gap-2.5 p-2.5">
+      <main className="flex min-w-0 flex-1 flex-col">
         <WorkspaceDetails
           ref={editorRef}
           isLoadingTasks={taskWorkspacesQuery.isLoading}

@@ -137,13 +137,13 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
     const editorTitle = activeFilePath ? basename(activeFilePath) : 'Editor';
 
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-panel border border-border bg-surface-2 shadow-panel">
-        <div className="border-b border-border px-3 py-2">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-surface-0">
+        <div className="border-b border-white/[0.08] px-4 py-2">
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <FileCode className="h-3.5 w-3.5 shrink-0 text-text-faint" />
-                <p className="truncate text-[13px] font-semibold text-text-primary">{editorTitle}</p>
+                <FileCode className="h-3.5 w-3.5 shrink-0 text-white/30" />
+                <p className="truncate font-geist text-[13px] font-semibold text-white/90">{editorTitle}</p>
                 {isDirty ? <StateBadge tone="dirty" value="Unsaved" /> : null}
                 {activeChange ? (
                   <StateBadge
@@ -152,7 +152,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
                   />
                 ) : null}
               </div>
-              <p className="mt-0.5 truncate pl-[22px] text-[11px] text-text-faint">
+              <p className="mt-0.5 truncate pl-[22px] font-geist text-[11px] text-white/30">
                 {activeFilePath ?? 'Select a file to edit'}
               </p>
             </div>
@@ -168,11 +168,11 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
                 label="Diff"
                 onClick={() => onModeChange('diff')}
               />
-              <div className="mx-1 h-4 w-px bg-border" />
+              <div className="mx-1 h-4 w-px bg-white/[0.08]" />
               <button
                 className={clsx(
-                  'flex items-center gap-1 rounded-control px-2 py-1 text-[11px] font-medium transition',
-                  'text-text-muted hover:bg-white/[0.06] hover:text-text-secondary',
+                  'flex items-center gap-1 rounded-md px-2 py-1 font-geist text-[11px] font-medium transition',
+                  'text-white/40 hover:bg-white/[0.06] hover:text-white/70',
                   'disabled:cursor-not-allowed disabled:opacity-40'
                 )}
                 disabled={!activeFilePath || !isDirty}
@@ -185,8 +185,8 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
               </button>
               <button
                 className={clsx(
-                  'flex items-center gap-1 rounded-control bg-accent px-2.5 py-1 text-[11px] font-semibold text-surface-0 transition',
-                  'hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40'
+                  'flex items-center gap-1 rounded-md bg-white px-2.5 py-1 font-geist text-[11px] font-semibold text-[#1c1c1c] transition',
+                  'hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40'
                 )}
                 disabled={!activeFilePath || isBinary || writeFileMutation.isPending || !isDirty}
                 onClick={() => { void persistFile(); }}
@@ -231,20 +231,20 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
         </div>
 
         {saveNotice ? (
-          <div className="border-b border-emerald-500/10 bg-emerald-500/[0.04] px-4 py-2 text-[12px] text-emerald-400">
+          <div className="border-b border-emerald-500/10 bg-emerald-500/[0.04] px-4 py-2 font-geist text-[12px] text-emerald-300">
             {saveNotice}
           </div>
         ) : null}
 
         {saveErrorMessage ? (
-          <div className="flex items-center gap-2 border-b border-rose-500/10 bg-rose-500/[0.04] px-4 py-2 text-[12px] text-rose-400">
+          <div className="flex items-center gap-2 border-b border-rose-500/10 bg-rose-500/[0.04] px-4 py-2 font-geist text-[12px] text-rose-300">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             {saveErrorMessage}
           </div>
         ) : null}
 
         {mode === 'diff' && isDirty ? (
-          <div className="border-b border-amber-500/10 bg-amber-500/[0.04] px-4 py-2 text-[12px] text-amber-400">
+          <div className="border-b border-amber-500/10 bg-amber-500/[0.04] px-4 py-2 font-geist text-[12px] text-amber-300">
             Diff reflects the last saved version. Save to refresh.
           </div>
         ) : null}
@@ -271,7 +271,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
               selectedPath={activeFilePath}
             />
           ) : (
-            <div className="h-full bg-surface-1">
+            <div className="h-full">
               <CodeMirror
                 basicSetup={{
                   foldGutter: false,
@@ -343,10 +343,10 @@ function ModeToggle({
   return (
     <button
       className={clsx(
-        'rounded-control px-2.5 py-1 text-[11px] font-medium transition',
+        'rounded-md px-2.5 py-1 font-geist text-[11px] font-medium transition',
         isActive
-          ? 'bg-white/[0.08] text-text-primary'
-          : 'text-text-muted hover:bg-white/[0.04] hover:text-text-secondary'
+          ? 'bg-white/[0.10] text-white'
+          : 'text-white/40 hover:bg-white/[0.06] hover:text-white/70'
       )}
       onClick={onClick}
       type="button"
@@ -359,10 +359,10 @@ function ModeToggle({
 function StateBadge({ tone, value }: { tone: 'dirty' | 'modified'; value: string }) {
   return (
     <span className={clsx(
-      'rounded-control border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em]',
+      'rounded-md border px-1.5 py-0.5 font-geist text-[10px] font-bold uppercase tracking-[0.06em]',
       tone === 'dirty'
-        ? 'border-amber-500/20 bg-amber-500/10 text-amber-400'
-        : 'border-sky-500/20 bg-sky-500/10 text-sky-400'
+        ? 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+        : 'border-sky-500/20 bg-sky-500/10 text-sky-300'
     )}>
       {value}
     </span>
@@ -371,10 +371,10 @@ function StateBadge({ tone, value }: { tone: 'dirty' | 'modified'; value: string
 
 function MetricPill({ icon, label, value }: { icon?: React.ReactNode; label?: string; value: string }) {
   return (
-    <span className="flex items-center gap-1 rounded-full border border-border bg-white/[0.02] px-2 py-0.5 text-[10px] text-text-faint">
+    <span className="flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 font-geist text-[10px] text-white/30">
       {icon}
       {label ? <span>{label}</span> : null}
-      <span className="tabular-nums text-text-muted">{value}</span>
+      <span className="tabular-nums text-white/50">{value}</span>
     </span>
   );
 }
@@ -383,9 +383,9 @@ function EditorEmptyState() {
   return (
     <div className="grid h-full place-items-center px-8">
       <div className="max-w-sm text-center">
-        <FileCode className="mx-auto mb-3 h-8 w-8 text-text-faint" />
-        <p className="text-[13px] font-medium text-text-secondary">Select a file to begin editing.</p>
-        <p className="mt-1 text-[12px] text-text-faint">
+        <FileCode className="mx-auto mb-3 h-8 w-8 text-white/20" />
+        <p className="font-geist text-[13px] font-medium text-white/60">Select a file to begin editing.</p>
+        <p className="mt-1 font-geist text-[12px] text-white/30">
           Edits are scoped to the active task worktree.
         </p>
       </div>
@@ -397,8 +397,8 @@ function EditorMessage({ children, tone = 'subtle' }: { children: React.ReactNod
   return (
     <div className="grid h-full place-items-center px-8">
       <p className={clsx(
-        'max-w-xl text-center text-[13px]',
-        tone === 'error' ? 'text-rose-400' : 'text-text-faint'
+        'max-w-xl text-center font-geist text-[13px]',
+        tone === 'error' ? 'text-rose-300' : 'text-white/30'
       )}>
         {children}
       </p>

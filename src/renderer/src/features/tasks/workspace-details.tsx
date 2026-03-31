@@ -22,10 +22,10 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 }, ref) {
   if (!project) {
     return (
-      <section className="grid h-full animate-fade-in place-items-center rounded-panel border border-border bg-surface-2">
+      <section className="grid h-full animate-fade-in place-items-center bg-surface-0">
         <div className="max-w-sm text-center">
-          <FolderGit2 className="mx-auto mb-3 h-8 w-8 text-text-faint" />
-          <p className="text-[13px] text-text-muted">
+          <FolderGit2 className="mx-auto mb-3 h-8 w-8 text-white/15" />
+          <p className="font-geist text-[13px] text-white/40">
             Add or select a repository to open its workspaces.
           </p>
         </div>
@@ -35,10 +35,10 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   if (isLoadingTasks) {
     return (
-      <section className="grid h-full animate-fade-in place-items-center rounded-panel border border-border bg-surface-2">
+      <section className="grid h-full animate-fade-in place-items-center bg-surface-0">
         <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-text-faint" />
-          <p className="text-[13px] text-text-muted">Loading workspaces</p>
+          <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+          <p className="font-geist text-[13px] text-white/40">Loading workspaces</p>
         </div>
       </section>
     );
@@ -46,10 +46,10 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   if (!taskWorkspace) {
     return (
-      <section className="grid h-full animate-fade-in place-items-center rounded-panel border border-border bg-surface-2">
+      <section className="grid h-full animate-fade-in place-items-center bg-surface-0">
         <div className="max-w-sm text-center">
-          <p className="text-[13px] text-text-muted">
-            Create or select a workspace in <span className="font-medium text-text-primary">{project.name}</span>.
+          <p className="font-geist text-[13px] text-white/40">
+            Create or select a workspace in <span className="font-medium text-white/70">{project.name}</span>.
           </p>
         </div>
       </section>
@@ -59,13 +59,13 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   const { task, worktree } = taskWorkspace;
 
   return (
-    <section className="flex h-full flex-col gap-2.5 animate-fade-in">
-      <header className="flex items-center justify-between rounded-panel border border-border bg-surface-2 px-4 py-2.5">
+    <section className="flex h-full flex-col animate-fade-in">
+      <header className="flex items-center justify-between border-b border-white/[0.06] bg-surface-0 px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-3">
           <div className="min-w-0">
-            <p className="truncate text-[14px] font-semibold text-text-primary">{task.title}</p>
+            <p className="truncate font-geist text-[14px] font-semibold text-white/90">{task.title}</p>
             {task.description ? (
-              <p className="mt-0.5 truncate text-[12px] text-text-muted">{task.description}</p>
+              <p className="mt-0.5 truncate font-geist text-[12px] text-white/40">{task.description}</p>
             ) : null}
           </div>
         </div>
@@ -84,7 +84,7 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
       </header>
 
       {task.lastError ? (
-        <div className="flex items-center gap-2 rounded-card border border-rose-500/20 bg-rose-500/[0.06] px-4 py-2.5 text-[13px] text-rose-300">
+        <div className="flex items-center gap-2 border-b border-rose-500/20 bg-rose-500/[0.04] px-4 py-2.5 font-geist text-[13px] text-rose-300">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {task.lastError}
         </div>
@@ -97,8 +97,8 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
           taskWorkspace={taskWorkspace}
         />
       ) : (
-        <div className="grid min-h-[280px] place-items-center rounded-panel border border-border bg-surface-2">
-          <p className="text-[13px] text-text-muted">
+        <div className="grid min-h-[280px] place-items-center bg-surface-0">
+          <p className="font-geist text-[13px] text-white/40">
             This task does not have an active worktree yet.
           </p>
         </div>
@@ -115,7 +115,7 @@ function HeaderBadge({
   value: string;
 }) {
   return (
-    <span className="flex items-center gap-1 rounded-control bg-white/[0.04] px-2 py-1 text-[11px] font-medium text-text-secondary">
+    <span className="flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 font-geist text-[11px] font-medium text-white/50">
       {icon}
       <span className="max-w-[120px] truncate">{value}</span>
     </span>
@@ -125,17 +125,17 @@ function HeaderBadge({
 function TaskStatusBadge({ status }: { status: TaskWorkspace['task']['status'] }) {
   const styles: Record<TaskWorkspace['task']['status'], string> = {
     archived: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
-    completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    draft: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    failed: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-    in_progress: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
-    needs_review: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
-    ready: 'bg-accent-dim text-accent border-accent-muted'
+    completed: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+    draft: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+    failed: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
+    in_progress: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
+    needs_review: 'bg-violet-500/10 text-violet-300 border-violet-500/20',
+    ready: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
   };
 
   return (
     <span className={clsx(
-      'rounded-control border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
+      'rounded-md border px-2 py-1 font-geist text-[10px] font-bold uppercase tracking-[0.08em]',
       styles[status]
     )}>
       {status.replace('_', ' ')}
@@ -146,15 +146,15 @@ function TaskStatusBadge({ status }: { status: TaskWorkspace['task']['status'] }
 function WorktreeStatusBadge({ status }: { status: WorktreeStatus }) {
   const styles: Record<WorktreeStatus, string> = {
     archived: 'bg-zinc-500/10 text-zinc-400',
-    dirty: 'bg-amber-500/10 text-amber-400',
-    failed: 'bg-rose-500/10 text-rose-400',
-    provisioning: 'bg-sky-500/10 text-sky-400',
-    ready: 'bg-emerald-500/10 text-emerald-400'
+    dirty: 'bg-amber-500/10 text-amber-300',
+    failed: 'bg-rose-500/10 text-rose-300',
+    provisioning: 'bg-sky-500/10 text-sky-300',
+    ready: 'bg-emerald-500/10 text-emerald-300'
   };
 
   return (
     <span className={clsx(
-      'rounded-control px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
+      'rounded-md px-2 py-1 font-geist text-[10px] font-bold uppercase tracking-[0.08em]',
       styles[status]
     )}>
       {status}
