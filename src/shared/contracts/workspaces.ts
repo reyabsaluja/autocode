@@ -4,6 +4,7 @@ import { projectSchema } from '../domain/project';
 import { taskWorkspaceSchema } from '../domain/task-workspace';
 import {
   workspaceChangeSchema,
+  workspaceChangeStatusSchema,
   workspaceCommitResultSchema as workspaceCommitDomainResultSchema,
   workspaceDiffSchema,
   workspaceDirectorySnapshotSchema
@@ -21,7 +22,9 @@ export const workspaceChangesInputSchema = z.object({
 });
 
 export const workspaceDiffInputSchema = z.object({
+  previousPath: z.string().trim().min(1).nullable().optional(),
   relativePath: z.string().trim().min(1),
+  status: workspaceChangeStatusSchema.optional(),
   taskId: taskIdSchema
 });
 

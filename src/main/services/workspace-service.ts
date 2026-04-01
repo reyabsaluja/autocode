@@ -86,14 +86,11 @@ export function createWorkspaceService(db: AppDatabase) {
     async getDiff(input: WorkspaceDiffInput): Promise<WorkspaceDiff | null> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
       const relativePath = normalizeNonEmptyRelativePath(input.relativePath);
-      const changes = await listWorkspaceChanges(context.worktreePath);
-      const change = changes.find((entry) => entry.relativePath === relativePath);
-
-      if (!change) {
-        return null;
-      }
-
-      const diffText = await resolveWorkspaceDiff(context.worktreePath, change);
+      const diffText = await resolveWorkspaceDiffText(context.worktreePath, {
+        previousPath: input.previousPath ?? null,
+        relativePath,
+        status: input.status
+      });
 
       if (!diffText) {
         return null;
@@ -108,11 +105,9 @@ export function createWorkspaceService(db: AppDatabase) {
     async commitAll(input: WorkspaceCommitInput): Promise<WorkspaceCommitResult> {
       const timestamp = new Date().toISOString();
       let context: Awaited<ReturnType<typeof workspaceRuntime.observeWorkspaceContext>>;
-      let changes: WorkspaceChange[];
 
       try {
         context = await workspaceRuntime.observeWorkspaceContext(input.taskId);
-        changes = await listWorkspaceChanges(context.worktreePath);
       } catch (error) {
         throw persistWorkspaceObservationFailure(
           taskWorkspaceRepository,
@@ -120,16 +115,6 @@ export function createWorkspaceService(db: AppDatabase) {
           timestamp,
           error
         );
-      }
-
-      if (changes.length === 0) {
-        taskWorkspaceRepository.recordWorkspaceHealth({
-          lastError: null,
-          taskId: input.taskId,
-          timestamp,
-          worktreeStatus: 'ready'
-        });
-        throw new Error('This workspace has no changes to commit.');
       }
 
       const message = input.message.trim();
@@ -252,6 +237,41 @@ async function listWorkspaceChanges(worktreePath: string): Promise<WorkspaceChan
   return parseWorkspaceChanges(output);
 }
 
+async function resolveWorkspaceDiffText(
+  worktreePath: string,
+  input: Pick<WorkspaceDiffInput, 'previousPath' | 'relativePath' | 'status'>
+): Promise<string | null> {
+  const hintedChange = createHintedWorkspaceChange(input);
+
+  if (hintedChange) {
+    return resolveWorkspaceDiff(worktreePath, hintedChange);
+  }
+
+  const trackedDiffText = await resolveTrackedWorkspaceDiff(worktreePath, input.relativePath);
+
+  if (trackedDiffText) {
+    return trackedDiffText;
+  }
+
+  const output = await execGit(
+    ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--', input.relativePath],
+    worktreePath
+  );
+
+  if (!output) {
+    return null;
+  }
+
+  const change =
+    parseWorkspaceChanges(output).find((entry) => entry.relativePath === input.relativePath) ?? null;
+
+  if (!change) {
+    return null;
+  }
+
+  return resolveWorkspaceDiff(worktreePath, change);
+}
+
 async function resolveWorkspaceDiff(worktreePath: string, change: WorkspaceChange): Promise<string> {
   if (change.status === 'untracked') {
     return execGit(
@@ -281,6 +301,35 @@ async function resolveWorkspaceDiff(worktreePath: string, change: WorkspaceChang
     worktreePath,
     { allowedExitCodes: [1] }
   );
+}
+
+async function resolveTrackedWorkspaceDiff(
+  worktreePath: string,
+  relativePath: string
+): Promise<string> {
+  return execGit(
+    ['diff', 'HEAD', '--find-renames', '--', relativePath],
+    worktreePath,
+    { allowedExitCodes: [1] }
+  );
+}
+
+function createHintedWorkspaceChange(
+  input: Pick<WorkspaceDiffInput, 'previousPath' | 'relativePath' | 'status'>
+): WorkspaceChange | null {
+  if (!input.status) {
+    return null;
+  }
+
+  if (input.status === 'renamed' && !input.previousPath) {
+    return null;
+  }
+
+  return {
+    previousPath: input.previousPath ?? null,
+    relativePath: input.relativePath,
+    status: input.status
+  };
 }
 
 function parseWorkspaceChanges(output: string): WorkspaceChange[] {

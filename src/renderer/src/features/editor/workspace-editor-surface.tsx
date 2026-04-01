@@ -31,7 +31,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
     const shouldLoadFile = mode === 'editor';
     const shouldLoadDiff = mode === 'diff' && activeFilePath !== null;
     const fileQuery = useWorkspaceFileQuery(taskId, activeFilePath, shouldLoadFile);
-    const diffQuery = useWorkspaceDiffQuery(taskId, activeFilePath, shouldLoadDiff);
+    const diffQuery = useWorkspaceDiffQuery(taskId, activeFilePath, activeChange, shouldLoadDiff);
     const writeFileMutation = useWriteWorkspaceFileMutation(taskId, activeFilePath);
     const [bufferContent, setBufferContent] = useState('');
     const [lastSavedContent, setLastSavedContent] = useState('');

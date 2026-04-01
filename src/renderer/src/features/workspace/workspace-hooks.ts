@@ -8,6 +8,7 @@ import type {
   WorkspaceDiffInput
 } from '@shared/contracts/workspaces';
 import type { Project } from '@shared/domain/project';
+import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import { autocodeApi } from '../../lib/autocode-api';
@@ -79,17 +80,20 @@ export function useWorkspaceChangesQuery(taskId: number | null) {
 export function useWorkspaceDiffQuery(
   taskId: number | null,
   relativePath: string | null,
+  activeChange: WorkspaceChange | null,
   enabled = true
 ) {
   return useQuery({
     enabled: taskId !== null && relativePath !== null && enabled,
     queryKey:
       taskId !== null && relativePath !== null
-        ? queryKeys.workspaceDiff(taskId, relativePath)
+        ? queryKeys.workspaceDiff(taskId, relativePath, activeChange)
         : ['workspace', 'idle', 'diff'],
     queryFn: () =>
       autocodeApi.workspaces.getDiff({
+        previousPath: activeChange?.previousPath,
         relativePath: relativePath!,
+        status: activeChange?.status,
         taskId: taskId!
       } satisfies WorkspaceDiffInput),
     refetchOnMount: 'always',
