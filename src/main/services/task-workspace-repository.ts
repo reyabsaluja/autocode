@@ -20,6 +20,12 @@ export interface RecoverableTaskWorkspaceContext {
   worktree: Worktree | null;
 }
 
+export interface WorkspaceHealthRecordResult {
+  didChange: boolean;
+  project: Project;
+  taskWorkspace: TaskWorkspace;
+}
+
 export interface FinalizeTaskWorkspaceInput {
   branchName: string;
   projectId: number;
@@ -52,14 +58,16 @@ type TaskRecord = typeof tasksTable.$inferSelect;
 type WorktreeRecord = typeof worktreesTable.$inferSelect;
 
 export function createTaskWorkspaceRepository(db: AppDatabase) {
-  const recordWorkspaceHealth = (input: WorkspaceHealthInput): void => {
-    db.transaction((tx) => {
+  const recordWorkspaceHealth = (input: WorkspaceHealthInput): WorkspaceHealthRecordResult => {
+    return db.transaction((tx) => {
       const row = tx
         .select({
+          project: projectsTable,
           task: tasksTable,
           worktree: worktreesTable
         })
         .from(tasksTable)
+        .innerJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
         .leftJoin(worktreesTable, eq(worktreesTable.taskId, tasksTable.id))
         .where(eq(tasksTable.id, input.taskId))
         .get();
@@ -79,37 +87,62 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       const worktreeChanged = row.worktree?.id
         ? currentWorktreeStatus !== input.worktreeStatus
         : false;
-
-      if (!taskChanged && !worktreeChanged) {
-        return;
-      }
-
-      tx.update(tasksTable)
-        .set({
-          lastError: nextTaskLastError,
-          status: nextTaskState.status,
-          statusBeforeFailure: nextTaskState.statusBeforeFailure,
-          updatedAt: input.timestamp
-        })
-        .where(eq(tasksTable.id, input.taskId))
-        .run();
-
-      if (row.worktree?.id) {
-        tx.update(worktreesTable)
-          .set({
+      const didChange = taskChanged || worktreeChanged;
+      const nextTaskRecord: TaskRecord = {
+        ...row.task,
+        lastError: nextTaskLastError,
+        status: nextTaskState.status,
+        statusBeforeFailure: nextTaskState.statusBeforeFailure,
+        updatedAt: didChange ? input.timestamp : row.task.updatedAt
+      };
+      const nextWorktreeRecord: WorktreeRecord | null = row.worktree?.id
+        ? {
+            ...row.worktree,
             status: input.worktreeStatus,
+            updatedAt: didChange ? input.timestamp : row.worktree.updatedAt
+          }
+        : null;
+      const nextProject: Project = didChange
+        ? {
+            ...row.project,
+            updatedAt: input.timestamp
+          }
+        : row.project;
+
+      if (didChange) {
+        tx.update(tasksTable)
+          .set({
+            lastError: nextTaskLastError,
+            status: nextTaskState.status,
+            statusBeforeFailure: nextTaskState.statusBeforeFailure,
             updatedAt: input.timestamp
           })
-          .where(eq(worktreesTable.taskId, input.taskId))
+          .where(eq(tasksTable.id, input.taskId))
+          .run();
+
+        if (row.worktree?.id) {
+          tx.update(worktreesTable)
+            .set({
+              status: input.worktreeStatus,
+              updatedAt: input.timestamp
+            })
+            .where(eq(worktreesTable.taskId, input.taskId))
+            .run();
+        }
+
+        tx.update(projectsTable)
+          .set({
+            updatedAt: input.timestamp
+          })
+          .where(eq(projectsTable.id, row.task.projectId))
           .run();
       }
 
-      tx.update(projectsTable)
-        .set({
-          updatedAt: input.timestamp
-        })
-        .where(eq(projectsTable.id, row.task.projectId))
-        .run();
+      return {
+        didChange,
+        project: nextProject,
+        taskWorkspace: createTaskWorkspace(nextTaskRecord, nextWorktreeRecord)
+      };
     });
   };
 
@@ -344,8 +377,8 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       });
     },
 
-    recordWorkspaceHealth(input: WorkspaceHealthInput): void {
-      recordWorkspaceHealth(input);
+    recordWorkspaceHealth(input: WorkspaceHealthInput): WorkspaceHealthRecordResult {
+      return recordWorkspaceHealth(input);
     }
   };
 }

@@ -37,7 +37,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   const [expandedDirectories, setExpandedDirectories] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
-  const changes = changesQuery.data ?? [];
+  const changes = changesQuery.data?.changes ?? [];
   const { dialogProps: fileSwitchDialogProps, requestTransition: requestFileTransition } =
     useUnsavedChangesGuard(editorRef);
   const activeChange = useMemo(

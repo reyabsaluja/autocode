@@ -1,7 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { WorkspaceCommitInput, WorkspaceDirectoryInput, WorkspaceDiffInput } from '@shared/contracts/workspaces';
+import type {
+  WorkspaceCollectionSync,
+  WorkspaceCommitInput,
+  WorkspaceDirectoryInput,
+  WorkspaceDiffInput
+} from '@shared/contracts/workspaces';
+import type { Project } from '@shared/domain/project';
+import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
@@ -32,7 +39,8 @@ export function useWorkspaceExplorerDirectoryQuery(
 
 export function useWorkspaceChangesQuery(taskId: number | null) {
   const queryClient = useQueryClient();
-  const lastSyncedHealthAtRef = useRef(0);
+  const lastHandledDataAtRef = useRef(0);
+  const lastHandledErrorAtRef = useRef(0);
   const query = useQuery({
     enabled: taskId !== null,
     queryKey: taskId !== null ? queryKeys.workspaceChanges(taskId) : ['workspace', 'idle', 'changes'],
@@ -42,18 +50,28 @@ export function useWorkspaceChangesQuery(taskId: number | null) {
     staleTime: 0
   });
 
-  const settledAt = Math.max(query.dataUpdatedAt, query.errorUpdatedAt);
-
   useEffect(() => {
-    if (taskId === null || settledAt === 0 || settledAt === lastSyncedHealthAtRef.current) {
+    if (taskId === null || query.dataUpdatedAt === 0 || query.dataUpdatedAt === lastHandledDataAtRef.current) {
       return;
     }
 
-    lastSyncedHealthAtRef.current = settledAt;
-    // listChanges is the workspace-health observation path in main, so task/project
-    // collections need a follow-up refresh after it settles to stay consistent.
-    void invalidateWorkspaceCollections(queryClient);
-  }, [queryClient, settledAt, taskId]);
+    lastHandledDataAtRef.current = query.dataUpdatedAt;
+
+    if (!query.data?.observation.didHealthChange) {
+      return;
+    }
+
+    syncWorkspaceCollections(queryClient, query.data.observation);
+  }, [query.data, query.dataUpdatedAt, queryClient, taskId]);
+
+  useEffect(() => {
+    if (taskId === null || query.errorUpdatedAt === 0 || query.errorUpdatedAt === lastHandledErrorAtRef.current) {
+      return;
+    }
+
+    lastHandledErrorAtRef.current = query.errorUpdatedAt;
+    void invalidateWorkspaceCollectionsForTask(queryClient, taskId);
+  }, [query.errorUpdatedAt, queryClient, taskId]);
 
   return query;
 }
@@ -94,6 +112,14 @@ export function useCommitWorkspaceMutation(taskId: number | null) {
         taskId
       });
     },
+    onSuccess: (result) => {
+      syncWorkspaceCollections(queryClient, result);
+    },
+    onError: async () => {
+      if (taskId !== null) {
+        await invalidateWorkspaceCollectionsForTask(queryClient, taskId);
+      }
+    },
     onSettled: async () => {
       if (taskId !== null) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
@@ -102,7 +128,70 @@ export function useCommitWorkspaceMutation(taskId: number | null) {
   });
 }
 
-async function invalidateWorkspaceCollections(queryClient: ReturnType<typeof useQueryClient>) {
-  await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+function syncWorkspaceCollections(
+  queryClient: ReturnType<typeof useQueryClient>,
+  input: WorkspaceCollectionSync
+) {
+  queryClient.setQueryData<TaskWorkspace[]>(
+    queryKeys.taskWorkspaces(input.project.id),
+    (current) => {
+      if (!current) {
+        return current;
+      }
+
+      const next = current.filter((entry) => entry.task.id !== input.taskWorkspace.task.id);
+      return [input.taskWorkspace, ...next].sort(compareTaskWorkspacesByUpdatedAt);
+    }
+  );
+
+  queryClient.setQueryData<Project[]>(queryKeys.projects, (current) => {
+    if (!current) {
+      return current;
+    }
+
+    const next = current.filter((entry) => entry.id !== input.project.id);
+    return [input.project, ...next].sort(compareProjectsByUpdatedAt);
+  });
+}
+
+async function invalidateWorkspaceCollectionsForTask(
+  queryClient: ReturnType<typeof useQueryClient>,
+  taskId: number
+) {
+  const projectId = findProjectIdForTask(queryClient, taskId);
+
+  if (projectId !== null) {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.taskWorkspaces(projectId) });
+  }
+
   await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+}
+
+function findProjectIdForTask(
+  queryClient: ReturnType<typeof useQueryClient>,
+  taskId: number
+): number | null {
+  const taskLists = queryClient.getQueriesData<TaskWorkspace[]>({ queryKey: ['tasks'] });
+
+  for (const [, taskWorkspaces] of taskLists) {
+    if (!taskWorkspaces) {
+      continue;
+    }
+
+    const matchingWorkspace = taskWorkspaces.find((workspace) => workspace.task.id === taskId);
+
+    if (matchingWorkspace) {
+      return matchingWorkspace.task.projectId;
+    }
+  }
+
+  return null;
+}
+
+function compareTaskWorkspacesByUpdatedAt(left: TaskWorkspace, right: TaskWorkspace) {
+  return right.task.updatedAt.localeCompare(left.task.updatedAt);
+}
+
+function compareProjectsByUpdatedAt(left: Project, right: Project) {
+  return right.updatedAt.localeCompare(left.updatedAt);
 }

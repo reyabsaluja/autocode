@@ -1,9 +1,14 @@
 import { readdir } from 'node:fs/promises';
 
-import type { WorkspaceCommitInput, WorkspaceDiffInput, WorkspaceDirectoryInput } from '../../shared/contracts/workspaces';
+import type {
+  WorkspaceChangesResult,
+  WorkspaceCommitInput,
+  WorkspaceCommitResult,
+  WorkspaceDiffInput,
+  WorkspaceDirectoryInput
+} from '../../shared/contracts/workspaces';
 import type {
   WorkspaceChange,
-  WorkspaceCommitResult,
   WorkspaceDiff,
   WorkspaceDirectoryEntry,
   WorkspaceDirectorySnapshot
@@ -52,21 +57,27 @@ export function createWorkspaceService(db: AppDatabase) {
       };
     },
 
-    async listChanges(taskId: number): Promise<WorkspaceChange[]> {
+    async listChanges(taskId: number): Promise<WorkspaceChangesResult> {
       const timestamp = new Date().toISOString();
 
       try {
         const context = await workspaceRuntime.observeWorkspaceContext(taskId);
         const changes = await listWorkspaceChanges(context.worktreePath);
-
-        taskWorkspaceRepository.recordWorkspaceHealth({
+        const observation = taskWorkspaceRepository.recordWorkspaceHealth({
           lastError: null,
           taskId,
           timestamp,
           worktreeStatus: changes.length > 0 ? 'dirty' : 'ready'
         });
 
-        return changes;
+        return {
+          changes,
+          observation: {
+            didHealthChange: observation.didChange,
+            project: observation.project,
+            taskWorkspace: observation.taskWorkspace
+          }
+        };
       } catch (error) {
         throw persistWorkspaceObservationFailure(taskWorkspaceRepository, taskId, timestamp, error);
       }
@@ -177,7 +188,24 @@ export function createWorkspaceService(db: AppDatabase) {
       return {
         commitMessage: message,
         commitSha,
-        taskId: context.task.id
+        project: {
+          ...context.project,
+          updatedAt: timestamp
+        },
+        taskId: context.task.id,
+        taskWorkspace: {
+          task: {
+            ...context.task,
+            lastError: null,
+            status: nextStatus,
+            updatedAt: timestamp
+          },
+          worktree: {
+            ...context.worktree,
+            status: 'ready',
+            updatedAt: timestamp
+          }
+        }
       };
     }
   };

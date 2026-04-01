@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { projectSchema } from '../domain/project';
+import { taskWorkspaceSchema } from '../domain/task-workspace';
 import {
   workspaceChangeSchema,
   workspaceCommitResultSchema as workspaceCommitDomainResultSchema,
@@ -28,15 +30,32 @@ export const workspaceCommitInputSchema = z.object({
   taskId: taskIdSchema
 });
 
+export const workspaceCollectionSyncSchema = z.object({
+  project: projectSchema,
+  taskWorkspace: taskWorkspaceSchema
+});
+
+export const workspaceChangesObservationSchema = workspaceCollectionSyncSchema.extend({
+  didHealthChange: z.boolean()
+});
+
 export const workspaceDirectoryResultSchema = workspaceDirectorySnapshotSchema;
-export const workspaceChangesResultSchema = z.array(workspaceChangeSchema);
+export const workspaceChangesResultSchema = z.object({
+  changes: z.array(workspaceChangeSchema),
+  observation: workspaceChangesObservationSchema
+});
 export const workspaceDiffResultSchema = workspaceDiffSchema.nullable();
-export const workspaceCommitResultSchema = workspaceCommitDomainResultSchema;
+export const workspaceCommitResultSchema = workspaceCommitDomainResultSchema.extend({
+  project: projectSchema,
+  taskWorkspace: taskWorkspaceSchema
+});
 
 export type WorkspaceDirectoryInput = z.infer<typeof workspaceDirectoryInputSchema>;
 export type WorkspaceChangesInput = z.infer<typeof workspaceChangesInputSchema>;
 export type WorkspaceDiffInput = z.infer<typeof workspaceDiffInputSchema>;
 export type WorkspaceCommitInput = z.infer<typeof workspaceCommitInputSchema>;
+export type WorkspaceCollectionSync = z.infer<typeof workspaceCollectionSyncSchema>;
+export type WorkspaceChangesObservation = z.infer<typeof workspaceChangesObservationSchema>;
 export type WorkspaceDirectoryResult = z.infer<typeof workspaceDirectoryResultSchema>;
 export type WorkspaceChangesResult = z.infer<typeof workspaceChangesResultSchema>;
 export type WorkspaceDiffResult = z.infer<typeof workspaceDiffResultSchema>;
