@@ -1,4 +1,7 @@
-import { mkdir } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { access, mkdir, realpath } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import { spawn, type IPty } from 'node-pty';
 
@@ -50,6 +53,7 @@ type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 const ACTIVE_AGENT_SESSION_STATUSES = new Set(['starting', 'running']);
 const INTERRUPTED_SESSION_MESSAGE =
   'Autocode interrupted this Codex run because the app restarted before it finished.';
+const CODEX_COMMAND = 'codex';
 
 export function createAgentSessionService(
   db: AppDatabase,
@@ -171,12 +175,14 @@ export function createAgentSessionService(
       }
 
       let pty: IPty;
+      const executablePath = await resolveCodexExecutablePath();
+      const agentProcessEnv = buildAgentProcessEnv();
 
       try {
-        pty = spawn('codex', [], {
+        pty = spawn(executablePath, [], {
           cols: input.cols,
           cwd: context.worktreePath,
-          env: process.env,
+          env: agentProcessEnv,
           name: 'xterm-color',
           rows: input.rows
         });
@@ -516,7 +522,11 @@ function buildInitialPrompt(title: string, description: string | null): string {
 function normalizeAgentSpawnError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
 
-  if (message.includes('ENOENT') || message.includes('not found')) {
+  if (
+    message.includes('ENOENT') ||
+    message.includes('not found') ||
+    message.includes('posix_spawnp failed')
+  ) {
     return 'Codex CLI is not installed or is not available on PATH.';
   }
 
@@ -535,4 +545,68 @@ function normalizeActiveSessionConflict(error: unknown): string {
   }
 
   return message || 'Autocode could not create a new Codex session.';
+}
+
+function buildAgentProcessEnv(): Record<string, string> {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+  );
+  const pathEntries = getCodexSearchPaths(process.env.PATH);
+
+  env.PATH = pathEntries.join(path.delimiter);
+  return env;
+}
+
+async function resolveCodexExecutablePath(): Promise<string> {
+  for (const candidate of getCodexExecutableCandidates(process.env.PATH)) {
+    if (await isExecutableFile(candidate)) {
+      return realpath(candidate).catch(() => candidate);
+    }
+  }
+
+  throw new Error('Codex CLI is not installed or is not available on PATH.');
+}
+
+function getCodexExecutableCandidates(currentPath: string | undefined): string[] {
+  const fileNames = process.platform === 'win32'
+    ? getWindowsExecutableNames(CODEX_COMMAND)
+    : [CODEX_COMMAND];
+
+  return getCodexSearchPaths(currentPath).flatMap((directoryPath) =>
+    fileNames.map((fileName) => path.join(directoryPath, fileName))
+  );
+}
+
+function getCodexSearchPaths(currentPath: string | undefined): string[] {
+  const pathEntries = (currentPath ?? '')
+    .split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const fallbackEntries = [
+    path.join(os.homedir(), '.bun', 'bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin'
+  ];
+
+  return [...new Set([...pathEntries, ...fallbackEntries])];
+}
+
+function getWindowsExecutableNames(command: string): string[] {
+  const pathExtensions = (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM')
+    .split(';')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return [command, ...pathExtensions.map((extension) => `${command}${extension.toLowerCase()}`)];
+}
+
+async function isExecutableFile(candidatePath: string): Promise<boolean> {
+  try {
+    await access(candidatePath, fsConstants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
