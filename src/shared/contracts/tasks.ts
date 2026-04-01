@@ -19,7 +19,11 @@ export const listTasksByProjectInputSchema = z.object({
 });
 
 export const taskWorkspaceListSchema = z.array(taskWorkspaceSchema);
+export const listTasksByProjectResultSchema = taskWorkspaceListSchema;
+export const createTaskResultSchema = taskWorkspaceSchema;
 
 export type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
+export type CreateTaskResult = z.infer<typeof createTaskResultSchema>;
 export type ListTasksByProjectInput = z.infer<typeof listTasksByProjectInputSchema>;
+export type ListTasksByProjectResult = z.infer<typeof listTasksByProjectResultSchema>;
 export type TaskWorkspaceList = z.infer<typeof taskWorkspaceListSchema>;

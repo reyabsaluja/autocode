@@ -1,19 +1,31 @@
-import { ipcMain } from 'electron';
+import type { IpcMainInvokeEvent } from 'electron';
 
-import { createTaskInputSchema, listTasksByProjectInputSchema } from '../../shared/contracts/tasks';
+import {
+  type CreateTaskInput,
+  type ListTasksByProjectInput,
+  createTaskInputSchema,
+  createTaskResultSchema,
+  listTasksByProjectInputSchema,
+  listTasksByProjectResultSchema
+} from '../../shared/contracts/tasks';
 import { taskChannels } from '../../shared/ipc/channels';
 import { createTaskService } from '../services/task-service';
+import { handleValidatedIpc } from './handle-validated-ipc';
 
 export type TaskService = ReturnType<typeof createTaskService>;
 
 export function registerTaskHandlers(taskService: TaskService): void {
-  ipcMain.handle(taskChannels.listByProject, (_event, rawInput) => {
-    const input = listTasksByProjectInputSchema.parse(rawInput);
-    return taskService.listTaskWorkspaces(input.projectId);
+  handleValidatedIpc(taskChannels.listByProject, {
+    handler: (_event: IpcMainInvokeEvent, input: ListTasksByProjectInput) =>
+      taskService.listTaskWorkspaces(input.projectId),
+    inputSchema: listTasksByProjectInputSchema,
+    outputSchema: listTasksByProjectResultSchema
   });
 
-  ipcMain.handle(taskChannels.create, async (_event, rawInput) => {
-    const input = createTaskInputSchema.parse(rawInput);
-    return taskService.createTaskWorkspace(input);
+  handleValidatedIpc(taskChannels.create, {
+    handler: async (_event: IpcMainInvokeEvent, input: CreateTaskInput) =>
+      taskService.createTaskWorkspace(input),
+    inputSchema: createTaskInputSchema,
+    outputSchema: createTaskResultSchema
   });
 }

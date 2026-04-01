@@ -1,48 +1,60 @@
-import { BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
+import { BrowserWindow, dialog, type IpcMainInvokeEvent, type OpenDialogOptions } from 'electron';
 
-import { addProjectInputSchema } from '../../shared/contracts/projects';
+import {
+  type AddProjectInput,
+  addProjectInputSchema,
+  addProjectResultSchema,
+  listProjectsResultSchema,
+  pickProjectPathResultSchema
+} from '../../shared/contracts/projects';
 import { projectChannels } from '../../shared/ipc/channels';
+import { handleValidatedIpc } from './handle-validated-ipc';
 import { createProjectService } from '../services/project-service';
 
 export type ProjectService = ReturnType<typeof createProjectService>;
 
 export function registerProjectHandlers(projectService: ProjectService): void {
-  ipcMain.handle(projectChannels.list, () => {
-    return projectService.listProjects();
+  handleValidatedIpc(projectChannels.list, {
+    handler: () => projectService.listProjects(),
+    outputSchema: listProjectsResultSchema
   });
 
-  ipcMain.handle(projectChannels.pickPath, async (event) => {
-    const ownerWindow = BrowserWindow.fromWebContents(event.sender);
-    const options: OpenDialogOptions = {
-      buttonLabel: 'Select repository',
-      properties: ['openDirectory'],
-      title: 'Select a local Git repository'
-    };
+  handleValidatedIpc(projectChannels.pickPath, {
+    handler: async (event) => {
+      const ownerWindow = BrowserWindow.fromWebContents(event.sender);
+      const options: OpenDialogOptions = {
+        buttonLabel: 'Select repository',
+        properties: ['openDirectory'],
+        title: 'Select a local Git repository'
+      };
 
-    try {
-      ownerWindow?.focus();
+      try {
+        ownerWindow?.focus();
 
-      const result = ownerWindow
-        ? await dialog.showOpenDialog(ownerWindow, options)
-        : await dialog.showOpenDialog(options);
+        const result = ownerWindow
+          ? await dialog.showOpenDialog(ownerWindow, options)
+          : await dialog.showOpenDialog(options);
 
-      if (result.canceled || result.filePaths.length === 0) {
-        return null;
+        if (result.canceled || result.filePaths.length === 0) {
+          return null;
+        }
+
+        return result.filePaths[0] ?? null;
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Autocode could not open the repository picker.';
+
+        throw new Error(`${message} You can still paste a local repository path instead.`);
       }
-
-      return result.filePaths[0] ?? null;
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Autocode could not open the repository picker.';
-
-      throw new Error(`${message} You can still paste a local repository path instead.`);
-    }
+    },
+    outputSchema: pickProjectPathResultSchema
   });
 
-  ipcMain.handle(projectChannels.add, async (_event, rawInput) => {
-    const input = addProjectInputSchema.parse(rawInput);
-    return projectService.addProject(input);
+  handleValidatedIpc(projectChannels.add, {
+    handler: async (_event: IpcMainInvokeEvent, input: AddProjectInput) => projectService.addProject(input),
+    inputSchema: addProjectInputSchema,
+    outputSchema: addProjectResultSchema
   });
 }

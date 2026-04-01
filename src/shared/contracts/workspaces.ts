@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import {
   workspaceChangeSchema,
-  workspaceCommitResultSchema,
+  workspaceCommitResultSchema as workspaceCommitDomainResultSchema,
   workspaceDiffSchema,
   workspaceDirectorySnapshotSchema
 } from '../domain/workspace-inspection';
@@ -28,14 +28,16 @@ export const workspaceCommitInputSchema = z.object({
   taskId: taskIdSchema
 });
 
+export const workspaceDirectoryResultSchema = workspaceDirectorySnapshotSchema;
 export const workspaceChangesResultSchema = z.array(workspaceChangeSchema);
 export const workspaceDiffResultSchema = workspaceDiffSchema.nullable();
+export const workspaceCommitResultSchema = workspaceCommitDomainResultSchema;
 
 export type WorkspaceDirectoryInput = z.infer<typeof workspaceDirectoryInputSchema>;
 export type WorkspaceChangesInput = z.infer<typeof workspaceChangesInputSchema>;
 export type WorkspaceDiffInput = z.infer<typeof workspaceDiffInputSchema>;
 export type WorkspaceCommitInput = z.infer<typeof workspaceCommitInputSchema>;
-export type WorkspaceDirectoryResult = z.infer<typeof workspaceDirectorySnapshotSchema>;
+export type WorkspaceDirectoryResult = z.infer<typeof workspaceDirectoryResultSchema>;
 export type WorkspaceChangesResult = z.infer<typeof workspaceChangesResultSchema>;
 export type WorkspaceDiffResult = z.infer<typeof workspaceDiffResultSchema>;
 export type WorkspaceCommitResult = z.infer<typeof workspaceCommitResultSchema>;
