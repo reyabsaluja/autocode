@@ -16,7 +16,7 @@ export function createWorkspaceRuntime(db: AppDatabase) {
     taskWorkspaceRepository,
 
     async resolveWorkspaceContext(taskId: number): Promise<ResolvedWorkspaceContext> {
-      const context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId);
+      let context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId);
 
       if (!context) {
         throw new Error('Workspace could not be found.');
@@ -51,12 +51,15 @@ export function createWorkspaceRuntime(db: AppDatabase) {
         }
 
         if (context.task.lastError || context.worktree.status === 'failed') {
-          taskWorkspaceRepository.recordWorkspaceObservation(
+          const timestamp = new Date().toISOString();
+          taskWorkspaceRepository.recordWorkspaceHealth({
+            lastError: null,
             taskId,
-            context.worktree.status === 'dirty' ? 'dirty' : 'ready',
-            null,
-            new Date().toISOString()
-          );
+            timestamp,
+            worktreeStatus: context.worktree.status === 'dirty' ? 'dirty' : 'ready'
+          });
+
+          context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId) ?? context;
         }
 
         return {
@@ -65,12 +68,12 @@ export function createWorkspaceRuntime(db: AppDatabase) {
         };
       } catch (error) {
         const message = normalizeWorkspaceError(error);
-        taskWorkspaceRepository.recordWorkspaceObservation(
+        taskWorkspaceRepository.recordWorkspaceHealth({
+          lastError: message,
           taskId,
-          'failed',
-          message,
-          new Date().toISOString()
-        );
+          timestamp: new Date().toISOString(),
+          worktreeStatus: 'failed'
+        });
         throw new Error(message);
       }
     }

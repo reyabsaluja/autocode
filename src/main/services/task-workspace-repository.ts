@@ -40,7 +40,78 @@ interface CreateProvisioningTaskWorkspaceInput {
   title: string;
 }
 
+interface WorkspaceHealthInput {
+  lastError: string | null;
+  taskId: number;
+  timestamp: string;
+  worktreeStatus: WorktreeStatus;
+}
+
+type TaskRecord = typeof tasksTable.$inferSelect;
+type WorktreeRecord = typeof worktreesTable.$inferSelect;
+
 export function createTaskWorkspaceRepository(db: AppDatabase) {
+  const recordWorkspaceHealth = (input: WorkspaceHealthInput): void => {
+    db.transaction((tx) => {
+      const row = tx
+        .select({
+          task: tasksTable,
+          worktree: worktreesTable
+        })
+        .from(tasksTable)
+        .leftJoin(worktreesTable, eq(worktreesTable.taskId, tasksTable.id))
+        .where(eq(tasksTable.id, input.taskId))
+        .get();
+
+      if (!row) {
+        throw new Error('Task workspace could not be found.');
+      }
+
+      const nextTaskState = deriveWorkspaceHealthTaskState(row.task, input.worktreeStatus);
+      const nextTaskLastError = input.lastError;
+      const currentWorktreeStatus = row.worktree?.status ?? null;
+
+      const taskChanged =
+        row.task.status !== nextTaskState.status ||
+        row.task.statusBeforeFailure !== nextTaskState.statusBeforeFailure ||
+        row.task.lastError !== nextTaskLastError;
+      const worktreeChanged = row.worktree?.id
+        ? currentWorktreeStatus !== input.worktreeStatus
+        : false;
+
+      if (!taskChanged && !worktreeChanged) {
+        return;
+      }
+
+      tx.update(tasksTable)
+        .set({
+          lastError: nextTaskLastError,
+          status: nextTaskState.status,
+          statusBeforeFailure: nextTaskState.statusBeforeFailure,
+          updatedAt: input.timestamp
+        })
+        .where(eq(tasksTable.id, input.taskId))
+        .run();
+
+      if (row.worktree?.id) {
+        tx.update(worktreesTable)
+          .set({
+            status: input.worktreeStatus,
+            updatedAt: input.timestamp
+          })
+          .where(eq(worktreesTable.taskId, input.taskId))
+          .run();
+      }
+
+      tx.update(projectsTable)
+        .set({
+          updatedAt: input.timestamp
+        })
+        .where(eq(projectsTable.id, row.task.projectId))
+        .run();
+    });
+  };
+
   return {
     findProjectById(projectId: number): Project | null {
       return db
@@ -62,10 +133,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
         .orderBy(desc(tasksTable.updatedAt), desc(tasksTable.id))
         .all();
 
-      return rows.map((row) => ({
-        task: row.task,
-        worktree: row.worktree?.id ? row.worktree : null
-      }));
+      return rows.map((row) => createTaskWorkspace(row.task, row.worktree?.id ? row.worktree : null));
     },
 
     listRecoverableTaskWorkspaces(): RecoverableTaskWorkspaceContext[] {
@@ -84,7 +152,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
 
       return rows.map((row) => ({
         project: row.project,
-        task: row.task,
+        task: toTask(row.task),
         worktree: row.worktree?.id ? row.worktree : null
       }));
     },
@@ -100,6 +168,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
             title: input.title,
             description: input.description,
             status: 'draft',
+            statusBeforeFailure: null,
             lastError: null,
             createdAt: input.timestamp,
             updatedAt: input.timestamp
@@ -130,10 +199,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
           .where(eq(projectsTable.id, input.projectId))
           .run();
 
-        return {
-          task,
-          worktree
-        };
+        return createTaskWorkspace(task, worktree);
       });
     },
 
@@ -143,6 +209,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
           .update(tasksTable)
           .set({
             status: 'ready',
+            statusBeforeFailure: null,
             lastError: null,
             updatedAt: input.timestamp
           })
@@ -180,38 +247,16 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
           .where(eq(projectsTable.id, input.projectId))
           .run();
 
-        return {
-          task,
-          worktree
-        };
+        return createTaskWorkspace(task, worktree);
       });
     },
 
-    markTaskFailed(taskId: number, projectId: number, message: string, timestamp: string): void {
-      db.transaction((tx) => {
-        tx.update(tasksTable)
-          .set({
-            status: 'failed',
-            lastError: message,
-            updatedAt: timestamp
-          })
-          .where(eq(tasksTable.id, taskId))
-          .run();
-
-        tx.update(worktreesTable)
-          .set({
-            status: 'failed',
-            updatedAt: timestamp
-          })
-          .where(eq(worktreesTable.taskId, taskId))
-          .run();
-
-        tx.update(projectsTable)
-          .set({
-            updatedAt: timestamp
-          })
-          .where(eq(projectsTable.id, projectId))
-          .run();
+    markTaskFailed(taskId: number, message: string, timestamp: string): void {
+      recordWorkspaceHealth({
+        lastError: message,
+        taskId,
+        timestamp,
+        worktreeStatus: 'failed'
       });
     },
 
@@ -234,7 +279,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
 
       return {
         project: row.project,
-        task: row.task,
+        task: toTask(row.task),
         worktree: row.worktree
       };
     },
@@ -245,6 +290,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
           .set({
             lastError: null,
             status: nextStatus,
+            statusBeforeFailure: null,
             updatedAt: timestamp
           })
           .where(eq(tasksTable.id, taskId))
@@ -267,23 +313,59 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       });
     },
 
-    recordWorkspaceObservation(taskId: number, worktreeStatus: WorktreeStatus, lastError: string | null, timestamp: string): void {
-      db.transaction((tx) => {
-        tx.update(tasksTable)
-          .set({
-            lastError
-          })
-          .where(eq(tasksTable.id, taskId))
-          .run();
-
-        tx.update(worktreesTable)
-          .set({
-            status: worktreeStatus,
-            updatedAt: timestamp
-          })
-          .where(eq(worktreesTable.taskId, taskId))
-          .run();
-      });
+    recordWorkspaceHealth(input: WorkspaceHealthInput): void {
+      recordWorkspaceHealth(input);
     }
+  };
+}
+
+function createTaskWorkspace(task: TaskRecord, worktree: WorktreeRecord | null): TaskWorkspace {
+  return {
+    task: toTask(task),
+    worktree
+  };
+}
+
+function deriveWorkspaceHealthTaskState(
+  task: TaskRecord,
+  worktreeStatus: WorktreeStatus
+): Pick<TaskRecord, 'status' | 'statusBeforeFailure'> {
+  if (worktreeStatus === 'failed') {
+    if (task.status === 'failed') {
+      return {
+        status: task.status,
+        statusBeforeFailure: task.statusBeforeFailure
+      };
+    }
+
+    return {
+      status: 'failed',
+      statusBeforeFailure: task.status
+    };
+  }
+
+  if (task.status === 'failed') {
+    return {
+      status: task.statusBeforeFailure ?? 'ready',
+      statusBeforeFailure: null
+    };
+  }
+
+  return {
+    status: task.status,
+    statusBeforeFailure: null
+  };
+}
+
+function toTask(task: TaskRecord): Task {
+  return {
+    id: task.id,
+    projectId: task.projectId,
+    title: task.title,
+    description: task.description,
+    status: task.status,
+    lastError: task.lastError,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt
   };
 }

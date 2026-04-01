@@ -15,6 +15,13 @@
       "when": 1774879567749,
       "tag": "0001_task_workspaces",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1775053944813,
+      "tag": "0002_workspace_health_task_failure_recovery",
+      "breakpoints": true
     }
   ]
 }

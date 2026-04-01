@@ -24,6 +24,7 @@ export const tasksTable = sqliteTable(
     title: text('title').notNull(),
     description: text('description'),
     status: text('status').$type<TaskStatus>().notNull(),
+    statusBeforeFailure: text('status_before_failure').$type<TaskStatus>(),
     lastError: text('last_error'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull()

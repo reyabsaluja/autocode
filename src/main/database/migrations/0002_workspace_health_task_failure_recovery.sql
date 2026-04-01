@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `status_before_failure` text;

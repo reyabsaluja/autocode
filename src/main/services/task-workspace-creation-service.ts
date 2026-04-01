@@ -120,7 +120,6 @@ async function provisionTaskWorkspace(
 
     taskWorkspaceRepository.markTaskFailed(
       taskWorkspace.task.id,
-      project.id,
       message,
       new Date().toISOString()
     );

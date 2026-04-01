@@ -53,12 +53,12 @@ export function createWorkspaceService(db: AppDatabase) {
     async listChanges(taskId: number): Promise<WorkspaceChange[]> {
       const context = await workspaceRuntime.resolveWorkspaceContext(taskId);
       const changes = await listWorkspaceChanges(context.worktreePath);
-      taskWorkspaceRepository.recordWorkspaceObservation(
+      taskWorkspaceRepository.recordWorkspaceHealth({
+        lastError: null,
         taskId,
-        changes.length > 0 ? 'dirty' : 'ready',
-        null,
-        new Date().toISOString()
-      );
+        timestamp: new Date().toISOString(),
+        worktreeStatus: changes.length > 0 ? 'dirty' : 'ready'
+      });
       return changes;
     },
 
@@ -90,7 +90,12 @@ export function createWorkspaceService(db: AppDatabase) {
       const timestamp = new Date().toISOString();
 
       if (changes.length === 0) {
-        taskWorkspaceRepository.recordWorkspaceObservation(input.taskId, 'ready', null, timestamp);
+        taskWorkspaceRepository.recordWorkspaceHealth({
+          lastError: null,
+          taskId: input.taskId,
+          timestamp,
+          worktreeStatus: 'ready'
+        });
         throw new Error('This workspace has no changes to commit.');
       }
 
@@ -104,16 +109,21 @@ export function createWorkspaceService(db: AppDatabase) {
           error instanceof Error ? error.message : 'Autocode could not create the commit.';
 
         if (errorMessage.includes('nothing to commit')) {
-          taskWorkspaceRepository.recordWorkspaceObservation(input.taskId, 'ready', null, timestamp);
+          taskWorkspaceRepository.recordWorkspaceHealth({
+            lastError: null,
+            taskId: input.taskId,
+            timestamp,
+            worktreeStatus: 'ready'
+          });
           throw new Error('This workspace has no changes to commit.');
         }
 
-        taskWorkspaceRepository.recordWorkspaceObservation(
-          input.taskId,
-          'dirty',
-          normalizeCommitError(errorMessage),
-          timestamp
-        );
+        taskWorkspaceRepository.recordWorkspaceHealth({
+          lastError: normalizeCommitError(errorMessage),
+          taskId: input.taskId,
+          timestamp,
+          worktreeStatus: 'dirty'
+        });
 
         throw new Error(normalizeCommitError(errorMessage));
       }
