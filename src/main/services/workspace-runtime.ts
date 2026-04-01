@@ -3,6 +3,7 @@ import { realpath, stat } from 'node:fs/promises';
 
 import type { AppDatabase } from '../database/client';
 import { createTaskWorkspaceRepository, type TaskWorkspaceContext } from './task-workspace-repository';
+import { createTaskWorkspaceCreationService } from './task-workspace-creation-service';
 import { execGit, listRegisteredWorktrees } from './git-client';
 
 export interface ResolvedWorkspaceContext extends TaskWorkspaceContext {
@@ -11,12 +12,18 @@ export interface ResolvedWorkspaceContext extends TaskWorkspaceContext {
 
 export function createWorkspaceRuntime(db: AppDatabase) {
   const taskWorkspaceRepository = createTaskWorkspaceRepository(db);
+  const taskWorkspaceCreationService = createTaskWorkspaceCreationService(db);
 
   return {
     taskWorkspaceRepository,
 
     async resolveWorkspaceContext(taskId: number): Promise<ResolvedWorkspaceContext> {
       let context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId);
+
+      if (shouldAttemptWorkspaceRecovery(context)) {
+        await taskWorkspaceCreationService.reconcileProvisioningTaskWorkspace(taskId);
+        context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId);
+      }
 
       if (!context) {
         throw new Error('Workspace could not be found.');
@@ -78,6 +85,14 @@ export function createWorkspaceRuntime(db: AppDatabase) {
       }
     }
   };
+}
+
+function shouldAttemptWorkspaceRecovery(context: TaskWorkspaceContext | null): boolean {
+  if (!context) {
+    return true;
+  }
+
+  return context.task.status === 'draft' || context.worktree.status === 'provisioning';
 }
 
 export function normalizeRelativePath(relativePath: string): string {

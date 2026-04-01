@@ -9,6 +9,7 @@ import {
 } from './git-worktree-service';
 import {
   createTaskWorkspaceRepository,
+  type RecoverableTaskWorkspaceContext
 } from './task-workspace-repository';
 
 interface PreparedTaskWorkspaceCreation {
@@ -40,12 +41,8 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
 
       for (const recoverableTaskWorkspace of recoverableTaskWorkspaces) {
         try {
-          await provisionTaskWorkspace(
-            recoverableTaskWorkspace.project,
-            {
-              task: recoverableTaskWorkspace.task,
-              worktree: recoverableTaskWorkspace.worktree
-            },
+          await reconcileRecoverableTaskWorkspace(
+            recoverableTaskWorkspace,
             gitWorktreeService,
             taskWorkspaceRepository
           );
@@ -56,6 +53,21 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
           );
         }
       }
+    },
+
+    async reconcileProvisioningTaskWorkspace(taskId: number): Promise<TaskWorkspace | null> {
+      const recoverableTaskWorkspace =
+        taskWorkspaceRepository.findRecoverableTaskWorkspaceByTaskId(taskId);
+
+      if (!recoverableTaskWorkspace) {
+        return null;
+      }
+
+      return reconcileRecoverableTaskWorkspace(
+        recoverableTaskWorkspace,
+        gitWorktreeService,
+        taskWorkspaceRepository
+      );
     }
   };
 }
@@ -126,6 +138,22 @@ async function provisionTaskWorkspace(
 
     throw new Error(message);
   }
+}
+
+async function reconcileRecoverableTaskWorkspace(
+  recoverableTaskWorkspace: RecoverableTaskWorkspaceContext,
+  gitWorktreeService: ReturnType<typeof createGitWorktreeService>,
+  taskWorkspaceRepository: ReturnType<typeof createTaskWorkspaceRepository>
+): Promise<TaskWorkspace> {
+  return provisionTaskWorkspace(
+    recoverableTaskWorkspace.project,
+    {
+      task: recoverableTaskWorkspace.task,
+      worktree: recoverableTaskWorkspace.worktree
+    },
+    gitWorktreeService,
+    taskWorkspaceRepository
+  );
 }
 
 function resolveTaskWorktreePlan(taskWorkspace: TaskWorkspace): TaskWorktreePlan | undefined {

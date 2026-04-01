@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull, or } from 'drizzle-orm';
 
 import type { Project } from '../../shared/domain/project';
 import type { TaskWorkspace } from '../../shared/domain/task-workspace';
@@ -146,7 +146,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
         .from(tasksTable)
         .innerJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
         .leftJoin(worktreesTable, eq(worktreesTable.taskId, tasksTable.id))
-        .where(eq(tasksTable.status, 'draft'))
+        .where(createRecoverableTaskWorkspaceCondition())
         .orderBy(desc(tasksTable.updatedAt), desc(tasksTable.id))
         .all();
 
@@ -155,6 +155,35 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
         task: toTask(row.task),
         worktree: row.worktree?.id ? row.worktree : null
       }));
+    },
+
+    findRecoverableTaskWorkspaceByTaskId(taskId: number): RecoverableTaskWorkspaceContext | null {
+      const row = db
+        .select({
+          project: projectsTable,
+          task: tasksTable,
+          worktree: worktreesTable
+        })
+        .from(tasksTable)
+        .innerJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
+        .leftJoin(worktreesTable, eq(worktreesTable.taskId, tasksTable.id))
+        .where(
+          and(
+            eq(tasksTable.id, taskId),
+            createRecoverableTaskWorkspaceCondition()
+          )
+        )
+        .get();
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        project: row.project,
+        task: toTask(row.task),
+        worktree: row.worktree?.id ? row.worktree : null
+      };
     },
 
     createProvisioningTaskWorkspace(
@@ -324,6 +353,16 @@ function createTaskWorkspace(task: TaskRecord, worktree: WorktreeRecord | null):
     task: toTask(task),
     worktree
   };
+}
+
+function createRecoverableTaskWorkspaceCondition() {
+  return or(
+    eq(worktreesTable.status, 'provisioning'),
+    and(
+      eq(tasksTable.status, 'draft'),
+      isNull(worktreesTable.id)
+    )
+  );
 }
 
 function deriveWorkspaceHealthTaskState(
