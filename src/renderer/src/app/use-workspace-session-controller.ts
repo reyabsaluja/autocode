@@ -30,6 +30,28 @@ export function useWorkspaceSessionController({
   const selectedTaskWorkspace =
     taskWorkspaces.find((workspace) => workspace.task.id === selectedTaskId) ?? null;
 
+  const reconcileProjectSelection = useCallback(
+    (projectId: number | null) => {
+      if (projectId === selectedProjectId) {
+        return;
+      }
+
+      selectProject(projectId);
+    },
+    [selectProject, selectedProjectId]
+  );
+
+  const reconcileTaskSelection = useCallback(
+    (taskId: number | null) => {
+      if (taskId === selectedTaskId) {
+        return;
+      }
+
+      selectTask(taskId);
+    },
+    [selectTask, selectedTaskId]
+  );
+
   const requestProjectSelection = useCallback(
     (projectId: number | null) => {
       if (projectId === selectedProjectId) {
@@ -40,11 +62,11 @@ export function useWorkspaceSessionController({
         body: createContextSwitchBody(editorRef),
         key: `project:${projectId ?? 'none'}`,
         run: () => {
-          selectProject(projectId);
+          reconcileProjectSelection(projectId);
         }
       });
     },
-    [editorRef, requestTransition, selectProject, selectedProjectId]
+    [editorRef, reconcileProjectSelection, requestTransition, selectedProjectId]
   );
 
   const requestTaskSelection = useCallback(
@@ -57,22 +79,22 @@ export function useWorkspaceSessionController({
         body: createContextSwitchBody(editorRef),
         key: `task:${taskId ?? 'none'}`,
         run: () => {
-          selectTask(taskId);
+          reconcileTaskSelection(taskId);
         }
       });
     },
-    [editorRef, requestTransition, selectTask, selectedTaskId]
+    [editorRef, reconcileTaskSelection, requestTransition, selectedTaskId]
   );
 
   useEffect(() => {
     if (projects.length === 0) {
       if (selectedProjectId !== null) {
-        requestProjectSelection(null);
+        reconcileProjectSelection(null);
         return;
       }
 
       if (selectedTaskId !== null) {
-        requestTaskSelection(null);
+        reconcileTaskSelection(null);
       }
 
       return;
@@ -81,12 +103,12 @@ export function useWorkspaceSessionController({
     const selectedStillExists = projects.some((project) => project.id === selectedProjectId);
 
     if (!selectedStillExists) {
-      requestProjectSelection(projects[0]?.id ?? null);
+      reconcileProjectSelection(projects[0]?.id ?? null);
     }
   }, [
     projects,
-    requestProjectSelection,
-    requestTaskSelection,
+    reconcileProjectSelection,
+    reconcileTaskSelection,
     selectedProjectId,
     selectedTaskId
   ]);
@@ -102,7 +124,7 @@ export function useWorkspaceSessionController({
 
     if (effectiveProjectId === null) {
       if (selectedTaskId !== null) {
-        requestTaskSelection(null);
+        reconcileTaskSelection(null);
       }
 
       return;
@@ -114,7 +136,7 @@ export function useWorkspaceSessionController({
 
     if (taskWorkspaces.length === 0) {
       if (selectedTaskId !== null) {
-        requestTaskSelection(null);
+        reconcileTaskSelection(null);
       }
 
       return;
@@ -123,11 +145,11 @@ export function useWorkspaceSessionController({
     const selectedStillExists = taskWorkspaces.some((workspace) => workspace.task.id === selectedTaskId);
 
     if (!selectedStillExists) {
-      requestTaskSelection(taskWorkspaces[0]?.task.id ?? null);
+      reconcileTaskSelection(taskWorkspaces[0]?.task.id ?? null);
     }
   }, [
     effectiveProjectId,
-    requestTaskSelection,
+    reconcileTaskSelection,
     selectedProjectId,
     selectedTaskId,
     taskWorkspaces,
