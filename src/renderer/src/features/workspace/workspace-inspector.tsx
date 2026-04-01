@@ -5,6 +5,7 @@ import { Files, GitCompare, RefreshCw } from 'lucide-react';
 
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
+import { WorkspaceRunPanel } from '../agent-sessions/workspace-run-panel';
 import { UnsavedChangesDialog } from '../editor/unsaved-changes-dialog';
 import { useUnsavedChangesGuard } from '../editor/use-unsaved-changes-guard';
 import {
@@ -152,79 +153,83 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
 
   return (
     <>
-    <section className="flex min-h-0 flex-1 gap-0">
-      <div className="min-w-0 flex-1">
-        <WorkspaceEditorSurface
-          ref={editorRef}
-          activeChange={activeChange}
-          activeFilePath={selectedPath}
-          mode={centerMode}
-          onModeChange={setCenterMode}
-          taskId={taskId}
-        />
-      </div>
-
-      <aside className="flex min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#1c1c1c]">
-        <div className="flex items-center gap-1 border-b border-white/[0.08] px-3 py-2">
-          <SidebarTab
-            icon={<Files className="h-3.5 w-3.5" />}
-            isActive={activeSidebarTab === 'files'}
-            label="Files"
-            onClick={() => setActiveSidebarTab('files')}
+    <section className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 gap-0">
+        <div className="min-w-0 flex-1">
+          <WorkspaceEditorSurface
+            ref={editorRef}
+            activeChange={activeChange}
+            activeFilePath={selectedPath}
+            mode={centerMode}
+            onModeChange={setCenterMode}
+            taskId={taskId}
           />
-          <SidebarTab
-            icon={<GitCompare className="h-3.5 w-3.5" />}
-            isActive={activeSidebarTab === 'changes'}
-            label="Changes"
-            onClick={() => {
-              setSelectionMode('changes');
-              setActiveSidebarTab('changes');
-            }}
-          />
-          <div className="ml-auto flex items-center gap-1">
-            <button
-              className="grid h-7 w-7 place-items-center rounded-md text-white/40 transition hover:bg-white/[0.08] hover:text-white/70"
-              onClick={() => { void handleRefresh(); }}
-              title="Refresh"
-              type="button"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </button>
-          </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
-          {activeSidebarTab === 'files' ? (
-            <WorkspaceFileExplorer
-              expandedDirectories={expandedDirectories}
-              onToggleDirectory={toggleDirectory}
-              onSelectPath={(path) => {
-                requestFileSelection(path, 'files', 'editor');
-              }}
-              selectedPath={selectedPath}
-              taskId={taskId}
+        <aside className="flex min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#1c1c1c]">
+          <div className="flex items-center gap-1 border-b border-white/[0.08] px-3 py-2">
+            <SidebarTab
+              icon={<Files className="h-3.5 w-3.5" />}
+              isActive={activeSidebarTab === 'files'}
+              label="Files"
+              onClick={() => setActiveSidebarTab('files')}
             />
-          ) : (
-            <WorkspaceChangesPanel
-              changes={changes}
-              commitErrorMessage={formatError(commitMutation.error)}
-              commitMessage={commitMessage}
-              commitNotice={commitNotice}
-              isCommitting={commitMutation.isPending}
-              isLoading={changesQuery.isLoading}
-              loadErrorMessage={formatError(changesQuery.error)}
-              onCommit={handleCommit}
-              onCommitMessageChange={setCommitMessage}
-              onRefresh={handleRefresh}
-              onSelectChange={(path) => {
-                requestFileSelection(path, 'changes', 'diff');
+            <SidebarTab
+              icon={<GitCompare className="h-3.5 w-3.5" />}
+              isActive={activeSidebarTab === 'changes'}
+              label="Changes"
+              onClick={() => {
+                setSelectionMode('changes');
                 setActiveSidebarTab('changes');
               }}
-              selectedPath={selectedPath}
             />
-          )}
-        </div>
-      </aside>
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                className="grid h-7 w-7 place-items-center rounded-md text-white/40 transition hover:bg-white/[0.08] hover:text-white/70"
+                onClick={() => { void handleRefresh(); }}
+                title="Refresh"
+                type="button"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {activeSidebarTab === 'files' ? (
+              <WorkspaceFileExplorer
+                expandedDirectories={expandedDirectories}
+                onToggleDirectory={toggleDirectory}
+                onSelectPath={(path) => {
+                  requestFileSelection(path, 'files', 'editor');
+                }}
+                selectedPath={selectedPath}
+                taskId={taskId}
+              />
+            ) : (
+              <WorkspaceChangesPanel
+                changes={changes}
+                commitErrorMessage={formatError(commitMutation.error)}
+                commitMessage={commitMessage}
+                commitNotice={commitNotice}
+                isCommitting={commitMutation.isPending}
+                isLoading={changesQuery.isLoading}
+                loadErrorMessage={formatError(changesQuery.error)}
+                onCommit={handleCommit}
+                onCommitMessageChange={setCommitMessage}
+                onRefresh={handleRefresh}
+                onSelectChange={(path) => {
+                  requestFileSelection(path, 'changes', 'diff');
+                  setActiveSidebarTab('changes');
+                }}
+                selectedPath={selectedPath}
+              />
+            )}
+          </div>
+        </aside>
+      </div>
+
+      <WorkspaceRunPanel taskId={taskId} />
     </section>
       <UnsavedChangesDialog
         {...fileSwitchDialogProps}

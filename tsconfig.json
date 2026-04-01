@@ -21,6 +21,6 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src", "electron.vite.config.ts", "drizzle.config.ts"]
+  "include": ["src", "electron.vite.config.ts", "drizzle.config.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }
-

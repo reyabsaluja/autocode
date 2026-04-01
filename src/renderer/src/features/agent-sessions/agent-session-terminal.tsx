@@ -1,0 +1,144 @@
+import { useEffect, useRef } from 'react';
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
+
+import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
+
+import '@xterm/xterm/css/xterm.css';
+
+interface AgentSessionTerminalProps {
+  entries: AgentSessionTranscriptEntry[];
+  isInteractive: boolean;
+  isVisible: boolean;
+  onData: (text: string) => void;
+  onResize: (cols: number, rows: number) => void;
+  sessionId: number | null;
+}
+
+const TERMINAL_FONT_FAMILY =
+  '"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace';
+
+export function AgentSessionTerminal({
+  entries,
+  isInteractive,
+  isVisible,
+  onData,
+  onResize,
+  sessionId
+}: AgentSessionTerminalProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const terminalRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const lastRenderedSeqRef = useRef(0);
+  const onDataRef = useRef(onData);
+  const onResizeRef = useRef(onResize);
+
+  useEffect(() => {
+    onDataRef.current = onData;
+  }, [onData]);
+
+  useEffect(() => {
+    onResizeRef.current = onResize;
+  }, [onResize]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const terminal = new Terminal({
+      allowTransparency: true,
+      cursorBlink: true,
+      cursorStyle: 'block',
+      disableStdin: !isInteractive,
+      fontFamily: TERMINAL_FONT_FAMILY,
+      fontSize: 12,
+      lineHeight: 1.35,
+      theme: {
+        background: '#101010',
+        cursor: '#f4f4f5',
+        foreground: '#f4f4f5',
+        selectionBackground: 'rgba(255, 255, 255, 0.18)'
+      }
+    });
+    const fitAddon = new FitAddon();
+    terminal.loadAddon(fitAddon);
+    terminal.open(container);
+
+    const resizeTerminal = () => {
+      fitAddon.fit();
+      onResizeRef.current(terminal.cols, terminal.rows);
+    };
+    const resizeObserver = new ResizeObserver(() => {
+      resizeTerminal();
+    });
+    const dataDisposable = terminal.onData((value) => {
+      onDataRef.current(value);
+    });
+
+    terminalRef.current = terminal;
+    fitAddonRef.current = fitAddon;
+    resizeObserver.observe(container);
+
+    if (isVisible) {
+      resizeTerminal();
+    }
+
+    return () => {
+      dataDisposable.dispose();
+      resizeObserver.disconnect();
+      terminal.dispose();
+      terminalRef.current = null;
+      fitAddonRef.current = null;
+      lastRenderedSeqRef.current = 0;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!terminalRef.current || !fitAddonRef.current || !isVisible) {
+      return;
+    }
+
+    fitAddonRef.current.fit();
+    onResizeRef.current(terminalRef.current.cols, terminalRef.current.rows);
+  }, [isVisible]);
+
+  useEffect(() => {
+    if (!terminalRef.current) {
+      return;
+    }
+
+    terminalRef.current.options.disableStdin = !isInteractive;
+  }, [isInteractive]);
+
+  useEffect(() => {
+    if (!terminalRef.current) {
+      return;
+    }
+
+    terminalRef.current.clear();
+    terminalRef.current.reset();
+    lastRenderedSeqRef.current = 0;
+  }, [sessionId]);
+
+  useEffect(() => {
+    const terminal = terminalRef.current;
+
+    if (!terminal) {
+      return;
+    }
+
+    const nextEntries = entries
+      .filter((entry) => entry.seq > lastRenderedSeqRef.current)
+      .sort((left, right) => left.seq - right.seq);
+
+    for (const entry of nextEntries) {
+      terminal.write(entry.text);
+      lastRenderedSeqRef.current = entry.seq;
+    }
+  }, [entries]);
+
+  return <div className="h-full min-h-[180px] w-full" ref={containerRef} />;
+}

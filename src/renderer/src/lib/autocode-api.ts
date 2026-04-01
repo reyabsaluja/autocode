@@ -19,6 +19,15 @@ export function setAutocodeApiForTesting(api: AutocodeApi | null): void {
 }
 
 export const autocodeApi: AutocodeApi = {
+  agentSessions: {
+    listByTask: (input) => getAutocodeApi().agentSessions.listByTask(input),
+    readTranscriptTail: (input) => getAutocodeApi().agentSessions.readTranscriptTail(input),
+    resize: (input) => getAutocodeApi().agentSessions.resize(input),
+    sendInput: (input) => getAutocodeApi().agentSessions.sendInput(input),
+    start: (input) => getAutocodeApi().agentSessions.start(input),
+    subscribe: (sessionId, callback) => getAutocodeApi().agentSessions.subscribe(sessionId, callback),
+    terminate: (input) => getAutocodeApi().agentSessions.terminate(input)
+  },
   projects: {
     list: () => getAutocodeApi().projects.list(),
     pickPath: () => getAutocodeApi().projects.pickPath(),

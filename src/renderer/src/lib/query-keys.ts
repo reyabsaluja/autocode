@@ -1,6 +1,8 @@
 import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 
 export const queryKeys = {
+  agentSessionTranscript: (sessionId: number) => ['agent-sessions', sessionId, 'transcript'] as const,
+  agentSessions: (taskId: number) => ['agent-sessions', taskId] as const,
   projects: ['projects'] as const,
   taskWorkspaces: (projectId: number) => ['tasks', projectId] as const,
   workspace: (taskId: number) => ['workspace', taskId] as const,

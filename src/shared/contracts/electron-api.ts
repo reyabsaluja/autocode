@@ -1,3 +1,15 @@
+import type {
+  ListAgentSessionsByTaskInput,
+  ListAgentSessionsByTaskResult,
+  ReadAgentSessionTranscriptTailInput,
+  ReadAgentSessionTranscriptTailResult,
+  ResizeAgentSessionInput,
+  SendAgentSessionInput,
+  StartAgentSessionInput,
+  StartAgentSessionResult,
+  TerminateAgentSessionInput,
+  TerminateAgentSessionResult
+} from './agent-sessions';
 import type { AddProjectInput, ListProjectsResult } from './projects';
 import type { CreateTaskInput, ListTasksByProjectInput, TaskWorkspaceList } from './tasks';
 import type {
@@ -16,10 +28,25 @@ import type {
   WorkspaceFileWriteInput,
   WorkspaceFileWriteResult
 } from './workspace-files';
+import type { AgentSessionEvent } from '../domain/agent-session';
 import type { Project } from '../domain/project';
 import type { TaskWorkspace } from '../domain/task-workspace';
 
 export interface AutocodeApi {
+  agentSessions: {
+    listByTask: (input: ListAgentSessionsByTaskInput) => Promise<ListAgentSessionsByTaskResult>;
+    readTranscriptTail: (
+      input: ReadAgentSessionTranscriptTailInput
+    ) => Promise<ReadAgentSessionTranscriptTailResult>;
+    resize: (input: ResizeAgentSessionInput) => Promise<void>;
+    sendInput: (input: SendAgentSessionInput) => Promise<void>;
+    start: (input: StartAgentSessionInput) => Promise<StartAgentSessionResult>;
+    subscribe: (
+      sessionId: number,
+      callback: (event: AgentSessionEvent) => void
+    ) => () => void;
+    terminate: (input: TerminateAgentSessionInput) => Promise<TerminateAgentSessionResult>;
+  };
   projects: {
     list: () => Promise<ListProjectsResult>;
     pickPath: () => Promise<string | null>;

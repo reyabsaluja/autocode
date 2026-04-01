@@ -2,6 +2,21 @@ import { contextBridge } from 'electron';
 
 import type { AutocodeApi } from '../shared/contracts/electron-api';
 import {
+  agentSessionEventResultSchema,
+  listAgentSessionsByTaskInputSchema,
+  listAgentSessionsByTaskResultSchema,
+  readAgentSessionTranscriptTailInputSchema,
+  readAgentSessionTranscriptTailResultSchema,
+  resizeAgentSessionInputSchema,
+  resizeAgentSessionResultSchema,
+  sendAgentSessionInputSchema,
+  sendAgentSessionResultSchema,
+  startAgentSessionInputSchema,
+  startAgentSessionResultSchema,
+  terminateAgentSessionInputSchema,
+  terminateAgentSessionResultSchema
+} from '../shared/contracts/agent-sessions';
+import {
   addProjectInputSchema,
   addProjectResultSchema,
   listProjectsResultSchema,
@@ -29,10 +44,70 @@ import {
   workspaceFileWriteInputSchema,
   workspaceFileWriteResultSchema
 } from '../shared/contracts/workspace-files';
-import { projectChannels, taskChannels, workspaceChannels } from '../shared/ipc/channels';
+import {
+  agentSessionChannels,
+  projectChannels,
+  taskChannels,
+  workspaceChannels
+} from '../shared/ipc/channels';
 import { invokeValidatedIpc } from './invoke-validated-ipc';
+import { subscribeValidatedIpc } from './subscribe-validated-ipc';
 
 const api: AutocodeApi = {
+  agentSessions: {
+    listByTask: (input) =>
+      invokeValidatedIpc(agentSessionChannels.listByTask, {
+        input,
+        inputSchema: listAgentSessionsByTaskInputSchema,
+        outputSchema: listAgentSessionsByTaskResultSchema
+      }),
+    readTranscriptTail: (input) =>
+      invokeValidatedIpc(agentSessionChannels.readTranscriptTail, {
+        input,
+        inputSchema: readAgentSessionTranscriptTailInputSchema,
+        outputSchema: readAgentSessionTranscriptTailResultSchema
+      }),
+    resize: (input) =>
+      invokeValidatedIpc(agentSessionChannels.resize, {
+        input,
+        inputSchema: resizeAgentSessionInputSchema,
+        outputSchema: resizeAgentSessionResultSchema
+      }),
+    sendInput: (input) =>
+      invokeValidatedIpc(agentSessionChannels.sendInput, {
+        input,
+        inputSchema: sendAgentSessionInputSchema,
+        outputSchema: sendAgentSessionResultSchema
+      }),
+    start: (input) =>
+      invokeValidatedIpc(agentSessionChannels.start, {
+        input,
+        inputSchema: startAgentSessionInputSchema,
+        outputSchema: startAgentSessionResultSchema
+      }),
+    subscribe: (sessionId, callback) =>
+      subscribeValidatedIpc(
+        agentSessionChannels.event,
+        agentSessionEventResultSchema,
+        (event) => {
+          if (event.type === 'snapshot' && event.session.id !== sessionId) {
+            return;
+          }
+
+          if (event.type === 'entries' && event.sessionId !== sessionId) {
+            return;
+          }
+
+          callback(event);
+        }
+      ),
+    terminate: (input) =>
+      invokeValidatedIpc(agentSessionChannels.terminate, {
+        input,
+        inputSchema: terminateAgentSessionInputSchema,
+        outputSchema: terminateAgentSessionResultSchema
+      })
+  },
   projects: {
     list: () =>
       invokeValidatedIpc(projectChannels.list, {

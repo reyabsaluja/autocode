@@ -18,6 +18,10 @@ export function resolveAutocodeWorktreesRoot(): string {
   return path.join(resolveAutocodeUserDataPath(), 'worktrees');
 }
 
+export function resolveAutocodeSessionsRoot(): string {
+  return path.join(resolveAutocodeUserDataPath(), 'sessions');
+}
+
 function resolveAutocodeUserDataPath(): string {
   const overrideDir = process.env.AUTOCODE_DATA_DIR;
 

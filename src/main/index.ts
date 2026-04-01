@@ -5,9 +5,12 @@ import { app, BrowserWindow, dialog } from 'electron';
 
 import { getDatabaseContext } from './database/client';
 import { AUTOCODE_APP_NAME } from './database/paths';
+import { registerAgentSessionHandlers } from './ipc/register-agent-session-handlers';
 import { registerProjectHandlers } from './ipc/register-project-handlers';
 import { registerTaskHandlers } from './ipc/register-task-handlers';
 import { registerWorkspaceHandlers } from './ipc/register-workspace-handlers';
+import { agentSessionChannels } from '../shared/ipc/channels';
+import { createAgentSessionService } from './services/agent-session-service';
 import { createProjectService } from './services/project-service';
 import { createWorkspaceFileService } from './services/workspace-file-service';
 import { createTaskService } from './services/task-service';
@@ -55,9 +58,16 @@ async function bootstrap(): Promise<void> {
   const taskService = createTaskService(db);
   const workspaceService = createWorkspaceService(db);
   const workspaceFileService = createWorkspaceFileService(db);
+  const agentSessionService = createAgentSessionService(db, (event) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(agentSessionChannels.event, event);
+    }
+  });
 
   await taskService.reconcileProvisioningTaskWorkspaces();
+  await agentSessionService.reconcileInterruptedSessions();
 
+  registerAgentSessionHandlers(agentSessionService);
   registerProjectHandlers(projectService);
   registerTaskHandlers(taskService);
   registerWorkspaceHandlers(workspaceService, workspaceFileService);

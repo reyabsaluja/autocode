@@ -1,3 +1,13 @@
+export const agentSessionChannels = {
+  event: 'agentSessions:event',
+  listByTask: 'agentSessions:listByTask',
+  readTranscriptTail: 'agentSessions:readTranscriptTail',
+  resize: 'agentSessions:resize',
+  sendInput: 'agentSessions:sendInput',
+  start: 'agentSessions:start',
+  terminate: 'agentSessions:terminate'
+} as const;
+
 export const projectChannels = {
   list: 'projects:list',
   add: 'projects:add',

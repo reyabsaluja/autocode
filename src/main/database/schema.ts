@@ -1,6 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
+import {
+  agentProviderValues,
+  agentSessionStatusValues,
+  type AgentProvider,
+  type AgentSessionStatus
+} from '../../shared/domain/agent-session';
 import { taskStatusValues, type TaskStatus } from '../../shared/domain/task';
 import { worktreeStatusValues, type WorktreeStatus } from '../../shared/domain/worktree';
 
@@ -63,6 +69,47 @@ export const worktreesTable = sqliteTable(
     statusCheck: check(
       'worktrees_status_check',
       sql`${table.status} in (${sql.raw(worktreeStatusValues.map((status) => `'${status}'`).join(', '))})`
+    )
+  })
+);
+
+export const agentSessionsTable = sqliteTable(
+  'agent_sessions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    taskId: integer('task_id')
+      .notNull()
+      .references(() => tasksTable.id, { onDelete: 'cascade' }),
+    worktreeId: integer('worktree_id')
+      .notNull()
+      .references(() => worktreesTable.id, { onDelete: 'cascade' }),
+    provider: text('provider').$type<AgentProvider>().notNull(),
+    status: text('status').$type<AgentSessionStatus>().notNull(),
+    command: text('command').notNull(),
+    pid: integer('pid'),
+    exitCode: integer('exit_code'),
+    lastError: text('last_error'),
+    lastEventSeq: integer('last_event_seq').notNull().default(0),
+    transcriptPath: text('transcript_path').notNull(),
+    startedAt: text('started_at'),
+    endedAt: text('ended_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull()
+  },
+  (table) => ({
+    activeTaskUnique: uniqueIndex('agent_sessions_task_id_active_unique')
+      .on(table.taskId)
+      .where(sql`${table.status} in ('starting', 'running')`),
+    createdAtIdx: index('agent_sessions_created_at_idx').on(table.createdAt),
+    statusIdx: index('agent_sessions_status_idx').on(table.status),
+    taskIdIdx: index('agent_sessions_task_id_idx').on(table.taskId),
+    providerCheck: check(
+      'agent_sessions_provider_check',
+      sql`${table.provider} in (${sql.raw(agentProviderValues.map((provider) => `'${provider}'`).join(', '))})`
+    ),
+    statusCheck: check(
+      'agent_sessions_status_check',
+      sql`${table.status} in (${sql.raw(agentSessionStatusValues.map((status) => `'${status}'`).join(', '))})`
     )
   })
 );
