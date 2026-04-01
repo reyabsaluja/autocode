@@ -97,7 +97,6 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     setCommitNotice(null);
     commitMutation.reset();
     await queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
-    await queryClient.invalidateQueries({ queryKey: ['tasks'] });
   };
 
   const handleCommit = async () => {

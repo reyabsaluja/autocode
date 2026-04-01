@@ -45,7 +45,7 @@ export function useWriteWorkspaceFileMutation(taskId: number | null, relativePat
         taskId
       });
     },
-    onSuccess: async () => {
+    onSettled: async () => {
       if (taskId !== null) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
       }

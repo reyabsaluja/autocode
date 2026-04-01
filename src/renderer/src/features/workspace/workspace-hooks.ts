@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { WorkspaceCommitInput, WorkspaceDirectoryInput, WorkspaceDiffInput } from '@shared/contracts/workspaces';
@@ -30,7 +31,9 @@ export function useWorkspaceExplorerDirectoryQuery(
 }
 
 export function useWorkspaceChangesQuery(taskId: number | null) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const lastSyncedHealthAtRef = useRef(0);
+  const query = useQuery({
     enabled: taskId !== null,
     queryKey: taskId !== null ? queryKeys.workspaceChanges(taskId) : ['workspace', 'idle', 'changes'],
     queryFn: () => autocodeApi.workspaces.listChanges({ taskId: taskId! }),
@@ -38,6 +41,21 @@ export function useWorkspaceChangesQuery(taskId: number | null) {
     refetchOnWindowFocus: true,
     staleTime: 0
   });
+
+  const settledAt = Math.max(query.dataUpdatedAt, query.errorUpdatedAt);
+
+  useEffect(() => {
+    if (taskId === null || settledAt === 0 || settledAt === lastSyncedHealthAtRef.current) {
+      return;
+    }
+
+    lastSyncedHealthAtRef.current = settledAt;
+    // listChanges is the workspace-health observation path in main, so task/project
+    // collections need a follow-up refresh after it settles to stay consistent.
+    void invalidateWorkspaceCollections(queryClient);
+  }, [queryClient, settledAt, taskId]);
+
+  return query;
 }
 
 export function useWorkspaceDiffQuery(
@@ -76,13 +94,15 @@ export function useCommitWorkspaceMutation(taskId: number | null) {
         taskId
       });
     },
-    onSuccess: async () => {
+    onSettled: async () => {
       if (taskId !== null) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
       }
-
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
     }
   });
+}
+
+async function invalidateWorkspaceCollections(queryClient: ReturnType<typeof useQueryClient>) {
+  await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
 }
