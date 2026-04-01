@@ -97,8 +97,8 @@ export const agentSessionsTable = sqliteTable(
     updatedAt: text('updated_at').notNull()
   },
   (table) => ({
-    activeTaskUnique: uniqueIndex('agent_sessions_task_id_active_unique')
-      .on(table.taskId)
+    activeTaskProviderUnique: uniqueIndex('agent_sessions_task_provider_active_unique')
+      .on(table.taskId, table.provider)
       .where(sql`${table.status} in ('starting', 'running')`),
     createdAtIdx: index('agent_sessions_created_at_idx').on(table.createdAt),
     statusIdx: index('agent_sessions_status_idx').on(table.status),

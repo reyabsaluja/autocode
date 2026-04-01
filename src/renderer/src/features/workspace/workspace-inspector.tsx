@@ -1,9 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { FileCode2, Files, GitCompare, Plus, RefreshCw, Square, Terminal, X } from 'lucide-react';
+import { Bot, ChevronDown, FileCode2, Files, GitCompare, Plus, RefreshCw, Square, Terminal, X } from 'lucide-react';
 
-import type { AgentSessionStatus } from '@shared/domain/agent-session';
+import type { AgentProvider, AgentSessionStatus } from '@shared/domain/agent-session';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 
@@ -64,6 +64,8 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   const [commitMessage, setCommitMessage] = useState('');
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [isNewSessionMenuOpen, setIsNewSessionMenuOpen] = useState(false);
+  const newSessionMenuRef = useRef<HTMLDivElement | null>(null);
   const [terminalSize, setTerminalSize] = useState(DEFAULT_TERMINAL_SIZE);
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
   const previousActiveSessionIdRef = useRef<number | null>(null);
@@ -83,6 +85,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     () => sessions.find((session) => session.id === selectedSessionId) ?? null,
     [selectedSessionId, sessions]
   );
+  const selectedSessionIsActive = selectedSession !== null && isActiveSessionStatus(selectedSession.status);
   const sendInputMutation = useAgentSessionInputMutation(selectedSession?.id ?? null);
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSession?.id ?? null);
   const transcriptQuery = useAgentSessionTranscriptTailQuery(
@@ -203,6 +206,21 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     requestFileSelection(nextPath, 'changes', 'diff');
   }, [activeFileTab, changes]);
 
+  useEffect(() => {
+    if (!isNewSessionMenuOpen) {
+      return;
+    }
+
+    function handleClickOutside(event: MouseEvent) {
+      if (newSessionMenuRef.current && !newSessionMenuRef.current.contains(event.target as Node)) {
+        setIsNewSessionMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isNewSessionMenuOpen]);
+
   const handleRefresh = async () => {
     setCommitNotice(null);
     commitMutation.reset();
@@ -302,7 +320,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     });
   }
 
-  function requestCodexSessionSelection(sessionId: number) {
+  function requestSessionSelection(sessionId: number) {
     if (activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === sessionId) {
       return;
     }
@@ -310,8 +328,8 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     requestCenterTransition({
       body: `Save or discard your changes to ${
         editorRef.current?.getActiveFilePath() ?? 'the current file'
-      } before returning to Codex.`,
-      key: `codex:${taskId}:${sessionId}`,
+      } before switching sessions.`,
+      key: `session:${taskId}:${sessionId}`,
       run: () => {
         setSelectedSessionId(sessionId);
         setActiveCenterTab(TERMINAL_TAB_ID);
@@ -320,36 +338,38 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     });
   }
 
-  function requestStartCodexSession() {
+  function requestStartSession(provider: AgentProvider) {
+    setIsNewSessionMenuOpen(false);
     requestCenterTransition({
       body: `Save or discard your changes to ${
         editorRef.current?.getActiveFilePath() ?? 'the current file'
-      } before starting a new Codex run.`,
-      key: `codex:start:${taskId}:${sessions.length}`,
+      } before starting a new session.`,
+      key: `session:start:${taskId}:${provider}:${sessions.length}`,
       run: () => {
         setActiveCenterTab(TERMINAL_TAB_ID);
-        void startCodexSession();
+        void startSession(provider);
       },
       title: 'Unsaved file edits'
     });
   }
 
-  async function startCodexSession() {
-    const session = await startSessionMutation.mutateAsync(terminalSize);
+  async function startSession(provider: AgentProvider) {
+    const session = await startSessionMutation.mutateAsync({ ...terminalSize, provider });
     setSelectedSessionId(session.id);
   }
 
-  function requestDeleteCodexSession(sessionId: number) {
+  function requestDeleteSession(sessionId: number) {
     const session = sessions.find((entry) => entry.id === sessionId) ?? null;
 
     if (!session) {
       return;
     }
 
+    const displayName = getProviderDisplayName(session.provider);
     const confirmed = window.confirm(
       isActiveSessionStatus(session.status)
-        ? `Delete this Codex run?\n\nThis will terminate the active run and remove its transcript.`
-        : 'Delete this Codex run and remove its transcript?'
+        ? `Delete this ${displayName} session?\n\nThis will terminate the active session and remove its transcript.`
+        : `Delete this ${displayName} session and remove its transcript?`
     );
 
     if (!confirmed) {
@@ -369,7 +389,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
 
     void deleteSessionMutation.mutateAsync(sessionId).catch((error) => {
       window.alert(
-        error instanceof Error ? error.message : 'Autocode could not delete this Codex run.'
+        error instanceof Error ? error.message : `Autocode could not delete this ${displayName} session.`
       );
     });
   }
@@ -465,58 +485,77 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
               <CenterTab
                 icon={<Terminal className="h-3.5 w-3.5" />}
                 isActive={activeCenterTab === TERMINAL_TAB_ID}
-                label="Codex"
+                label="Terminal"
                 onClick={requestTerminalSelection}
               />
             ) : (
-              sessions.map((session, index) => (
-                <CenterTab
-                  closeLabel={`Delete Codex ${index + 1}`}
-                  icon={<CodexSessionGlyph isActive={session.id === activeSession?.id} />}
-                  isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
-                  key={session.id}
-                  label={`Codex ${index + 1}`}
-                  onClick={() => {
-                    requestCodexSessionSelection(session.id);
-                  }}
-                  onClose={() => {
-                    requestDeleteCodexSession(session.id);
-                  }}
-                />
-              ))
+              sessions.map((session) => {
+                const providerIndex = getProviderSessionIndex(sessions, session);
+                return (
+                  <CenterTab
+                    closeLabel={`Delete ${getProviderDisplayName(session.provider)} ${providerIndex}`}
+                    icon={<SessionProviderIcon provider={session.provider} isActive={isActiveSessionStatus(session.status)} />}
+                    isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
+                    key={session.id}
+                    label={`${getProviderDisplayName(session.provider)} ${providerIndex}`}
+                    onClick={() => {
+                      requestSessionSelection(session.id);
+                    }}
+                    onClose={() => {
+                      requestDeleteSession(session.id);
+                    }}
+                  />
+                );
+              })
             )}
-            <button
-              className={clsx(
-                'grid h-7 w-7 place-items-center rounded-md transition',
-                activeSession || startSessionMutation.isPending
-                  ? 'bg-white/[0.03] text-white/15'
-                  : 'bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white'
-              )}
-              disabled={Boolean(activeSession) || startSessionMutation.isPending}
-              onClick={() => {
-                requestStartCodexSession();
-              }}
-              title={
-                activeSession
-                  ? 'Finish the active Codex run before starting another.'
-                  : 'Start a new Codex run'
-              }
-              type="button"
-            >
-              {startSessionMutation.isPending ? (
-                <Plus className="h-3.5 w-3.5 animate-pulse" />
-              ) : (
-                <Plus className="h-3.5 w-3.5" />
-              )}
-            </button>
-            {activeSession ? (
+            <div className="relative" ref={newSessionMenuRef}>
+              <button
+                className={clsx(
+                  'flex h-7 items-center gap-0.5 rounded-md px-1.5 transition',
+                  startSessionMutation.isPending
+                    ? 'bg-white/[0.03] text-white/15'
+                    : 'bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white'
+                )}
+                disabled={startSessionMutation.isPending}
+                onClick={() => setIsNewSessionMenuOpen((c) => !c)}
+                title="New session"
+                type="button"
+              >
+                {startSessionMutation.isPending ? (
+                  <Plus className="h-3.5 w-3.5 animate-pulse" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
+                <ChevronDown className="h-2.5 w-2.5" />
+              </button>
+              {isNewSessionMenuOpen ? (
+                <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-lg border border-white/[0.10] bg-[#1c1c1c] py-1 shadow-xl">
+                  <NewSessionOption
+                    icon={<Terminal className="h-3.5 w-3.5" />}
+                    label="Terminal"
+                    onClick={() => requestStartSession('terminal')}
+                  />
+                  <NewSessionOption
+                    icon={<CodexSessionGlyph isActive={false} />}
+                    label="Codex"
+                    onClick={() => requestStartSession('codex')}
+                  />
+                  <NewSessionOption
+                    icon={<Bot className="h-3.5 w-3.5" />}
+                    label="Claude Code"
+                    onClick={() => requestStartSession('claude-code')}
+                  />
+                </div>
+              ) : null}
+            </div>
+            {selectedSessionIsActive ? (
               <button
                 className="grid h-7 w-7 place-items-center rounded-md bg-rose-500/[0.10] text-rose-300 transition hover:bg-rose-500/[0.18] hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={terminateSessionMutation.isPending}
                 onClick={() => {
                   void terminateSessionMutation.mutateAsync();
                 }}
-                title="Terminate active Codex run"
+                title="Terminate session"
                 type="button"
               >
                 <Square className="h-3 w-3" />
@@ -755,6 +794,55 @@ function CodexSessionGlyph({ isActive }: { isActive: boolean }) {
       )}
     />
   );
+}
+
+function SessionProviderIcon({ provider, isActive }: { provider: AgentProvider; isActive: boolean }) {
+  switch (provider) {
+    case 'codex':
+      return <CodexSessionGlyph isActive={isActive} />;
+    case 'claude-code':
+      return <Bot className={clsx('h-3.5 w-3.5', isActive ? 'text-amber-300' : '')} />;
+    case 'terminal':
+      return <Terminal className={clsx('h-3.5 w-3.5', isActive ? 'text-emerald-300' : '')} />;
+  }
+}
+
+function NewSessionOption({
+  icon,
+  label,
+  onClick
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="flex w-full items-center gap-2 px-3 py-1.5 font-geist text-[12px] text-white/70 transition hover:bg-white/[0.06] hover:text-white"
+      onClick={onClick}
+      type="button"
+    >
+      <span className="shrink-0">{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+function getProviderDisplayName(provider: AgentProvider): string {
+  switch (provider) {
+    case 'codex': return 'Codex';
+    case 'claude-code': return 'Claude';
+    case 'terminal': return 'Terminal';
+  }
+}
+
+function getProviderSessionIndex(
+  sessions: Array<{ id: number; provider: AgentProvider }>,
+  session: { id: number; provider: AgentProvider }
+): number {
+  const sameSessions = sessions.filter((s) => s.provider === session.provider);
+  const reverseIndex = [...sameSessions].reverse().findIndex((s) => s.id === session.id);
+  return reverseIndex + 1;
 }
 
 function isActiveSessionStatus(

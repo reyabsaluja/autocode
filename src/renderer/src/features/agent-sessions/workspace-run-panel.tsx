@@ -94,7 +94,7 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
   }, [activeSession, selectedSessionId, sessions]);
 
   const handleStartSession = async () => {
-    const session = await startSessionMutation.mutateAsync(terminalSize);
+    const session = await startSessionMutation.mutateAsync({ ...terminalSize, provider: 'codex' });
     setSelectedSessionId(session.id);
     setIsOpen(true);
   };

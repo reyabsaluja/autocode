@@ -31,7 +31,7 @@ export function useStartAgentSessionMutation(taskId: number | null) {
   return useMutation({
     mutationFn: (input: Omit<StartAgentSessionInput, 'taskId'>) => {
       if (taskId === null) {
-        throw new Error('Select a task workspace before starting Codex.');
+        throw new Error('Select a task workspace before starting a session.');
       }
 
       return autocodeApi.agentSessions.start({
@@ -58,7 +58,7 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
   return useMutation({
     mutationFn: (sessionId: number | null) => {
       if (sessionId === null) {
-        throw new Error('Select a Codex run before deleting it.');
+        throw new Error('Select a session before deleting it.');
       }
 
       return autocodeApi.agentSessions.delete({ sessionId });
@@ -97,7 +97,7 @@ export function useTerminateAgentSessionMutation(sessionId: number | null) {
   return useMutation({
     mutationFn: () => {
       if (sessionId === null) {
-        throw new Error('Select an active Codex run before terminating it.');
+        throw new Error('Select an active session before terminating it.');
       }
 
       return autocodeApi.agentSessions.terminate({ sessionId });
@@ -112,7 +112,7 @@ export function useAgentSessionInputMutation(sessionId: number | null) {
   return useMutation({
     mutationFn: (input: Omit<SendAgentSessionInput, 'sessionId'>) => {
       if (sessionId === null) {
-        throw new Error('Select an active Codex run before sending input.');
+        throw new Error('Select an active session before sending input.');
       }
 
       return autocodeApi.agentSessions.sendInput({
@@ -127,7 +127,7 @@ export function useAgentSessionResizeMutation(sessionId: number | null) {
   return useMutation({
     mutationFn: (input: Omit<ResizeAgentSessionInput, 'sessionId'>) => {
       if (sessionId === null) {
-        throw new Error('Select an active Codex run before resizing it.');
+        throw new Error('Select an active session before resizing it.');
       }
 
       return autocodeApi.agentSessions.resize({

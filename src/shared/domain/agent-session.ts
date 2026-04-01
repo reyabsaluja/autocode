@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const agentProviderValues = ['codex'] as const;
+export const agentProviderValues = ['codex', 'claude-code', 'terminal'] as const;
 export const agentSessionStatusValues = [
   'starting',
   'running',

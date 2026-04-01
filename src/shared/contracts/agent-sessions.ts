@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  agentProviderSchema,
   agentSessionEventSchema,
   agentSessionSchema,
   agentSessionTranscriptEntrySchema
@@ -16,6 +17,7 @@ export const listAgentSessionsByTaskInputSchema = z.object({
 
 export const startAgentSessionInputSchema = z.object({
   cols: terminalDimensionSchema,
+  provider: agentProviderSchema,
   rows: terminalDimensionSchema,
   taskId: taskIdSchema
 });

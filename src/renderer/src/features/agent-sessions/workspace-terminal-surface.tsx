@@ -48,14 +48,14 @@ export function WorkspaceTerminalSurface({
                 <>
                   <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-white/18" />
                   <p className="font-geist text-[14px] font-medium text-white/72">
-                    Starting Codex
+                    Starting session
                   </p>
                 </>
               ) : (
                 <>
                   <Terminal className="mx-auto mb-4 h-8 w-8 text-white/15" />
                   <p className="font-geist text-[14px] font-medium text-white/72">
-                    Open a Codex tab to start working in this task worktree.
+                    Open a terminal or start an agent session to work in this worktree.
                   </p>
                 </>
               )}

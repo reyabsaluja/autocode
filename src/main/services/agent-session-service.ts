@@ -16,6 +16,7 @@ import type {
   TerminateAgentSessionInput
 } from '../../shared/contracts/agent-sessions';
 import type {
+  AgentProvider,
   AgentSession,
   AgentSessionEvent,
   AgentSessionTranscriptEntry,
@@ -52,9 +53,14 @@ interface FinalizeSessionOptions {
 type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 
 const ACTIVE_AGENT_SESSION_STATUSES = new Set(['starting', 'running']);
-const INTERRUPTED_SESSION_MESSAGE =
-  'Autocode interrupted this Codex run because the app restarted before it finished.';
 const CODEX_COMMAND = 'codex';
+const CLAUDE_CODE_COMMAND = 'claude';
+
+const PROVIDER_DISPLAY_NAMES: Record<AgentProvider, string> = {
+  'claude-code': 'Claude Code',
+  'codex': 'Codex',
+  'terminal': 'Terminal'
+};
 
 export function createAgentSessionService(
   db: AppDatabase,
@@ -98,17 +104,21 @@ export function createAgentSessionService(
           continue;
         }
 
+        const displayName = PROVIDER_DISPLAY_NAMES[session.provider] ?? session.provider;
+        const interruptionMessage =
+          `Autocode interrupted this ${displayName} session because the app restarted before it finished.`;
+
         await ensureAgentSessionTranscriptFile(internalSession.transcriptPath);
         const interruptionEntry = await appendSystemEntryIfPossible(
           session.id,
           internalSession.transcriptPath,
-          INTERRUPTED_SESSION_MESSAGE,
+          interruptionMessage,
           timestamp
         );
         const nextSession = agentSessionRepository.finalize({
           endedAt: timestamp,
           exitCode: null,
-          lastError: INTERRUPTED_SESSION_MESSAGE,
+          lastError: interruptionMessage,
           sessionId: session.id,
           status: 'terminated'
         });
@@ -138,24 +148,29 @@ export function createAgentSessionService(
     },
 
     async start(input: StartAgentSessionInput): Promise<AgentSession> {
-      if (agentSessionRepository.findActiveByTaskId(input.taskId)) {
-        throw new Error('This task already has an active Codex run.');
+      const provider = input.provider;
+      const displayName = PROVIDER_DISPLAY_NAMES[provider];
+
+      if (agentSessionRepository.findActiveByTaskIdAndProvider(input.taskId, provider)) {
+        throw new Error(`This task already has an active ${displayName} session.`);
       }
 
       const context = await workspaceRuntime.observeWorkspaceContext(input.taskId);
       const timestamp = new Date().toISOString();
+      const command = resolveCommandNameForProvider(provider);
       let placeholderSession: AgentSession;
 
       try {
         placeholderSession = agentSessionRepository.create({
-          command: 'codex',
+          command,
           createdAt: timestamp,
+          provider,
           taskId: input.taskId,
           transcriptPath: '',
           worktreeId: context.worktree.id
         });
       } catch (error) {
-        throw new Error(normalizeActiveSessionConflict(error));
+        throw new Error(normalizeActiveSessionConflict(error, displayName));
       }
       const transcriptPath = resolveAgentSessionTranscriptPath(sessionsRoot, placeholderSession.id);
 
@@ -180,19 +195,19 @@ export function createAgentSessionService(
       }
 
       let pty: IPty;
-      const executablePath = await resolveCodexExecutablePath();
-      const agentProcessEnv = buildAgentProcessEnv();
+      const executablePath = await resolveExecutableForProvider(provider);
+      const sessionProcessEnv = buildAgentProcessEnv();
 
       try {
         pty = spawn(executablePath, [], {
           cols: input.cols,
           cwd: context.worktreePath,
-          env: agentProcessEnv,
+          env: sessionProcessEnv,
           name: 'xterm-color',
           rows: input.rows
         });
       } catch (error) {
-        const message = normalizeAgentSpawnError(error);
+        const message = normalizeAgentSpawnError(error, displayName);
 
         const failureEntry = await appendSystemEntryIfPossible(
           placeholderSession.id,
@@ -236,7 +251,7 @@ export function createAgentSessionService(
         void handleRuntimeOutput(runtime.sessionId, transcriptPath, data);
       });
       pty.onExit((event) => {
-        void handleRuntimeExit(runtime.sessionId, event.exitCode);
+        void handleRuntimeExit(runtime.sessionId, event.exitCode, provider);
       });
 
       const runningSession = agentSessionRepository.markRunning(
@@ -244,17 +259,20 @@ export function createAgentSessionService(
         pty.pid,
         new Date().toISOString()
       );
-      const initialPrompt = buildInitialPrompt(context.task.title, context.task.description);
 
-      try {
-        if (initialPrompt) {
-          await writeToRuntime(runningSession.id, initialPrompt);
+      if (provider !== 'terminal') {
+        const initialPrompt = buildInitialPrompt(context.task.title, context.task.description);
+
+        try {
+          if (initialPrompt) {
+            await writeToRuntime(runningSession.id, initialPrompt);
+          }
+        } catch (error) {
+          await failRuntimeSession(runningSession.id, error);
+          throw error instanceof Error
+            ? error
+            : new Error(`Autocode could not send the initial prompt to ${displayName}.`);
         }
-      } catch (error) {
-        await failRuntimeSession(runningSession.id, error);
-        throw error instanceof Error
-          ? error
-          : new Error('Autocode could not send the initial prompt to Codex.');
       }
 
       const session = requireSession(runningSession.id);
@@ -385,15 +403,17 @@ export function createAgentSessionService(
     return session;
   }
 
-  async function handleRuntimeExit(sessionId: number, exitCode: number): Promise<void> {
+  async function handleRuntimeExit(sessionId: number, exitCode: number, provider: AgentProvider): Promise<void> {
     if (!runtimes.has(sessionId)) {
       return;
     }
 
+    const displayName = PROVIDER_DISPLAY_NAMES[provider] ?? provider;
+
     await finalizeSession(sessionId, {
       exitCode,
       killRuntime: false,
-      lastError: exitCode === 0 ? null : `Codex exited with code ${exitCode}.`,
+      lastError: exitCode === 0 ? null : `${displayName} exited with code ${exitCode}.`,
       status: exitCode === 0 ? 'completed' : 'failed'
     });
   }
@@ -453,7 +473,7 @@ export function createAgentSessionService(
 
   async function failRuntimeSession(sessionId: number, error: unknown): Promise<void> {
     const message =
-      error instanceof Error ? error.message : 'Autocode could not persist the active Codex run.';
+      error instanceof Error ? error.message : 'Autocode could not persist the active session.';
 
     await finalizeSession(sessionId, {
       exitCode: null,
@@ -504,7 +524,7 @@ export function createAgentSessionService(
     const runtime = runtimes.get(sessionId);
 
     if (!runtime || runtime.finalized) {
-      throw new Error('This Codex run is no longer active.');
+      throw new Error('This session is no longer active.');
     }
 
     return runtime;
@@ -555,7 +575,29 @@ function buildInitialPrompt(title: string, description: string | null): string {
   return `${normalizedTitle}\n\n${normalizedDescription}\n`;
 }
 
-function normalizeAgentSpawnError(error: unknown): string {
+function resolveCommandNameForProvider(provider: AgentProvider): string {
+  switch (provider) {
+    case 'codex':
+      return CODEX_COMMAND;
+    case 'claude-code':
+      return CLAUDE_CODE_COMMAND;
+    case 'terminal':
+      return process.env.SHELL ?? '/bin/zsh';
+  }
+}
+
+async function resolveExecutableForProvider(provider: AgentProvider): Promise<string> {
+  switch (provider) {
+    case 'codex':
+      return resolveCodexExecutablePath();
+    case 'claude-code':
+      return resolveClaudeCodeExecutablePath();
+    case 'terminal':
+      return resolveShellExecutablePath();
+  }
+}
+
+function normalizeAgentSpawnError(error: unknown, displayName: string): string {
   const message = error instanceof Error ? error.message : String(error);
 
   if (
@@ -563,63 +605,89 @@ function normalizeAgentSpawnError(error: unknown): string {
     message.includes('not found') ||
     message.includes('posix_spawnp failed')
   ) {
-    return 'Codex CLI is not installed or is not available on PATH.';
+    return `${displayName} is not installed or is not available on PATH.`;
   }
 
   if (!message) {
-    return 'Autocode could not start Codex CLI.';
+    return `Autocode could not start ${displayName}.`;
   }
 
   return message;
 }
 
-function normalizeActiveSessionConflict(error: unknown): string {
+function normalizeActiveSessionConflict(error: unknown, displayName: string): string {
   const message = error instanceof Error ? error.message : String(error);
 
-  if (message.includes('agent_sessions_task_id_active_unique')) {
-    return 'This task already has an active Codex run.';
+  if (message.includes('agent_sessions_task_provider_active_unique')) {
+    return `This task already has an active ${displayName} session.`;
   }
 
-  return message || 'Autocode could not create a new Codex session.';
+  return message || `Autocode could not create a new ${displayName} session.`;
 }
 
 function buildAgentProcessEnv(): Record<string, string> {
   const env = Object.fromEntries(
     Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
   );
-  const pathEntries = getCodexSearchPaths(process.env.PATH);
+  const pathEntries = getCliSearchPaths(process.env.PATH);
 
   env.PATH = pathEntries.join(path.delimiter);
   return env;
 }
 
 async function resolveCodexExecutablePath(): Promise<string> {
-  for (const candidate of getCodexExecutableCandidates(process.env.PATH)) {
+  return resolveCliExecutablePath(CODEX_COMMAND, 'Codex CLI');
+}
+
+async function resolveClaudeCodeExecutablePath(): Promise<string> {
+  return resolveCliExecutablePath(CLAUDE_CODE_COMMAND, 'Claude Code CLI');
+}
+
+async function resolveShellExecutablePath(): Promise<string> {
+  const shell = process.env.SHELL;
+
+  if (shell && await isExecutableFile(shell)) {
+    return shell;
+  }
+
+  for (const fallback of ['/bin/zsh', '/bin/bash', '/bin/sh']) {
+    if (await isExecutableFile(fallback)) {
+      return fallback;
+    }
+  }
+
+  throw new Error('Could not find a shell executable on this system.');
+}
+
+async function resolveCliExecutablePath(command: string, displayName: string): Promise<string> {
+  for (const candidate of getCliExecutableCandidates(command, process.env.PATH)) {
     if (await isExecutableFile(candidate)) {
       return realpath(candidate).catch(() => candidate);
     }
   }
 
-  throw new Error('Codex CLI is not installed or is not available on PATH.');
+  throw new Error(`${displayName} is not installed or is not available on PATH.`);
 }
 
-function getCodexExecutableCandidates(currentPath: string | undefined): string[] {
+function getCliExecutableCandidates(command: string, currentPath: string | undefined): string[] {
   const fileNames = process.platform === 'win32'
-    ? getWindowsExecutableNames(CODEX_COMMAND)
-    : [CODEX_COMMAND];
+    ? getWindowsExecutableNames(command)
+    : [command];
 
-  return getCodexSearchPaths(currentPath).flatMap((directoryPath) =>
+  return getCliSearchPaths(currentPath).flatMap((directoryPath) =>
     fileNames.map((fileName) => path.join(directoryPath, fileName))
   );
 }
 
-function getCodexSearchPaths(currentPath: string | undefined): string[] {
+function getCliSearchPaths(currentPath: string | undefined): string[] {
   const pathEntries = (currentPath ?? '')
     .split(path.delimiter)
     .map((entry) => entry.trim())
     .filter(Boolean);
   const fallbackEntries = [
     path.join(os.homedir(), '.bun', 'bin'),
+    path.join(os.homedir(), '.local', 'bin'),
+    path.join(os.homedir(), '.npm-global', 'bin'),
     '/opt/homebrew/bin',
     '/usr/local/bin',
     '/usr/bin',

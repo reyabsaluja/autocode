@@ -1,12 +1,13 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 
-import type { AgentSession, AgentSessionStatus } from '../../shared/domain/agent-session';
+import type { AgentProvider, AgentSession, AgentSessionStatus } from '../../shared/domain/agent-session';
 import type { AppDatabase } from '../database/client';
 import { agentSessionsTable } from '../database/schema';
 
 export interface CreateAgentSessionInput {
   command: string;
   createdAt: string;
+  provider: AgentProvider;
   taskId: number;
   transcriptPath: string;
   worktreeId: number;
@@ -35,7 +36,7 @@ export function createAgentSessionRepository(db: AppDatabase) {
           lastError: null,
           lastEventSeq: 0,
           pid: null,
-          provider: 'codex',
+          provider: input.provider,
           startedAt: null,
           status: 'starting',
           taskId: input.taskId,
@@ -84,7 +85,7 @@ export function createAgentSessionRepository(db: AppDatabase) {
       );
     },
 
-    findActiveByTaskId(taskId: number): AgentSession | null {
+    findActiveByTaskIdAndProvider(taskId: number, provider: AgentProvider): AgentSession | null {
       const session =
         db
           .select()
@@ -92,6 +93,7 @@ export function createAgentSessionRepository(db: AppDatabase) {
           .where(
             and(
               eq(agentSessionsTable.taskId, taskId),
+              eq(agentSessionsTable.provider, provider),
               inArray(agentSessionsTable.status, ['starting', 'running'])
             )
           )
