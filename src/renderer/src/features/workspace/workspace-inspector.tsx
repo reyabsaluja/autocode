@@ -78,7 +78,6 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   );
   const startSessionMutation = useStartAgentSessionMutation(taskId);
   const deleteSessionMutation = useDeleteAgentSessionMutation(taskId);
-  const terminateSessionMutation = useTerminateAgentSessionMutation(activeSession?.id ?? null);
   const { dialogProps: fileSwitchDialogProps, requestTransition: requestFileTransition } =
     useUnsavedChangesGuard(editorRef);
   const selectedSession = useMemo(
@@ -86,6 +85,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     [selectedSessionId, sessions]
   );
   const selectedSessionIsActive = selectedSession !== null && isActiveSessionStatus(selectedSession.status);
+  const terminateSessionMutation = useTerminateAgentSessionMutation(selectedSession?.id ?? null);
   const sendInputMutation = useAgentSessionInputMutation(selectedSession?.id ?? null);
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSession?.id ?? null);
   const transcriptQuery = useAgentSessionTranscriptTailQuery(

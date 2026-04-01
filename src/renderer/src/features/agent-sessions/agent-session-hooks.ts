@@ -84,6 +84,13 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
       }
     },
     onSuccess: (_result, sessionId) => {
+      if (taskId !== null && sessionId !== null) {
+        queryClient.setQueryData<AgentSession[]>(
+          queryKeys.agentSessions(taskId),
+          (current) => current?.filter((session) => session.id !== sessionId) ?? []
+        );
+      }
+
       if (sessionId !== null) {
         queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
       }

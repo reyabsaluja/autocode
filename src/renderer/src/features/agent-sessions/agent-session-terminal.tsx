@@ -5,6 +5,7 @@ import { Terminal } from '@xterm/xterm';
 import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 
 import '@xterm/xterm/css/xterm.css';
+import { filterTerminalRenderableEntries } from './transcript-rendering';
 
 interface AgentSessionTerminalProps {
   entries: AgentSessionTranscriptEntry[];
@@ -130,7 +131,7 @@ export function AgentSessionTerminal({
       return;
     }
 
-    const nextEntries = entries
+    const nextEntries = filterTerminalRenderableEntries(entries)
       .filter((entry) => entry.seq > lastRenderedSeqRef.current)
       .sort((left, right) => left.seq - right.seq);
 
