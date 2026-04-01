@@ -9,6 +9,7 @@ import type {
 } from '../../shared/contracts/workspaces';
 import type {
   WorkspaceChange,
+  WorkspaceCommitLogEntry,
   WorkspaceDiff,
   WorkspaceDirectoryEntry,
   WorkspaceDirectorySnapshot
@@ -63,16 +64,21 @@ export function createWorkspaceService(db: AppDatabase) {
 
       try {
         const context = await workspaceRuntime.observeWorkspaceContext(taskId);
-        const changes = await listWorkspaceChanges(context.worktreePath);
+        const [changes, commits] = await Promise.all([
+          listWorkspaceChanges(context.worktreePath),
+          listRecentCommits(context.worktreePath)
+        ]);
+        const enrichedChanges = await enrichChangesWithNumstat(changes, context.worktreePath);
         const observation = taskWorkspaceRepository.recordWorkspaceHealth({
           lastError: null,
           taskId,
           timestamp,
-          worktreeStatus: changes.length > 0 ? 'dirty' : 'ready'
+          worktreeStatus: enrichedChanges.length > 0 ? 'dirty' : 'ready'
         });
 
         return {
-          changes,
+          changes: enrichedChanges,
+          commits,
           observation: {
             didHealthChange: observation.didChange,
             project: observation.project,
@@ -329,6 +335,9 @@ function createHintedWorkspaceChange(
   }
 
   return {
+    isStaged: false,
+    linesAdded: null,
+    linesRemoved: null,
     previousPath: input.previousPath ?? null,
     relativePath: input.relativePath,
     status: input.status
@@ -361,6 +370,91 @@ async function readDirectoryEntries(worktreePath: string, relativePath: string) 
     throw error instanceof Error
       ? error
       : new Error('Autocode could not read this workspace directory.');
+  }
+}
+
+async function enrichChangesWithNumstat(
+  changes: WorkspaceChange[],
+  worktreePath: string
+): Promise<WorkspaceChange[]> {
+  if (changes.length === 0) {
+    return changes;
+  }
+
+  try {
+    const numstatOutput = await execGit(
+      ['diff', 'HEAD', '--numstat'],
+      worktreePath,
+      { allowedExitCodes: [1] }
+    );
+
+    if (!numstatOutput.trim()) {
+      return changes;
+    }
+
+    const statMap = new Map<string, { added: number; removed: number }>();
+
+    for (const line of numstatOutput.trim().split('\n')) {
+      const parts = line.split('\t');
+
+      if (parts.length < 3) {
+        continue;
+      }
+
+      const added = parts[0] === '-' ? 0 : parseInt(parts[0]!, 10);
+      const removed = parts[1] === '-' ? 0 : parseInt(parts[1]!, 10);
+      const filePath = parts[2]!;
+
+      if (!isNaN(added) && !isNaN(removed)) {
+        statMap.set(filePath, { added, removed });
+      }
+    }
+
+    return changes.map((change) => {
+      const stat = statMap.get(change.relativePath);
+
+      if (!stat) {
+        return change;
+      }
+
+      return {
+        ...change,
+        linesAdded: stat.added,
+        linesRemoved: stat.removed
+      };
+    });
+  } catch {
+    return changes;
+  }
+}
+
+async function listRecentCommits(
+  worktreePath: string
+): Promise<WorkspaceCommitLogEntry[]> {
+  try {
+    const output = await execGit(
+      ['log', '--oneline', '--format=%H%x00%s%x00%ar', '-n', '10'],
+      worktreePath
+    );
+
+    if (!output.trim()) {
+      return [];
+    }
+
+    return output
+      .trim()
+      .split('\n')
+      .map((line) => {
+        const [sha, message, relativeTime] = line.split('\0');
+        return {
+          message: message ?? '',
+          relativeTime: relativeTime ?? '',
+          sha: sha ?? ''
+        };
+      })
+      .filter((entry) => entry.sha.length > 0);
+  } catch {
+    return [];
   }
 }
 

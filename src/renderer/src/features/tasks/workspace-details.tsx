@@ -1,10 +1,8 @@
 import { forwardRef, useEffect, useState } from 'react';
-import clsx from 'clsx';
-import { AlertTriangle, Clock, FolderGit2, GitBranch, Loader2 } from 'lucide-react';
+import { AlertTriangle, FolderGit2, GitBranch, Loader2 } from 'lucide-react';
 
 import type { Project } from '@shared/domain/project';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
-import type { WorktreeStatus } from '@shared/domain/worktree';
 
 import type { WorkspaceEditorHandle } from '../editor/workspace-editor-surface';
 
@@ -44,10 +42,10 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   if (!project) {
     return (
-      <section className="grid h-full animate-fade-in place-items-center bg-surface-0">
+      <section className="grid h-full animate-fade-in place-items-center">
         <div className="max-w-sm text-center">
-          <FolderGit2 className="mx-auto mb-3 h-8 w-8 text-white/15" />
-          <p className="font-geist text-[13px] text-white/40">
+          <FolderGit2 className="mx-auto mb-3 h-7 w-7 text-white/12" />
+          <p className="font-geist text-[13px] text-white/35">
             Add or select a repository to open its workspaces.
           </p>
         </div>
@@ -57,10 +55,10 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   if (isLoadingTasks) {
     return (
-      <section className="grid h-full animate-fade-in place-items-center bg-surface-0">
+      <section className="grid h-full animate-fade-in place-items-center">
         <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-white/30" />
-          <p className="font-geist text-[13px] text-white/40">Loading workspaces</p>
+          <Loader2 className="h-4 w-4 animate-spin text-white/25" />
+          <p className="font-geist text-[13px] text-white/35">Loading workspaces</p>
         </div>
       </section>
     );
@@ -68,10 +66,10 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   if (!taskWorkspace) {
     return (
-      <section className="grid h-full animate-fade-in place-items-center bg-surface-0">
+      <section className="grid h-full animate-fade-in place-items-center">
         <div className="max-w-sm text-center">
-          <p className="font-geist text-[13px] text-white/40">
-            Create or select a workspace in <span className="font-medium text-white/70">{project.name}</span>.
+          <p className="font-geist text-[13px] text-white/35">
+            Create or select a workspace in <span className="font-medium text-white/60">{project.name}</span>.
           </p>
         </div>
       </section>
@@ -82,32 +80,20 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   return (
     <section className="flex h-full flex-col animate-fade-in">
-      <header className="flex items-center justify-between border-b border-white/[0.06] bg-surface-0 px-4 py-2.5">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="min-w-0">
-            <p className="truncate font-geist text-[14px] font-semibold text-white/90">{task.title}</p>
-            {task.description ? (
-              <p className="mt-0.5 truncate font-geist text-[12px] text-white/40">{task.description}</p>
-            ) : null}
-          </div>
-        </div>
+      <header className="flex h-[38px] shrink-0 items-center border-b border-white/[0.06] bg-[#141414] px-4">
+        <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">{task.title}</p>
 
-        <div className="ml-4 flex items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
           <HeaderBadge icon={<FolderGit2 className="h-3 w-3" />} value={project.name} />
           {worktree ? (
             <HeaderBadge icon={<GitBranch className="h-3 w-3" />} value={worktree.branchName} />
           ) : null}
-          {worktree ? (
-            <WorktreeStatusBadge status={worktree.status} />
-          ) : null}
-          <TaskStatusBadge status={task.status} />
-          <HeaderBadge icon={<Clock className="h-3 w-3" />} value={formatDate(task.updatedAt)} />
         </div>
       </header>
 
       {task.lastError ? (
-        <div className="flex items-center gap-2 border-b border-rose-500/20 bg-rose-500/[0.04] px-4 py-2.5 font-geist text-[13px] text-rose-300">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2 border-b border-rose-500/15 bg-rose-500/[0.04] px-4 py-2 font-geist text-[12px] text-rose-300">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           {task.lastError}
         </div>
       ) : null}
@@ -120,16 +106,16 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
             taskWorkspace={taskWorkspace}
           />
         ) : (
-          <div className="grid min-h-0 flex-1 animate-fade-in place-items-center bg-[#141414]">
+          <div className="grid min-h-0 flex-1 animate-fade-in place-items-center">
             <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-white/30" />
-              <p className="font-geist text-[13px] text-white/40">Opening workspace tools</p>
+              <Loader2 className="h-4 w-4 animate-spin text-white/25" />
+              <p className="font-geist text-[13px] text-white/35">Opening workspace tools</p>
             </div>
           </div>
         )
       ) : (
-        <div className="grid min-h-[280px] place-items-center bg-surface-0">
-          <p className="font-geist text-[13px] text-white/40">
+        <div className="grid min-h-[280px] place-items-center">
+          <p className="font-geist text-[13px] text-white/35">
             This task does not have an active worktree yet.
           </p>
         </div>
@@ -146,56 +132,10 @@ function HeaderBadge({
   value: string;
 }) {
   return (
-    <span className="flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 font-geist text-[11px] font-medium text-white/50">
-      {icon}
-      <span className="max-w-[120px] truncate">{value}</span>
+    <span className="flex items-center gap-1 rounded bg-white/[0.06] px-1.5 py-0.5 font-geist text-[11px] text-white/45">
+      {icon ? <span className="text-white/30">{icon}</span> : null}
+      <span className="max-w-[140px] truncate">{value}</span>
     </span>
   );
 }
 
-function TaskStatusBadge({ status }: { status: TaskWorkspace['task']['status'] }) {
-  const styles: Record<TaskWorkspace['task']['status'], string> = {
-    archived: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
-    completed: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-    draft: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-    failed: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
-    in_progress: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
-    needs_review: 'bg-violet-500/10 text-violet-300 border-violet-500/20',
-    ready: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-  };
-
-  return (
-    <span className={clsx(
-      'rounded-md border px-2 py-1 font-geist text-[10px] font-bold uppercase tracking-[0.08em]',
-      styles[status]
-    )}>
-      {status.replace('_', ' ')}
-    </span>
-  );
-}
-
-function WorktreeStatusBadge({ status }: { status: WorktreeStatus }) {
-  const styles: Record<WorktreeStatus, string> = {
-    archived: 'bg-zinc-500/10 text-zinc-400',
-    dirty: 'bg-amber-500/10 text-amber-300',
-    failed: 'bg-rose-500/10 text-rose-300',
-    provisioning: 'bg-sky-500/10 text-sky-300',
-    ready: 'bg-emerald-500/10 text-emerald-300'
-  };
-
-  return (
-    <span className={clsx(
-      'rounded-md px-2 py-1 font-geist text-[10px] font-bold uppercase tracking-[0.08em]',
-      styles[status]
-    )}>
-      {status}
-    </span>
-  );
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value));
-}

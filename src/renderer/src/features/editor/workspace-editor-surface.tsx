@@ -138,96 +138,71 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
 
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-surface-0">
-        <div className="border-b border-white/[0.08] px-4 py-2">
-          <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <FileCode className="h-3.5 w-3.5 shrink-0 text-white/30" />
-                <p className="truncate font-geist text-[13px] font-semibold text-white/90">{editorTitle}</p>
-                {isDirty ? <StateBadge tone="dirty" value="Unsaved" /> : null}
-                {activeChange ? (
-                  <StateBadge
-                    tone="modified"
-                    value={formatWorkspaceChangeLabel(activeChange.status)}
-                  />
-                ) : null}
-              </div>
-              <p className="mt-0.5 truncate pl-[22px] font-geist text-[11px] text-white/30">
-                {activeFilePath ?? 'Select a file to edit'}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <ModeToggle
-                isActive={mode === 'editor'}
-                label="Edit"
-                onClick={() => onModeChange('editor')}
+        <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#141414] px-4 py-1.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <FileCode className="h-3.5 w-3.5 shrink-0 text-white/30" />
+            <p className="truncate font-geist text-[12px] font-medium text-white/80">{editorTitle}</p>
+            {isDirty ? <StateBadge tone="dirty" value="Unsaved" /> : null}
+            {activeChange ? (
+              <StateBadge
+                tone="modified"
+                value={formatWorkspaceChangeLabel(activeChange.status)}
               />
-              <ModeToggle
-                isActive={mode === 'diff'}
-                label="Diff"
-                onClick={() => onModeChange('diff')}
-              />
-              <div className="mx-1 h-4 w-px bg-white/[0.08]" />
-              <button
-                className={clsx(
-                  'flex items-center gap-1 rounded-md px-2 py-1 font-geist text-[11px] font-medium transition',
-                  'text-white/40 hover:bg-white/[0.06] hover:text-white/70',
-                  'disabled:cursor-not-allowed disabled:opacity-40'
-                )}
-                disabled={!activeFilePath || !isDirty}
-                onClick={() => setBufferContent(lastSavedContent)}
-                title="Discard changes"
-                type="button"
-              >
-                <Undo2 className="h-3 w-3" />
-                Discard
-              </button>
-              <button
-                className={clsx(
-                  'flex items-center gap-1 rounded-md bg-white px-2.5 py-1 font-geist text-[11px] font-semibold text-[#1c1c1c] transition',
-                  'hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40'
-                )}
-                disabled={!activeFilePath || isBinary || writeFileMutation.isPending || !isDirty}
-                onClick={() => { void persistFile(); }}
-                type="button"
-              >
-                {writeFileMutation.isPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Save className="h-3 w-3" />
-                )}
-                {writeFileMutation.isPending ? 'Saving' : 'Save'}
-              </button>
-            </div>
+            ) : null}
+            {activeFilePath ? (
+              <span className="truncate font-geist text-[11px] text-white/25">{activeFilePath}</span>
+            ) : null}
+            {diffLineSummary ? (
+              <span className="flex items-center gap-1.5 font-geist text-[11px]">
+                <span className="text-emerald-400">+{diffLineSummary.addedLinesCount}</span>
+                <span className="text-rose-400">-{diffLineSummary.removedLinesCount}</span>
+              </span>
+            ) : null}
           </div>
 
-          {(diffLineSummary || fileQuery.data) ? (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[22px]">
-              <MetricPill
-                label="Lines"
-                value={String(bufferContent.length === 0 ? 0 : bufferContent.split('\n').length)}
-              />
-              {diffLineSummary ? (
-                <>
-                  <MetricPill
-                    icon={<Plus className="h-2.5 w-2.5 text-emerald-400" />}
-                    value={String(diffLineSummary.addedLinesCount)}
-                  />
-                  <MetricPill
-                    icon={<Minus className="h-2.5 w-2.5 text-rose-400" />}
-                    value={String(diffLineSummary.removedLinesCount)}
-                  />
-                </>
-              ) : null}
-              {fileQuery.data ? (
-                <MetricPill
-                  label="Bytes"
-                  value={String(fileQuery.data.sizeBytes)}
-                />
-              ) : null}
-            </div>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-1 pl-3">
+            <ModeToggle
+              isActive={mode === 'editor'}
+              label="Edit"
+              onClick={() => onModeChange('editor')}
+            />
+            <ModeToggle
+              isActive={mode === 'diff'}
+              label="Diff"
+              onClick={() => onModeChange('diff')}
+            />
+            <div className="mx-1 h-4 w-px bg-white/[0.08]" />
+            <button
+              className={clsx(
+                'flex items-center gap-1 rounded-md px-2 py-1 font-geist text-[11px] font-medium transition',
+                'text-white/40 hover:bg-white/[0.06] hover:text-white/70',
+                'disabled:cursor-not-allowed disabled:opacity-40'
+              )}
+              disabled={!activeFilePath || !isDirty}
+              onClick={() => setBufferContent(lastSavedContent)}
+              title="Discard changes"
+              type="button"
+            >
+              <Undo2 className="h-3 w-3" />
+              Discard
+            </button>
+            <button
+              className={clsx(
+                'flex items-center gap-1 rounded-md bg-white px-2 py-1 font-geist text-[11px] font-semibold text-[#141414] transition',
+                'hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40'
+              )}
+              disabled={!activeFilePath || isBinary || writeFileMutation.isPending || !isDirty}
+              onClick={() => { void persistFile(); }}
+              type="button"
+            >
+              {writeFileMutation.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Save className="h-3 w-3" />
+              )}
+              {writeFileMutation.isPending ? 'Saving' : 'Save'}
+            </button>
+          </div>
         </div>
 
         {saveNotice ? (

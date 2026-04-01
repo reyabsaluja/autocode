@@ -12,10 +12,16 @@ export function parseWorkspaceChanges(output: string): WorkspaceChange[] {
     }
 
     const statusCode = record.slice(0, 2);
+    const indexStatus = statusCode[0] ?? ' ';
+    const worktreeStatus = statusCode[1] ?? ' ';
     const currentPath = decodeGitPath(record.slice(3));
+    const isStaged = indexStatus !== ' ' && indexStatus !== '?';
 
     if (statusCode === '??') {
       changes.push({
+        isStaged: false,
+        linesAdded: null,
+        linesRemoved: null,
         previousPath: null,
         relativePath: currentPath,
         status: 'untracked'
@@ -27,6 +33,9 @@ export function parseWorkspaceChanges(output: string): WorkspaceChange[] {
       const previousPath = decodeGitPath(tokens[index + 1] ?? '');
       index += 1;
       changes.push({
+        isStaged,
+        linesAdded: null,
+        linesRemoved: null,
         previousPath: previousPath || null,
         relativePath: currentPath,
         status: 'renamed'
@@ -35,6 +44,9 @@ export function parseWorkspaceChanges(output: string): WorkspaceChange[] {
     }
 
     changes.push({
+      isStaged,
+      linesAdded: null,
+      linesRemoved: null,
       previousPath: null,
       relativePath: currentPath,
       status: mapStatusCode(statusCode)

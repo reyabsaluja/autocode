@@ -68,6 +68,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
   const previousActiveSessionIdRef = useRef<number | null>(null);
   const changes = changesQuery.data?.changes ?? [];
+  const commits = changesQuery.data?.commits ?? [];
   const sessions = sessionsQuery.data ?? [];
   const activeSession = useMemo(
     () => sessions.find((session) => isActiveSessionStatus(session.status)) ?? null,
@@ -459,7 +460,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 gap-0">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b border-white/[0.06] bg-[#101010] px-3 py-2">
+          <div className="flex items-center gap-1.5 border-b border-white/[0.06] bg-[#141414] px-3 py-1.5">
             {sessions.length === 0 ? (
               <CenterTab
                 icon={<Terminal className="h-3.5 w-3.5" />}
@@ -486,10 +487,10 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
             )}
             <button
               className={clsx(
-                'grid h-10 w-10 place-items-center rounded-xl border transition',
+                'grid h-7 w-7 place-items-center rounded-md transition',
                 activeSession || startSessionMutation.isPending
-                  ? 'border-white/[0.06] bg-white/[0.03] text-white/20'
-                  : 'border-white/[0.12] bg-white/[0.06] text-white/72 hover:border-white/[0.18] hover:bg-white/[0.10] hover:text-white'
+                  ? 'bg-white/[0.03] text-white/15'
+                  : 'bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white'
               )}
               disabled={Boolean(activeSession) || startSessionMutation.isPending}
               onClick={() => {
@@ -501,16 +502,16 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
                   : 'Start a new Codex run'
               }
               type="button"
-              >
-                {startSessionMutation.isPending ? (
-                  <Plus className="h-4 w-4 animate-pulse" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-              </button>
+            >
+              {startSessionMutation.isPending ? (
+                <Plus className="h-3.5 w-3.5 animate-pulse" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+            </button>
             {activeSession ? (
               <button
-                className="grid h-10 w-10 place-items-center rounded-xl border border-rose-500/20 bg-rose-500/[0.06] text-rose-200 transition hover:bg-rose-500/[0.12] hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="grid h-7 w-7 place-items-center rounded-md bg-rose-500/[0.10] text-rose-300 transition hover:bg-rose-500/[0.18] hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={terminateSessionMutation.isPending}
                 onClick={() => {
                   void terminateSessionMutation.mutateAsync();
@@ -518,8 +519,11 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
                 title="Terminate active Codex run"
                 type="button"
               >
-                <Square className="h-3.5 w-3.5" />
+                <Square className="h-3 w-3" />
               </button>
+            ) : null}
+            {fileTabs.length > 0 ? (
+              <div className="mx-1 h-4 w-px bg-white/[0.08]" />
             ) : null}
             {fileTabs.map((tab) => (
               <CenterTab
@@ -580,7 +584,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
         </div>
 
         <aside className="flex min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#1c1c1c]">
-          <div className="flex items-center gap-1 border-b border-white/[0.08] px-3 py-2">
+          <div className="flex items-center gap-1 border-b border-white/[0.08] px-3 py-1.5">
             <SidebarTab
               icon={<Files className="h-3.5 w-3.5" />}
               isActive={activeSidebarTab === 'files'}
@@ -624,6 +628,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
                 commitErrorMessage={formatError(commitMutation.error)}
                 commitMessage={commitMessage}
                 commitNotice={commitNotice}
+                commits={commits}
                 isCommitting={commitMutation.isPending}
                 isLoading={changesQuery.isLoading}
                 loadErrorMessage={formatError(changesQuery.error)}
@@ -703,10 +708,10 @@ function CenterTab({
   return (
     <div
       className={clsx(
-        'group flex min-w-0 items-center gap-1 rounded-md border px-2.5 py-1.5 transition',
+        'group flex min-w-0 items-center gap-1 rounded-md px-2 py-1 transition',
         isActive
-          ? 'border-white/[0.14] bg-white/[0.09] text-white'
-          : 'border-white/[0.06] bg-white/[0.03] text-white/45 hover:border-white/[0.10] hover:bg-white/[0.05] hover:text-white/78'
+          ? 'bg-white/[0.10] text-white'
+          : 'text-white/40 hover:bg-white/[0.06] hover:text-white/70'
       )}
     >
       <button
@@ -715,16 +720,16 @@ function CenterTab({
         type="button"
       >
         <span className="shrink-0">{icon}</span>
-        <span className="max-w-[160px] truncate font-geist text-[12px] font-medium">{label}</span>
+        <span className="max-w-[140px] truncate font-geist text-[12px] font-medium">{label}</span>
       </button>
       {onClose ? (
         <button
           aria-label={closeLabel ?? `Close ${label}`}
           className={clsx(
-            'ml-1 rounded-sm p-0.5 transition',
+            'ml-0.5 rounded-sm p-0.5 transition',
             isActive
-              ? 'text-white/48 hover:bg-white/[0.08] hover:text-white/75'
-              : 'text-white/30 hover:bg-white/[0.06] hover:text-white/65'
+              ? 'text-white/40 hover:bg-white/[0.10] hover:text-white/70'
+              : 'text-white/20 hover:bg-white/[0.06] hover:text-white/50'
           )}
           onClick={(event) => {
             event.stopPropagation();
@@ -743,10 +748,10 @@ function CodexSessionGlyph({ isActive }: { isActive: boolean }) {
   return (
     <span
       className={clsx(
-        'inline-flex h-3 w-3 rounded-full border transition',
+        'inline-flex h-2.5 w-2.5 rounded-full transition',
         isActive
-          ? 'border-white/20 bg-white/90 shadow-[0_0_0_3px_rgba(255,255,255,0.08)]'
-          : 'border-white/12 bg-white/12'
+          ? 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.25)]'
+          : 'bg-white/20'
       )}
     />
   );

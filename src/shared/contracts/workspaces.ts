@@ -5,6 +5,7 @@ import { taskWorkspaceSchema } from '../domain/task-workspace';
 import {
   workspaceChangeSchema,
   workspaceChangeStatusSchema,
+  workspaceCommitLogEntrySchema,
   workspaceCommitResultSchema as workspaceCommitDomainResultSchema,
   workspaceDiffSchema,
   workspaceDirectorySnapshotSchema
@@ -45,6 +46,7 @@ export const workspaceChangesObservationSchema = workspaceCollectionSyncSchema.e
 export const workspaceDirectoryResultSchema = workspaceDirectorySnapshotSchema;
 export const workspaceChangesResultSchema = z.object({
   changes: z.array(workspaceChangeSchema),
+  commits: z.array(workspaceCommitLogEntrySchema),
   observation: workspaceChangesObservationSchema
 });
 export const workspaceDiffResultSchema = workspaceDiffSchema.nullable();
