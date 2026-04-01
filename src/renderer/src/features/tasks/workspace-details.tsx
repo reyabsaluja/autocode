@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { AlertTriangle, Clock, FolderGit2, GitBranch, Loader2 } from 'lucide-react';
 
@@ -7,7 +7,8 @@ import type { TaskWorkspace } from '@shared/domain/task-workspace';
 import type { WorktreeStatus } from '@shared/domain/worktree';
 
 import type { WorkspaceEditorHandle } from '../editor/workspace-editor-surface';
-import { WorkspaceInspector } from '../workspace/workspace-inspector';
+
+type WorkspaceInspectorComponent = typeof import('../workspace/workspace-inspector')['WorkspaceInspector'];
 
 interface WorkspaceDetailsProps {
   isLoadingTasks: boolean;
@@ -20,6 +21,27 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   project,
   taskWorkspace
 }, ref) {
+  const [WorkspaceInspectorComponent, setWorkspaceInspectorComponent] =
+    useState<WorkspaceInspectorComponent | null>(null);
+
+  useEffect(() => {
+    if (!taskWorkspace?.worktree || WorkspaceInspectorComponent) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void import('../workspace/workspace-inspector').then((module) => {
+      if (!isCancelled) {
+        setWorkspaceInspectorComponent(() => module.WorkspaceInspector);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [WorkspaceInspectorComponent, taskWorkspace?.worktree]);
+
   if (!project) {
     return (
       <section className="grid h-full animate-fade-in place-items-center bg-surface-0">
@@ -91,11 +113,20 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
       ) : null}
 
       {worktree ? (
-        <WorkspaceInspector
-          key={taskWorkspace.task.id}
-          ref={ref}
-          taskWorkspace={taskWorkspace}
-        />
+        WorkspaceInspectorComponent ? (
+          <WorkspaceInspectorComponent
+            key={taskWorkspace.task.id}
+            ref={ref}
+            taskWorkspace={taskWorkspace}
+          />
+        ) : (
+          <div className="grid min-h-0 flex-1 animate-fade-in place-items-center bg-[#141414]">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+              <p className="font-geist text-[13px] text-white/40">Opening workspace tools</p>
+            </div>
+          </div>
+        )
       ) : (
         <div className="grid min-h-[280px] place-items-center bg-surface-0">
           <p className="font-geist text-[13px] text-white/40">
