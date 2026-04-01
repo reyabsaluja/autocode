@@ -18,73 +18,77 @@ export function createWorkspaceRuntime(db: AppDatabase) {
     taskWorkspaceRepository,
 
     async resolveWorkspaceContext(taskId: number): Promise<ResolvedWorkspaceContext> {
-      let context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId);
+      // Pure access path: validate the persisted workspace without mutating task/worktree state.
+      const context = await loadWorkspaceContext(taskId, false, taskWorkspaceRepository, taskWorkspaceCreationService);
+      return validateWorkspaceContext(context);
+    },
 
-      if (shouldAttemptWorkspaceRecovery(context)) {
-        await taskWorkspaceCreationService.reconcileProvisioningTaskWorkspace(taskId);
-        context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId);
-      }
-
-      if (!context) {
-        throw new Error('Workspace could not be found.');
-      }
-
-      try {
-        const worktreePath = await resolveWorkspaceRoot(context.worktree.worktreePath);
-        const topLevelPath = await realpath(
-          await execGit(['rev-parse', '--show-toplevel'], worktreePath)
-        );
-
-        if (topLevelPath !== worktreePath) {
-          throw new Error('Stored workspace path no longer matches the task worktree root.');
-        }
-
-        const currentBranch = await execGit(['branch', '--show-current'], worktreePath);
-
-        if (!currentBranch) {
-          throw new Error('Workspace is not currently attached to a branch.');
-        }
-
-        if (currentBranch !== context.worktree.branchName) {
-          throw new Error(
-            `Workspace branch drifted from ${context.worktree.branchName} to ${currentBranch}.`
-          );
-        }
-
-        const registeredWorktrees = await listRegisteredWorktrees(context.project.gitRoot);
-
-        if (!registeredWorktrees.has(worktreePath)) {
-          throw new Error('Stored workspace is no longer registered with the project repository.');
-        }
-
-        if (context.task.lastError || context.worktree.status === 'failed') {
-          const timestamp = new Date().toISOString();
-          taskWorkspaceRepository.recordWorkspaceHealth({
-            lastError: null,
-            taskId,
-            timestamp,
-            worktreeStatus: context.worktree.status === 'dirty' ? 'dirty' : 'ready'
-          });
-
-          context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId) ?? context;
-        }
-
-        return {
-          ...context,
-          worktreePath
-        };
-      } catch (error) {
-        const message = normalizeWorkspaceError(error);
-        taskWorkspaceRepository.recordWorkspaceHealth({
-          lastError: message,
-          taskId,
-          timestamp: new Date().toISOString(),
-          worktreeStatus: 'failed'
-        });
-        throw new Error(message);
-      }
+    async observeWorkspaceContext(taskId: number): Promise<ResolvedWorkspaceContext> {
+      // Observation path: allowed to recover interrupted provisioning before validation.
+      const context = await loadWorkspaceContext(taskId, true, taskWorkspaceRepository, taskWorkspaceCreationService);
+      return validateWorkspaceContext(context);
     }
   };
+}
+
+async function loadWorkspaceContext(
+  taskId: number,
+  attemptRecovery: boolean,
+  taskWorkspaceRepository: ReturnType<typeof createTaskWorkspaceRepository>,
+  taskWorkspaceCreationService: ReturnType<typeof createTaskWorkspaceCreationService>
+): Promise<TaskWorkspaceContext> {
+  let context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId);
+
+  if (attemptRecovery && shouldAttemptWorkspaceRecovery(context)) {
+    await taskWorkspaceCreationService.reconcileProvisioningTaskWorkspace(taskId);
+    context = taskWorkspaceRepository.findWorkspaceContextByTaskId(taskId);
+  }
+
+  if (!context) {
+    throw new Error('Workspace could not be found.');
+  }
+
+  return context;
+}
+
+async function validateWorkspaceContext(
+  context: TaskWorkspaceContext
+): Promise<ResolvedWorkspaceContext> {
+  try {
+    const worktreePath = await resolveWorkspaceRoot(context.worktree.worktreePath);
+    const topLevelPath = await realpath(
+      await execGit(['rev-parse', '--show-toplevel'], worktreePath)
+    );
+
+    if (topLevelPath !== worktreePath) {
+      throw new Error('Stored workspace path no longer matches the task worktree root.');
+    }
+
+    const currentBranch = await execGit(['branch', '--show-current'], worktreePath);
+
+    if (!currentBranch) {
+      throw new Error('Workspace is not currently attached to a branch.');
+    }
+
+    if (currentBranch !== context.worktree.branchName) {
+      throw new Error(
+        `Workspace branch drifted from ${context.worktree.branchName} to ${currentBranch}.`
+      );
+    }
+
+    const registeredWorktrees = await listRegisteredWorktrees(context.project.gitRoot);
+
+    if (!registeredWorktrees.has(worktreePath)) {
+      throw new Error('Stored workspace is no longer registered with the project repository.');
+    }
+
+    return {
+      ...context,
+      worktreePath
+    };
+  } catch (error) {
+    throw new Error(normalizeWorkspaceError(error));
+  }
 }
 
 function shouldAttemptWorkspaceRecovery(context: TaskWorkspaceContext | null): boolean {

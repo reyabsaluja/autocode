@@ -8,6 +8,7 @@ import type {
   WorkspaceDirectoryEntry,
   WorkspaceDirectorySnapshot
 } from '../../shared/domain/workspace-inspection';
+import type { TaskStatus } from '../../shared/domain/task';
 import type { AppDatabase } from '../database/client';
 import { execGit } from './git-client';
 import {
@@ -16,6 +17,7 @@ import {
   isNotDirectoryError,
   normalizeNonEmptyRelativePath,
   normalizeRelativePath,
+  normalizeWorkspaceError,
   resolveWorkspaceTargetPath
 } from './workspace-runtime';
 
@@ -51,15 +53,23 @@ export function createWorkspaceService(db: AppDatabase) {
     },
 
     async listChanges(taskId: number): Promise<WorkspaceChange[]> {
-      const context = await workspaceRuntime.resolveWorkspaceContext(taskId);
-      const changes = await listWorkspaceChanges(context.worktreePath);
-      taskWorkspaceRepository.recordWorkspaceHealth({
-        lastError: null,
-        taskId,
-        timestamp: new Date().toISOString(),
-        worktreeStatus: changes.length > 0 ? 'dirty' : 'ready'
-      });
-      return changes;
+      const timestamp = new Date().toISOString();
+
+      try {
+        const context = await workspaceRuntime.observeWorkspaceContext(taskId);
+        const changes = await listWorkspaceChanges(context.worktreePath);
+
+        taskWorkspaceRepository.recordWorkspaceHealth({
+          lastError: null,
+          taskId,
+          timestamp,
+          worktreeStatus: changes.length > 0 ? 'dirty' : 'ready'
+        });
+
+        return changes;
+      } catch (error) {
+        throw persistWorkspaceObservationFailure(taskWorkspaceRepository, taskId, timestamp, error);
+      }
     },
 
     async getDiff(input: WorkspaceDiffInput): Promise<WorkspaceDiff | null> {
@@ -85,9 +95,21 @@ export function createWorkspaceService(db: AppDatabase) {
     },
 
     async commitAll(input: WorkspaceCommitInput): Promise<WorkspaceCommitResult> {
-      const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
-      const changes = await listWorkspaceChanges(context.worktreePath);
       const timestamp = new Date().toISOString();
+      let context: Awaited<ReturnType<typeof workspaceRuntime.observeWorkspaceContext>>;
+      let changes: WorkspaceChange[];
+
+      try {
+        context = await workspaceRuntime.observeWorkspaceContext(input.taskId);
+        changes = await listWorkspaceChanges(context.worktreePath);
+      } catch (error) {
+        throw persistWorkspaceObservationFailure(
+          taskWorkspaceRepository,
+          input.taskId,
+          timestamp,
+          error
+        );
+      }
 
       if (changes.length === 0) {
         taskWorkspaceRepository.recordWorkspaceHealth({
@@ -100,7 +122,17 @@ export function createWorkspaceService(db: AppDatabase) {
       }
 
       const message = input.message.trim();
-      await execGit(['add', '--all'], context.worktreePath);
+
+      try {
+        await execGit(['add', '--all'], context.worktreePath);
+      } catch (error) {
+        throw persistWorkspaceObservationFailure(
+          taskWorkspaceRepository,
+          input.taskId,
+          timestamp,
+          error
+        );
+      }
 
       try {
         await execGit(['commit', '-m', message], context.worktreePath);
@@ -129,7 +161,11 @@ export function createWorkspaceService(db: AppDatabase) {
       }
 
       const commitSha = await execGit(['rev-parse', 'HEAD'], context.worktreePath);
-      const nextStatus = context.task.status === 'ready' ? 'in_progress' : context.task.status;
+      const operationalTaskStatus = resolveOperationalTaskStatus(
+        context.task.status,
+        context.taskStatusBeforeFailure
+      );
+      const nextStatus = operationalTaskStatus === 'ready' ? 'in_progress' : operationalTaskStatus;
 
       taskWorkspaceRepository.touchTaskWorkspace(
         context.task.id,
@@ -145,6 +181,34 @@ export function createWorkspaceService(db: AppDatabase) {
       };
     }
   };
+}
+
+function persistWorkspaceObservationFailure(
+  taskWorkspaceRepository: ReturnType<typeof createWorkspaceRuntime>['taskWorkspaceRepository'],
+  taskId: number,
+  timestamp: string,
+  error: unknown
+): Error {
+  const message = normalizeWorkspaceError(error);
+  taskWorkspaceRepository.recordWorkspaceHealth({
+    lastError: message,
+    taskId,
+    timestamp,
+    worktreeStatus: 'failed'
+  });
+
+  return new Error(message);
+}
+
+function resolveOperationalTaskStatus(
+  taskStatus: TaskStatus,
+  taskStatusBeforeFailure: TaskStatus | null
+): TaskStatus {
+  if (taskStatus === 'failed') {
+    return taskStatusBeforeFailure ?? 'ready';
+  }
+
+  return taskStatus;
 }
 
 async function listWorkspaceChanges(worktreePath: string): Promise<WorkspaceChange[]> {

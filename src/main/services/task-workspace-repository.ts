@@ -10,6 +10,7 @@ import { projectsTable, tasksTable, worktreesTable } from '../database/schema';
 export interface TaskWorkspaceContext {
   project: Project;
   task: Task;
+  taskStatusBeforeFailure: TaskStatus | null;
   worktree: Worktree;
 }
 
@@ -309,6 +310,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       return {
         project: row.project,
         task: toTask(row.task),
+        taskStatusBeforeFailure: row.task.statusBeforeFailure ?? null,
         worktree: row.worktree
       };
     },
