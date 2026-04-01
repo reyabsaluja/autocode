@@ -9,7 +9,8 @@ import {
   Layers,
   Loader2,
   PanelLeft,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 import type { Project } from '@shared/domain/project';
@@ -19,6 +20,7 @@ interface WorkspaceSidebarProps {
   createErrorMessage: string | null;
   isAddingProject: boolean;
   isCreatingTask: boolean;
+  isDeletingTask: boolean;
   isLoadingProjects: boolean;
   isLoadingTasks: boolean;
   manualPath: string;
@@ -30,6 +32,7 @@ interface WorkspaceSidebarProps {
   taskWorkspaces: TaskWorkspace[];
   onAddRepository: () => Promise<void>;
   onCreateTask: (input: { description: string; title: string }) => Promise<void>;
+  onDeleteTask: (workspace: TaskWorkspace) => void;
   onManualPathChange: (value: string) => void;
   onSelectProject: (projectId: number | null) => void;
   onSelectTask: (taskId: number | null) => void;
@@ -41,6 +44,7 @@ export function WorkspaceSidebar({
   createErrorMessage,
   isAddingProject,
   isCreatingTask,
+  isDeletingTask,
   isLoadingProjects,
   isLoadingTasks,
   manualPath,
@@ -52,6 +56,7 @@ export function WorkspaceSidebar({
   taskWorkspaces,
   onAddRepository,
   onCreateTask,
+  onDeleteTask,
   onManualPathChange,
   onSelectProject,
   onSelectTask,
@@ -282,34 +287,52 @@ export function WorkspaceSidebar({
                       const isSelected = workspace.task.id === selectedTaskId;
 
                       return (
-                        <button
+                        <div
                           key={workspace.task.id}
                           className={clsx(
-                            'group w-full py-2 pl-4 pr-2 text-left transition',
+                            'group flex items-start gap-1 py-2 pl-4 pr-2 transition',
                             isSelected
                               ? 'bg-white/[0.12]'
                               : 'hover:bg-white/[0.08]'
                           )}
-                          onClick={() => onSelectTask(workspace.task.id)}
-                          type="button"
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className={clsx(
-                              'truncate font-geist text-[13px] font-medium',
-                              isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'
-                            )}>
-                              {workspace.task.title}
-                            </p>
-                            <StatusDot status={workspace.task.status} />
-                          </div>
-                          <div className="mt-1 flex items-center gap-2 text-[11px] text-white/40">
-                            <GitBranch className="h-3 w-3" />
-                            <span className="truncate font-mono">
-                              {workspace.worktree?.branchName ?? 'pending'}
-                            </span>
-                            <span className="ml-auto shrink-0">{formatShortDate(workspace.task.updatedAt)}</span>
-                          </div>
-                        </button>
+                          <button
+                            className="min-w-0 flex-1 text-left"
+                            onClick={() => onSelectTask(workspace.task.id)}
+                            type="button"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={clsx(
+                                'truncate font-geist text-[13px] font-medium',
+                                isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'
+                              )}>
+                                {workspace.task.title}
+                              </p>
+                              <StatusDot status={workspace.task.status} />
+                            </div>
+                            <div className="mt-1 flex items-center gap-2 text-[11px] text-white/40">
+                              <GitBranch className="h-3 w-3" />
+                              <span className="truncate font-mono">
+                                {workspace.worktree?.branchName ?? 'pending'}
+                              </span>
+                              <span className="ml-auto shrink-0">{formatShortDate(workspace.task.updatedAt)}</span>
+                            </div>
+                          </button>
+                          <button
+                            className={clsx(
+                              'grid h-5 w-5 shrink-0 place-items-center rounded-md transition',
+                              isDeletingTask
+                                ? 'cursor-not-allowed text-white/20'
+                                : 'text-white/30 hover:bg-white/[0.10] hover:text-rose-200'
+                            )}
+                            disabled={isDeletingTask}
+                            onClick={() => onDeleteTask(workspace)}
+                            title={`Delete ${workspace.task.title}`}
+                            type="button"
+                          >
+                            <Trash2 className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
                       );
                     })
                   : null}

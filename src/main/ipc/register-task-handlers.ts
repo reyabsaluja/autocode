@@ -2,9 +2,12 @@ import type { IpcMainInvokeEvent } from 'electron';
 
 import {
   type CreateTaskInput,
+  type DeleteTaskInput,
   type ListTasksByProjectInput,
   createTaskInputSchema,
   createTaskResultSchema,
+  deleteTaskInputSchema,
+  deleteTaskResultSchema,
   listTasksByProjectInputSchema,
   listTasksByProjectResultSchema
 } from '../../shared/contracts/tasks';
@@ -27,5 +30,12 @@ export function registerTaskHandlers(taskService: TaskService): void {
       taskService.createTaskWorkspace(input),
     inputSchema: createTaskInputSchema,
     outputSchema: createTaskResultSchema
+  });
+
+  handleValidatedIpc(taskChannels.delete, {
+    handler: async (_event: IpcMainInvokeEvent, input: DeleteTaskInput) =>
+      taskService.deleteTaskWorkspace(input.taskId),
+    inputSchema: deleteTaskInputSchema,
+    outputSchema: deleteTaskResultSchema
   });
 }

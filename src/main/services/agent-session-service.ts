@@ -1,11 +1,12 @@
 import { constants as fsConstants } from 'node:fs';
-import { access, mkdir, realpath } from 'node:fs/promises';
+import { access, mkdir, realpath, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { spawn, type IPty } from 'node-pty';
 
 import type {
+  DeleteAgentSessionInput,
   ListAgentSessionsByTaskInput,
   ReadAgentSessionTranscriptTailInput,
   ReadAgentSessionTranscriptTailResult,
@@ -80,6 +81,10 @@ export function createAgentSessionService(
       }
 
       return readAgentSessionTranscriptTail(session.transcriptPath, input.maxEntries);
+    },
+
+    async delete(input: DeleteAgentSessionInput): Promise<void> {
+      await deleteSession(input.sessionId);
     },
 
     async reconcileInterruptedSessions(): Promise<void> {
@@ -269,6 +274,14 @@ export function createAgentSessionService(
         status: 'terminated',
         systemMessage: 'Session terminated by user.'
       });
+    },
+
+    async deleteByTask(taskId: number): Promise<void> {
+      const sessions = agentSessionRepository.listByTask(taskId);
+
+      for (const session of sessions) {
+        await deleteSession(session.id);
+      }
     }
   };
 
@@ -449,6 +462,29 @@ export function createAgentSessionService(
       status: 'failed',
       systemMessage: message
     });
+  }
+
+  async function deleteSession(sessionId: number): Promise<void> {
+    const session = agentSessionRepository.findInternalById(sessionId);
+
+    if (!session) {
+      throw new Error('Agent session could not be found.');
+    }
+
+    if (ACTIVE_AGENT_SESSION_STATUSES.has(session.status)) {
+      await finalizeSession(sessionId, {
+        exitCode: null,
+        killRuntime: true,
+        lastError: null,
+        status: 'terminated',
+        systemMessage: 'Session deleted by user.'
+      });
+    }
+
+    runtimes.delete(sessionId);
+    sessionQueues.delete(sessionId);
+    await rm(session.transcriptPath, { force: true });
+    agentSessionRepository.delete(sessionId);
   }
 
   async function appendSystemEntryIfPossible(

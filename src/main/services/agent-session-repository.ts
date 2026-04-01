@@ -70,6 +70,10 @@ export function createAgentSessionRepository(db: AppDatabase) {
       return session ? toAgentSession(session) : null;
     },
 
+    delete(sessionId: number): void {
+      db.delete(agentSessionsTable).where(eq(agentSessionsTable.id, sessionId)).run();
+    },
+
     findInternalById(sessionId: number): AgentSessionRecord | null {
       return (
         db

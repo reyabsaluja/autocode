@@ -20,6 +20,12 @@ export interface RecoverableTaskWorkspaceContext {
   worktree: Worktree | null;
 }
 
+export interface TaskDeletionContext {
+  project: Project;
+  task: Task;
+  worktree: Worktree | null;
+}
+
 export interface WorkspaceHealthRecordResult {
   didChange: boolean;
   project: Project;
@@ -220,6 +226,30 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       };
     },
 
+    findTaskDeletionContextByTaskId(taskId: number): TaskDeletionContext | null {
+      const row = db
+        .select({
+          project: projectsTable,
+          task: tasksTable,
+          worktree: worktreesTable
+        })
+        .from(tasksTable)
+        .innerJoin(projectsTable, eq(projectsTable.id, tasksTable.projectId))
+        .leftJoin(worktreesTable, eq(worktreesTable.taskId, tasksTable.id))
+        .where(eq(tasksTable.id, taskId))
+        .get();
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        project: row.project,
+        task: toTask(row.task),
+        worktree: row.worktree?.id ? row.worktree : null
+      };
+    },
+
     createProvisioningTaskWorkspace(
       input: CreateProvisioningTaskWorkspaceInput
     ): TaskWorkspace {
@@ -366,6 +396,21 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
             updatedAt: timestamp
           })
           .where(eq(worktreesTable.taskId, taskId))
+          .run();
+
+        tx.update(projectsTable)
+          .set({
+            updatedAt: timestamp
+          })
+          .where(eq(projectsTable.id, projectId))
+          .run();
+      });
+    },
+
+    deleteTaskWorkspace(taskId: number, projectId: number, timestamp: string): void {
+      db.transaction((tx) => {
+        tx.delete(tasksTable)
+          .where(eq(tasksTable.id, taskId))
           .run();
 
         tx.update(projectsTable)

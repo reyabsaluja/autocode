@@ -2,6 +2,8 @@ import { contextBridge } from 'electron';
 
 import type { AutocodeApi } from '../shared/contracts/electron-api';
 import {
+  deleteAgentSessionInputSchema,
+  deleteAgentSessionResultSchema,
   agentSessionEventResultSchema,
   listAgentSessionsByTaskInputSchema,
   listAgentSessionsByTaskResultSchema,
@@ -25,6 +27,8 @@ import {
 import {
   createTaskInputSchema,
   createTaskResultSchema,
+  deleteTaskInputSchema,
+  deleteTaskResultSchema,
   listTasksByProjectInputSchema,
   listTasksByProjectResultSchema
 } from '../shared/contracts/tasks';
@@ -55,6 +59,12 @@ import { subscribeValidatedIpc } from './subscribe-validated-ipc';
 
 const api: AutocodeApi = {
   agentSessions: {
+    delete: (input) =>
+      invokeValidatedIpc(agentSessionChannels.delete, {
+        input,
+        inputSchema: deleteAgentSessionInputSchema,
+        outputSchema: deleteAgentSessionResultSchema
+      }),
     listByTask: (input) =>
       invokeValidatedIpc(agentSessionChannels.listByTask, {
         input,
@@ -136,6 +146,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: createTaskInputSchema,
         outputSchema: createTaskResultSchema
+      }),
+    delete: (input) =>
+      invokeValidatedIpc(taskChannels.delete, {
+        input,
+        inputSchema: deleteTaskInputSchema,
+        outputSchema: deleteTaskResultSchema
       })
   },
   workspaces: {

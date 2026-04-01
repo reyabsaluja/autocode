@@ -1,4 +1,5 @@
 export const agentSessionChannels = {
+  delete: 'agentSessions:delete',
   event: 'agentSessions:event',
   listByTask: 'agentSessions:listByTask',
   readTranscriptTail: 'agentSessions:readTranscriptTail',
@@ -16,6 +17,7 @@ export const projectChannels = {
 
 export const taskChannels = {
   create: 'tasks:create',
+  delete: 'tasks:delete',
   listByProject: 'tasks:listByProject'
 } as const;
 

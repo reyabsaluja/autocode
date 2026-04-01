@@ -52,6 +52,45 @@ export function useStartAgentSessionMutation(taskId: number | null) {
   });
 }
 
+export function useDeleteAgentSessionMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sessionId: number | null) => {
+      if (sessionId === null) {
+        throw new Error('Select a Codex run before deleting it.');
+      }
+
+      return autocodeApi.agentSessions.delete({ sessionId });
+    },
+    onMutate: async (sessionId) => {
+      if (sessionId === null) {
+        return;
+      }
+
+      await queryClient.cancelQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
+      queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
+
+      if (taskId !== null) {
+        queryClient.setQueryData<AgentSession[]>(
+          queryKeys.agentSessions(taskId),
+          (current) => current?.filter((session) => session.id !== sessionId) ?? []
+        );
+      }
+    },
+    onError: async () => {
+      if (taskId !== null) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions(taskId) });
+      }
+    },
+    onSuccess: (_result, sessionId) => {
+      if (sessionId !== null) {
+        queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
+      }
+    }
+  });
+}
+
 export function useTerminateAgentSessionMutation(sessionId: number | null) {
   const queryClient = useQueryClient();
 

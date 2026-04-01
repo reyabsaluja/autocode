@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { CreateTaskInput } from '@shared/contracts/tasks';
+import type { CreateTaskInput, DeleteTaskInput } from '@shared/contracts/tasks';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import { autocodeApi } from '../../lib/autocode-api';
@@ -40,6 +40,25 @@ export function useCreateTaskWorkspaceMutation(projectId: number | null) {
         );
       });
 
+      await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    }
+  });
+}
+
+export function useDeleteTaskWorkspaceMutation(projectId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: DeleteTaskInput) => autocodeApi.tasks.delete(input),
+    onSuccess: async (_result, input) => {
+      if (projectId !== null) {
+        queryClient.setQueryData<TaskWorkspace[]>(queryKeys.taskWorkspaces(projectId), (current) =>
+          current?.filter((workspace) => workspace.task.id !== input.taskId) ?? []
+        );
+      }
+
+      queryClient.removeQueries({ queryKey: queryKeys.workspace(input.taskId) });
+      queryClient.removeQueries({ queryKey: queryKeys.agentSessions(input.taskId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
     }
   });

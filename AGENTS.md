@@ -127,16 +127,47 @@ If you add transitions, keep them understandable and product-driven.
 
 ## Development Commands
 
-```bash
-bun install
-bun run dev
-bun run typecheck
-bun run build
-bun run rebuild:native
-bun run db:generate
-bun run db:migrate
-bun run db:studio
-```
+## Bun command safety policy
+
+Do not run `bun install` automatically.
+
+Allowed without asking:
+- `bun run typecheck`
+- `bun run build`
+
+Ask for approval first:
+- `bun install --frozen-lockfile`
+- `bun run dev`
+- `bun run rebuild:native`
+- `bun run db:generate`
+- `bun run db:migrate`
+- `bun run db:studio`
+
+Install rules:
+- If dependencies are needed, use `bun install --frozen-lockfile`, never plain `bun install`.
+- For high-risk or first-time installs, use:
+  `bun install --frozen-lockfile --ignore-scripts`
+- After any install, run `bun pm untrusted`.
+- Do not trust or run blocked lifecycle scripts unless explicitly approved.
+- Do not use `bun pm trust --all`.
+- Do not modify `trustedDependencies` without explicit approval.
+
+Script handling:
+- Assume all lifecycle scripts are untrusted by default.
+- If something breaks, identify the specific package and trust only that package.
+- Never broadly enable scripts.
+
+Database rules:
+- Treat `db:generate`, `db:migrate`, and `db:studio` as state-changing or sensitive commands.
+- Never run migrations automatically.
+- Never open DB studio automatically.
+
+Execution order:
+1. `bun run typecheck`
+2. `bun run build`
+3. Only if needed and approved: `bun install --frozen-lockfile`
+4. Only if needed and approved: `bun run dev`
+5. Only if needed and approved: native rebuild or DB commands
 
 If Bun is not on `PATH`, use:
 

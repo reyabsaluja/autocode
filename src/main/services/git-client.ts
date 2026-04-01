@@ -13,6 +13,7 @@ export interface GitRepositoryMetadata {
 
 interface ExecGitOptions {
   allowedExitCodes?: number[];
+  trimOutput?: boolean;
 }
 
 export async function resolveGitRepository(candidatePath: string): Promise<GitRepositoryMetadata> {
@@ -28,12 +29,15 @@ export async function resolveGitRepository(candidatePath: string): Promise<GitRe
 }
 
 export async function execGit(args: string[], gitRoot: string, options: ExecGitOptions = {}): Promise<string> {
+  const trimOutput = options.trimOutput ?? true;
+
   try {
     const { stdout } = await execFileAsync('git', ['-C', gitRoot, ...args]);
-    return stdout.trim();
+    return trimOutput ? stdout.trim() : stdout;
   } catch (error) {
     if (isAllowedExitCode(error, options.allowedExitCodes ?? [])) {
-      return extractCommandStdout(error).trim();
+      const stdout = extractCommandStdout(error);
+      return trimOutput ? stdout.trim() : stdout;
     }
 
     throw createGitCommandError(error);

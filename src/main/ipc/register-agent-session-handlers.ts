@@ -1,6 +1,9 @@
 import type { IpcMainInvokeEvent } from 'electron';
 
 import {
+  type DeleteAgentSessionInput,
+  deleteAgentSessionInputSchema,
+  deleteAgentSessionResultSchema,
   type ListAgentSessionsByTaskInput,
   listAgentSessionsByTaskInputSchema,
   listAgentSessionsByTaskResultSchema,
@@ -27,6 +30,13 @@ import { handleValidatedIpc } from './handle-validated-ipc';
 export type AgentSessionService = ReturnType<typeof createAgentSessionService>;
 
 export function registerAgentSessionHandlers(agentSessionService: AgentSessionService): void {
+  handleValidatedIpc(agentSessionChannels.delete, {
+    handler: async (_event: IpcMainInvokeEvent, input: DeleteAgentSessionInput) =>
+      agentSessionService.delete(input),
+    inputSchema: deleteAgentSessionInputSchema,
+    outputSchema: deleteAgentSessionResultSchema
+  });
+
   handleValidatedIpc(agentSessionChannels.listByTask, {
     handler: async (_event: IpcMainInvokeEvent, input: ListAgentSessionsByTaskInput) =>
       agentSessionService.listByTask(input),

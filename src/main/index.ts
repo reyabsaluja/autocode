@@ -55,14 +55,16 @@ function createMainWindow(): BrowserWindow {
 async function bootstrap(): Promise<void> {
   const { db } = getDatabaseContext();
   const projectService = createProjectService(db);
-  const taskService = createTaskService(db);
-  const workspaceService = createWorkspaceService(db);
-  const workspaceFileService = createWorkspaceFileService(db);
   const agentSessionService = createAgentSessionService(db, (event) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(agentSessionChannels.event, event);
     }
   });
+  const taskService = createTaskService(db, {
+    deleteByTask: agentSessionService.deleteByTask
+  });
+  const workspaceService = createWorkspaceService(db);
+  const workspaceFileService = createWorkspaceFileService(db);
 
   await taskService.reconcileProvisioningTaskWorkspaces();
   await agentSessionService.reconcileInterruptedSessions();

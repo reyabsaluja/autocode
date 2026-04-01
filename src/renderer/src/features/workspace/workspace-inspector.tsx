@@ -1,11 +1,23 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Files, GitCompare, RefreshCw } from 'lucide-react';
+import { FileCode2, Files, GitCompare, Plus, RefreshCw, Square, Terminal, X } from 'lucide-react';
 
+import type { AgentSessionStatus } from '@shared/domain/agent-session';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
+import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 
-import { WorkspaceRunPanel } from '../agent-sessions/workspace-run-panel';
+import {
+  useDeleteAgentSessionMutation,
+  useAgentSessionInputMutation,
+  useAgentSessionResizeMutation,
+  useAgentSessionStream,
+  useAgentSessionTranscriptTailQuery,
+  useAgentSessionsQuery,
+  useStartAgentSessionMutation,
+  useTerminateAgentSessionMutation
+} from '../agent-sessions/agent-session-hooks';
+import { WorkspaceTerminalSurface } from '../agent-sessions/workspace-terminal-surface';
 import { UnsavedChangesDialog } from '../editor/unsaved-changes-dialog';
 import { useUnsavedChangesGuard } from '../editor/use-unsaved-changes-guard';
 import {
@@ -24,6 +36,19 @@ interface WorkspaceInspectorProps {
   taskWorkspace: TaskWorkspace;
 }
 
+interface WorkspaceFileTab {
+  mode: 'diff' | 'editor';
+  path: string;
+  selectionMode: 'changes' | 'files';
+}
+
+const TERMINAL_TAB_ID = '__terminal__';
+const ACTIVE_WORKSPACE_REFRESH_INTERVAL_MS = 2_000;
+const DEFAULT_TERMINAL_SIZE = {
+  cols: 120,
+  rows: 30
+};
+
 export const WorkspaceInspector = forwardRef<WorkspaceEditorHandle, WorkspaceInspectorProps>(
 function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   const queryClient = useQueryClient();
@@ -31,19 +56,58 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   const taskId = taskWorkspace.task.id;
   const changesQuery = useWorkspaceChangesQuery(taskId);
   const commitMutation = useCommitWorkspaceMutation(taskId);
+  const sessionsQuery = useAgentSessionsQuery(taskId);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'changes' | 'files'>('files');
-  const [centerMode, setCenterMode] = useState<'diff' | 'editor'>('editor');
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [selectionMode, setSelectionMode] = useState<'changes' | 'files'>('files');
+  const [activeCenterTab, setActiveCenterTab] = useState<string>(TERMINAL_TAB_ID);
+  const [fileTabs, setFileTabs] = useState<WorkspaceFileTab[]>([]);
   const [expandedDirectories, setExpandedDirectories] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [terminalSize, setTerminalSize] = useState(DEFAULT_TERMINAL_SIZE);
+  const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
+  const previousActiveSessionIdRef = useRef<number | null>(null);
   const changes = changesQuery.data?.changes ?? [];
+  const sessions = sessionsQuery.data ?? [];
+  const activeSession = useMemo(
+    () => sessions.find((session) => isActiveSessionStatus(session.status)) ?? null,
+    [sessions]
+  );
+  const startSessionMutation = useStartAgentSessionMutation(taskId);
+  const deleteSessionMutation = useDeleteAgentSessionMutation(taskId);
+  const terminateSessionMutation = useTerminateAgentSessionMutation(activeSession?.id ?? null);
   const { dialogProps: fileSwitchDialogProps, requestTransition: requestFileTransition } =
     useUnsavedChangesGuard(editorRef);
+  const selectedSession = useMemo(
+    () => sessions.find((session) => session.id === selectedSessionId) ?? null,
+    [selectedSessionId, sessions]
+  );
+  const sendInputMutation = useAgentSessionInputMutation(selectedSession?.id ?? null);
+  const resizeSessionMutation = useAgentSessionResizeMutation(selectedSession?.id ?? null);
+  const transcriptQuery = useAgentSessionTranscriptTailQuery(
+    selectedSession?.id ?? null,
+    selectedSession !== null
+  );
+  const activeFileTab = useMemo(
+    () => fileTabs.find((tab) => tab.path === activeCenterTab) ?? null,
+    [activeCenterTab, fileTabs]
+  );
+  const selectedPath = activeFileTab?.path ?? null;
   const activeChange = useMemo(
     () => changes.find((change) => change.relativePath === selectedPath) ?? null,
     [changes, selectedPath]
+  );
+  const terminalErrorMessage =
+    formatError(startSessionMutation.error) ??
+    formatError(deleteSessionMutation.error) ??
+    formatError(terminateSessionMutation.error) ??
+    formatError(transcriptQuery.error) ??
+    formatError(sessionsQuery.error);
+
+  useAgentSessionStream(
+    taskId,
+    selectedSession?.id ?? null,
+    transcriptQuery.isSuccess && isActiveSessionStatus(selectedSession?.status)
   );
 
   useImperativeHandle(
@@ -59,29 +123,73 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
 
   useEffect(() => {
     setActiveSidebarTab('files');
-    setCenterMode('editor');
-    setSelectedPath(null);
-    setSelectionMode('files');
+    setActiveCenterTab(TERMINAL_TAB_ID);
+    setFileTabs([]);
     setExpandedDirectories([]);
     setCommitMessage('');
     setCommitNotice(null);
+    setSelectedSessionId(null);
+    setTerminalSize(DEFAULT_TERMINAL_SIZE);
+    lastReportedTerminalSizeRef.current = DEFAULT_TERMINAL_SIZE;
+    previousActiveSessionIdRef.current = null;
     commitMutation.reset();
   }, [taskId]);
 
   useEffect(() => {
-    if (selectionMode !== 'changes') {
+    const previousActiveSessionId = previousActiveSessionIdRef.current;
+
+    if (!activeSession && previousActiveSessionId !== null) {
+      void refreshWorkspaceInspectionQueries(queryClient, taskId);
+    }
+
+    if (!sessions.length) {
+      setSelectedSessionId(null);
+      previousActiveSessionIdRef.current = null;
+      return;
+    }
+
+    const nextSelectedSession = activeSession ?? sessions[0] ?? null;
+
+    if (
+      nextSelectedSession &&
+      (selectedSessionId === null || !sessions.some((session) => session.id === selectedSessionId))
+    ) {
+      setSelectedSessionId(nextSelectedSession.id);
+    }
+
+    previousActiveSessionIdRef.current = activeSession?.id ?? null;
+  }, [activeSession, queryClient, selectedSessionId, sessions, taskId]);
+
+  useEffect(() => {
+    if (!activeSession) {
+      return;
+    }
+
+    void refreshWorkspaceInspectionQueries(queryClient, taskId);
+
+    const interval = window.setInterval(() => {
+      void refreshWorkspaceInspectionQueries(queryClient, taskId);
+    }, ACTIVE_WORKSPACE_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [activeSession?.id, queryClient, taskId]);
+
+  useEffect(() => {
+    if (!activeFileTab || activeFileTab.selectionMode !== 'changes') {
       return;
     }
 
     if (changes.length === 0) {
       if (!editorRef.current?.hasUnsavedChanges()) {
-        setSelectedPath(null);
+        applyCloseFileTab(activeFileTab.path);
       }
 
       return;
     }
 
-    if (selectedPath && changes.some((change) => change.relativePath === selectedPath)) {
+    if (changes.some((change) => change.relativePath === activeFileTab.path)) {
       return;
     }
 
@@ -92,7 +200,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     }
 
     requestFileSelection(nextPath, 'changes', 'diff');
-  }, [changes, selectedPath, selectionMode]);
+  }, [activeFileTab, changes]);
 
   const handleRefresh = async () => {
     setCommitNotice(null);
@@ -123,16 +231,19 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     nextSelectionMode: 'changes' | 'files',
     nextCenterMode: 'diff' | 'editor'
   ) {
-    if (path === selectedPath) {
-      setSelectionMode(nextSelectionMode);
-      setCenterMode(nextCenterMode);
+    if (
+      activeFileTab &&
+      activeFileTab.path === path &&
+      activeFileTab.mode === nextCenterMode &&
+      activeCenterTab === path
+    ) {
       return;
     }
 
-    requestFileTransition({
+    requestCenterTransition({
       body: `Save or discard your changes to ${
         editorRef.current?.getActiveFilePath() ?? 'the current file'
-      } before opening another file.`,
+      } before opening another tab.`,
       key: `file:${taskId}:${path}:${nextSelectionMode}:${nextCenterMode}`,
       run: () => {
         applyFileSelection(path, nextSelectionMode, nextCenterMode);
@@ -146,24 +257,326 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     nextSelectionMode: 'changes' | 'files',
     nextCenterMode: 'diff' | 'editor'
   ) {
-    setSelectedPath(path);
-    setSelectionMode(nextSelectionMode);
-    setCenterMode(nextCenterMode);
+    setFileTabs((current) => {
+      const existingTab = current.find((tab) => tab.path === path);
+
+      if (existingTab) {
+        return current.map((tab) =>
+          tab.path === path
+            ? {
+                ...tab,
+                mode: nextCenterMode,
+                selectionMode: nextSelectionMode
+              }
+            : tab
+        );
+      }
+
+      return [
+        ...current,
+        {
+          mode: nextCenterMode,
+          path,
+          selectionMode: nextSelectionMode
+        }
+      ];
+    });
+    setActiveCenterTab(path);
+  }
+
+  function requestTerminalSelection() {
+    if (activeCenterTab === TERMINAL_TAB_ID) {
+      return;
+    }
+
+    requestCenterTransition({
+      body: `Save or discard your changes to ${
+        editorRef.current?.getActiveFilePath() ?? 'the current file'
+      } before returning to the terminal.`,
+      key: `terminal:${taskId}`,
+      run: () => {
+        setActiveCenterTab(TERMINAL_TAB_ID);
+      },
+      title: 'Unsaved file edits'
+    });
+  }
+
+  function requestCodexSessionSelection(sessionId: number) {
+    if (activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === sessionId) {
+      return;
+    }
+
+    requestCenterTransition({
+      body: `Save or discard your changes to ${
+        editorRef.current?.getActiveFilePath() ?? 'the current file'
+      } before returning to Codex.`,
+      key: `codex:${taskId}:${sessionId}`,
+      run: () => {
+        setSelectedSessionId(sessionId);
+        setActiveCenterTab(TERMINAL_TAB_ID);
+      },
+      title: 'Unsaved file edits'
+    });
+  }
+
+  function requestStartCodexSession() {
+    requestCenterTransition({
+      body: `Save or discard your changes to ${
+        editorRef.current?.getActiveFilePath() ?? 'the current file'
+      } before starting a new Codex run.`,
+      key: `codex:start:${taskId}:${sessions.length}`,
+      run: () => {
+        setActiveCenterTab(TERMINAL_TAB_ID);
+        void startCodexSession();
+      },
+      title: 'Unsaved file edits'
+    });
+  }
+
+  async function startCodexSession() {
+    const session = await startSessionMutation.mutateAsync(terminalSize);
+    setSelectedSessionId(session.id);
+  }
+
+  function requestDeleteCodexSession(sessionId: number) {
+    const session = sessions.find((entry) => entry.id === sessionId) ?? null;
+
+    if (!session) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      isActiveSessionStatus(session.status)
+        ? `Delete this Codex run?\n\nThis will terminate the active run and remove its transcript.`
+        : 'Delete this Codex run and remove its transcript?'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    if (selectedSessionId === sessionId) {
+      const nextSelectedSession =
+        sessions.find(
+          (entry) => entry.id !== sessionId && isActiveSessionStatus(entry.status)
+        ) ??
+        sessions.find((entry) => entry.id !== sessionId) ??
+        null;
+
+      setSelectedSessionId(nextSelectedSession?.id ?? null);
+    }
+
+    void deleteSessionMutation.mutateAsync(sessionId).catch((error) => {
+      window.alert(
+        error instanceof Error ? error.message : 'Autocode could not delete this Codex run.'
+      );
+    });
+  }
+
+  function requestCloseFileTab(path: string) {
+    if (activeCenterTab !== path) {
+      applyCloseFileTab(path);
+      return;
+    }
+
+    requestCenterTransition({
+      body: `Save or discard your changes to ${
+        editorRef.current?.getActiveFilePath() ?? 'the current file'
+      } before closing this tab.`,
+      key: `close:${taskId}:${path}`,
+      run: () => {
+        applyCloseFileTab(path);
+      },
+      title: 'Unsaved file edits'
+    });
+  }
+
+  function applyCloseFileTab(path: string) {
+    const tabIndex = fileTabs.findIndex((tab) => tab.path === path);
+
+    if (tabIndex === -1) {
+      return;
+    }
+
+    const nextTabs = fileTabs.filter((tab) => tab.path !== path);
+    setFileTabs(nextTabs);
+
+    if (activeCenterTab === path) {
+      const fallbackTab = nextTabs[tabIndex - 1] ?? nextTabs[tabIndex] ?? null;
+      setActiveCenterTab(fallbackTab?.path ?? TERMINAL_TAB_ID);
+    }
+  }
+
+  function updateActiveFileTabMode(nextMode: 'diff' | 'editor') {
+    if (!activeFileTab) {
+      return;
+    }
+
+    setFileTabs((current) =>
+      current.map((tab) =>
+        tab.path === activeFileTab.path
+          ? {
+              ...tab,
+              mode: nextMode
+            }
+          : tab
+      )
+    );
+  }
+
+  function requestCenterTransition(input: {
+    body: string;
+    key: string;
+    run: () => void;
+    title: string;
+  }) {
+    if (activeCenterTab === TERMINAL_TAB_ID || !editorRef.current?.hasUnsavedChanges()) {
+      input.run();
+      return;
+    }
+
+    requestFileTransition(input);
+  }
+
+  function handleTerminalResize(cols: number, rows: number) {
+    if (
+      lastReportedTerminalSizeRef.current.cols === cols &&
+      lastReportedTerminalSizeRef.current.rows === rows
+    ) {
+      return;
+    }
+
+    lastReportedTerminalSizeRef.current = { cols, rows };
+    setTerminalSize({ cols, rows });
+
+    if (selectedSession && isActiveSessionStatus(selectedSession.status)) {
+      resizeSessionMutation.mutate({ cols, rows });
+    }
   }
 
   return (
     <>
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 gap-0">
-        <div className="min-w-0 flex-1">
-          <WorkspaceEditorSurface
-            ref={editorRef}
-            activeChange={activeChange}
-            activeFilePath={selectedPath}
-            mode={centerMode}
-            onModeChange={setCenterMode}
-            taskId={taskId}
-          />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-2 border-b border-white/[0.06] bg-[#101010] px-3 py-2">
+            {sessions.length === 0 ? (
+              <CenterTab
+                icon={<Terminal className="h-3.5 w-3.5" />}
+                isActive={activeCenterTab === TERMINAL_TAB_ID}
+                label="Codex"
+                onClick={requestTerminalSelection}
+              />
+            ) : (
+              sessions.map((session, index) => (
+                <CenterTab
+                  closeLabel={`Delete Codex ${index + 1}`}
+                  icon={<CodexSessionGlyph isActive={session.id === activeSession?.id} />}
+                  isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
+                  key={session.id}
+                  label={`Codex ${index + 1}`}
+                  onClick={() => {
+                    requestCodexSessionSelection(session.id);
+                  }}
+                  onClose={() => {
+                    requestDeleteCodexSession(session.id);
+                  }}
+                />
+              ))
+            )}
+            <button
+              className={clsx(
+                'grid h-10 w-10 place-items-center rounded-xl border transition',
+                activeSession || startSessionMutation.isPending
+                  ? 'border-white/[0.06] bg-white/[0.03] text-white/20'
+                  : 'border-white/[0.12] bg-white/[0.06] text-white/72 hover:border-white/[0.18] hover:bg-white/[0.10] hover:text-white'
+              )}
+              disabled={Boolean(activeSession) || startSessionMutation.isPending}
+              onClick={() => {
+                requestStartCodexSession();
+              }}
+              title={
+                activeSession
+                  ? 'Finish the active Codex run before starting another.'
+                  : 'Start a new Codex run'
+              }
+              type="button"
+              >
+                {startSessionMutation.isPending ? (
+                  <Plus className="h-4 w-4 animate-pulse" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </button>
+            {activeSession ? (
+              <button
+                className="grid h-10 w-10 place-items-center rounded-xl border border-rose-500/20 bg-rose-500/[0.06] text-rose-200 transition hover:bg-rose-500/[0.12] hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={terminateSessionMutation.isPending}
+                onClick={() => {
+                  void terminateSessionMutation.mutateAsync();
+                }}
+                title="Terminate active Codex run"
+                type="button"
+              >
+                <Square className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+            {fileTabs.map((tab) => (
+              <CenterTab
+                closeLabel={`Close ${tab.path}`}
+                icon={<FileCode2 className="h-3.5 w-3.5" />}
+                isActive={activeCenterTab === tab.path}
+                key={tab.path}
+                label={basename(tab.path)}
+                onClick={() => {
+                  if (activeCenterTab === tab.path) {
+                    return;
+                  }
+
+                  requestCenterTransition({
+                    body: `Save or discard your changes to ${
+                      editorRef.current?.getActiveFilePath() ?? 'the current file'
+                    } before switching tabs.`,
+                    key: `tab:${taskId}:${tab.path}`,
+                    run: () => {
+                      setActiveCenterTab(tab.path);
+                    },
+                    title: 'Unsaved file edits'
+                  });
+                }}
+                onClose={() => {
+                  requestCloseFileTab(tab.path);
+                }}
+              />
+            ))}
+          </div>
+
+          <div className="min-h-0 flex-1">
+            {activeCenterTab === TERMINAL_TAB_ID ? (
+              <WorkspaceTerminalSurface
+                emptyStateMode={startSessionMutation.isPending ? 'starting' : 'idle'}
+                entries={transcriptQuery.data?.entries ?? []}
+                errorMessage={terminalErrorMessage}
+                isInteractive={isActiveSessionStatus(selectedSession?.status)}
+                onData={(text) => {
+                  if (isActiveSessionStatus(selectedSession?.status)) {
+                    sendInputMutation.mutate({ text });
+                  }
+                }}
+                onResize={handleTerminalResize}
+                sessionId={selectedSession?.id ?? null}
+              />
+            ) : (
+              <WorkspaceEditorSurface
+                ref={editorRef}
+                activeChange={activeChange}
+                activeFilePath={selectedPath}
+                mode={activeFileTab?.mode ?? 'editor'}
+                onModeChange={updateActiveFileTabMode}
+                taskId={taskId}
+              />
+            )}
+          </div>
         </div>
 
         <aside className="flex min-h-0 w-[300px] shrink-0 flex-col overflow-hidden bg-[#1c1c1c]">
@@ -179,7 +592,6 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
               isActive={activeSidebarTab === 'changes'}
               label="Changes"
               onClick={() => {
-                setSelectionMode('changes');
                 setActiveSidebarTab('changes');
               }}
             />
@@ -228,8 +640,6 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
           </div>
         </aside>
       </div>
-
-      <WorkspaceRunPanel taskId={taskId} />
     </section>
       <UnsavedChangesDialog
         {...fileSwitchDialogProps}
@@ -268,4 +678,93 @@ function SidebarTab({
 
 function formatError(error: unknown): string | null {
   return error instanceof Error ? error.message : null;
+}
+
+function basename(value: string): string {
+  const parts = value.split('/');
+  return parts.at(-1) ?? value;
+}
+
+function CenterTab({
+  closeLabel,
+  icon,
+  isActive,
+  label,
+  onClick,
+  onClose
+}: {
+  closeLabel?: string;
+  icon: React.ReactNode;
+  isActive: boolean;
+  label: string;
+  onClick: () => void;
+  onClose?: () => void;
+}) {
+  return (
+    <div
+      className={clsx(
+        'group flex min-w-0 items-center gap-1 rounded-md border px-2.5 py-1.5 transition',
+        isActive
+          ? 'border-white/[0.14] bg-white/[0.09] text-white'
+          : 'border-white/[0.06] bg-white/[0.03] text-white/45 hover:border-white/[0.10] hover:bg-white/[0.05] hover:text-white/78'
+      )}
+    >
+      <button
+        className="flex min-w-0 items-center gap-1.5"
+        onClick={onClick}
+        type="button"
+      >
+        <span className="shrink-0">{icon}</span>
+        <span className="max-w-[160px] truncate font-geist text-[12px] font-medium">{label}</span>
+      </button>
+      {onClose ? (
+        <button
+          aria-label={closeLabel ?? `Close ${label}`}
+          className={clsx(
+            'ml-1 rounded-sm p-0.5 transition',
+            isActive
+              ? 'text-white/48 hover:bg-white/[0.08] hover:text-white/75'
+              : 'text-white/30 hover:bg-white/[0.06] hover:text-white/65'
+          )}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+          type="button"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function CodexSessionGlyph({ isActive }: { isActive: boolean }) {
+  return (
+    <span
+      className={clsx(
+        'inline-flex h-3 w-3 rounded-full border transition',
+        isActive
+          ? 'border-white/20 bg-white/90 shadow-[0_0_0_3px_rgba(255,255,255,0.08)]'
+          : 'border-white/12 bg-white/12'
+      )}
+    />
+  );
+}
+
+function isActiveSessionStatus(
+  status: AgentSessionStatus | undefined
+): status is 'starting' | 'running' {
+  return status === 'starting' || status === 'running';
+}
+
+async function refreshWorkspaceInspectionQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  taskId: number
+) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaceChanges(taskId) }),
+    queryClient.invalidateQueries({ queryKey: ['workspace', taskId, 'directory'] }),
+    queryClient.invalidateQueries({ queryKey: ['workspace', taskId, 'diff'] })
+  ]);
 }

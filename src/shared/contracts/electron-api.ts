@@ -1,4 +1,6 @@
 import type {
+  DeleteAgentSessionInput,
+  DeleteAgentSessionResult,
   ListAgentSessionsByTaskInput,
   ListAgentSessionsByTaskResult,
   ReadAgentSessionTranscriptTailInput,
@@ -11,7 +13,13 @@ import type {
   TerminateAgentSessionResult
 } from './agent-sessions';
 import type { AddProjectInput, ListProjectsResult } from './projects';
-import type { CreateTaskInput, ListTasksByProjectInput, TaskWorkspaceList } from './tasks';
+import type {
+  CreateTaskInput,
+  DeleteTaskInput,
+  DeleteTaskResult,
+  ListTasksByProjectInput,
+  TaskWorkspaceList
+} from './tasks';
 import type {
   WorkspaceChangesInput,
   WorkspaceChangesResult,
@@ -34,6 +42,7 @@ import type { TaskWorkspace } from '../domain/task-workspace';
 
 export interface AutocodeApi {
   agentSessions: {
+    delete: (input: DeleteAgentSessionInput) => Promise<DeleteAgentSessionResult>;
     listByTask: (input: ListAgentSessionsByTaskInput) => Promise<ListAgentSessionsByTaskResult>;
     readTranscriptTail: (
       input: ReadAgentSessionTranscriptTailInput
@@ -55,6 +64,7 @@ export interface AutocodeApi {
   tasks: {
     listByProject: (input: ListTasksByProjectInput) => Promise<TaskWorkspaceList>;
     create: (input: CreateTaskInput) => Promise<TaskWorkspace>;
+    delete: (input: DeleteTaskInput) => Promise<DeleteTaskResult>;
   };
   workspaces: {
     listDirectory: (input: WorkspaceDirectoryInput) => Promise<WorkspaceDirectoryResult>;

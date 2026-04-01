@@ -1,10 +1,15 @@
 import { useCallback, useEffect, type RefObject } from 'react';
 
 import type { Project } from '@shared/domain/project';
+import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import type { WorkspaceEditorHandle } from '../features/editor/workspace-editor-surface';
 import { useUnsavedChangesGuard } from '../features/editor/use-unsaved-changes-guard';
-import { useCreateTaskWorkspaceMutation, useTaskWorkspacesQuery } from '../features/tasks/task-hooks';
+import {
+  useCreateTaskWorkspaceMutation,
+  useDeleteTaskWorkspaceMutation,
+  useTaskWorkspacesQuery
+} from '../features/tasks/task-hooks';
 import { useWorkspaceStore } from '../stores/workspace-store';
 
 interface UseWorkspaceSessionControllerInput {
@@ -26,6 +31,7 @@ export function useWorkspaceSessionController({
   const effectiveProjectId = selectedProject?.id ?? null;
   const taskWorkspacesQuery = useTaskWorkspacesQuery(effectiveProjectId);
   const createTaskMutation = useCreateTaskWorkspaceMutation(effectiveProjectId);
+  const deleteTaskMutation = useDeleteTaskWorkspaceMutation(effectiveProjectId);
   const taskWorkspaces = taskWorkspacesQuery.data ?? [];
   const selectedTaskWorkspace =
     taskWorkspaces.find((workspace) => workspace.task.id === selectedTaskId) ?? null;
@@ -164,11 +170,48 @@ export function useWorkspaceSessionController({
     [createTaskMutation, requestTaskSelection]
   );
 
+  const requestTaskDeletion = useCallback(
+    (workspace: TaskWorkspace) => {
+      const confirmed = window.confirm(
+        `Delete "${workspace.task.title}" and its task workspace?\n\nThis also removes its Codex runs and worktree.`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      const deleteWorkspace = () => {
+        void deleteTaskMutation.mutateAsync({ taskId: workspace.task.id }).catch((error) => {
+          window.alert(
+            error instanceof Error ? error.message : 'Autocode could not delete this task workspace.'
+          );
+        });
+      };
+
+      if (workspace.task.id === selectedTaskId) {
+        requestTransition({
+          body: `Save or discard your changes to ${
+            editorRef.current?.getActiveFilePath() ?? 'the current file'
+          } before deleting this task workspace.`,
+          key: `delete-task:${workspace.task.id}`,
+          run: deleteWorkspace,
+          title: 'Unsaved workspace edits'
+        });
+        return;
+      }
+
+      deleteWorkspace();
+    },
+    [deleteTaskMutation, editorRef, requestTransition, selectedTaskId]
+  );
+
   return {
     contextSwitchDialogProps: dialogProps,
     createTaskMutation,
     createTaskWorkspace,
+    deleteTaskMutation,
     requestProjectSelection,
+    requestTaskDeletion,
     requestTaskSelection,
     selectedProject,
     selectedProjectId,

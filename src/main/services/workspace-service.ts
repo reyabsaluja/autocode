@@ -16,6 +16,7 @@ import type {
 import type { TaskStatus } from '../../shared/domain/task';
 import type { AppDatabase } from '../database/client';
 import { execGit } from './git-client';
+import { parseWorkspaceChanges } from './workspace-change-parser';
 import {
   createWorkspaceRuntime,
   isMissingPathError,
@@ -227,7 +228,8 @@ function resolveOperationalTaskStatus(
 async function listWorkspaceChanges(worktreePath: string): Promise<WorkspaceChange[]> {
   const output = await execGit(
     ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
-    worktreePath
+    worktreePath,
+    { trimOutput: false }
   );
 
   if (!output) {
@@ -255,7 +257,8 @@ async function resolveWorkspaceDiffText(
 
   const output = await execGit(
     ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--', input.relativePath],
-    worktreePath
+    worktreePath,
+    { trimOutput: false }
   );
 
   if (!output) {
@@ -330,76 +333,6 @@ function createHintedWorkspaceChange(
     relativePath: input.relativePath,
     status: input.status
   };
-}
-
-function parseWorkspaceChanges(output: string): WorkspaceChange[] {
-  const tokens = output.split('\0');
-  const changes: WorkspaceChange[] = [];
-
-  for (let index = 0; index < tokens.length; index += 1) {
-    const record = tokens[index];
-
-    if (!record) {
-      continue;
-    }
-
-    const statusCode = record.slice(0, 2);
-    const currentPath = decodeGitPath(record.slice(3));
-
-    if (statusCode === '??') {
-      changes.push({
-        previousPath: null,
-        relativePath: currentPath,
-        status: 'untracked'
-      });
-      continue;
-    }
-
-    if (statusCode.includes('R')) {
-      const previousPath = decodeGitPath(tokens[index + 1] ?? '');
-      index += 1;
-      changes.push({
-        previousPath: previousPath || null,
-        relativePath: currentPath,
-        status: 'renamed'
-      });
-      continue;
-    }
-
-    changes.push({
-      previousPath: null,
-      relativePath: currentPath,
-      status: mapStatusCode(statusCode)
-    });
-  }
-
-  return changes;
-}
-
-function mapStatusCode(statusCode: string): WorkspaceChange['status'] {
-  if (statusCode.includes('A')) {
-    return 'added';
-  }
-
-  if (statusCode.includes('D')) {
-    return 'deleted';
-  }
-
-  return 'modified';
-}
-
-function decodeGitPath(value: string): string {
-  const trimmed = value.trim();
-
-  if (!trimmed.startsWith('"') || !trimmed.endsWith('"')) {
-    return trimmed;
-  }
-
-  try {
-    return JSON.parse(trimmed) as string;
-  } catch {
-    return trimmed.slice(1, -1);
-  }
 }
 
 function joinRelativePath(parentPath: string, entryName: string): string {

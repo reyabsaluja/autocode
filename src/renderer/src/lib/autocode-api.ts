@@ -20,6 +20,7 @@ export function setAutocodeApiForTesting(api: AutocodeApi | null): void {
 
 export const autocodeApi: AutocodeApi = {
   agentSessions: {
+    delete: (input) => getAutocodeApi().agentSessions.delete(input),
     listByTask: (input) => getAutocodeApi().agentSessions.listByTask(input),
     readTranscriptTail: (input) => getAutocodeApi().agentSessions.readTranscriptTail(input),
     resize: (input) => getAutocodeApi().agentSessions.resize(input),
@@ -35,7 +36,8 @@ export const autocodeApi: AutocodeApi = {
   },
   tasks: {
     listByProject: (input) => getAutocodeApi().tasks.listByProject(input),
-    create: (input) => getAutocodeApi().tasks.create(input)
+    create: (input) => getAutocodeApi().tasks.create(input),
+    delete: (input) => getAutocodeApi().tasks.delete(input)
   },
   workspaces: {
     listDirectory: (input) => getAutocodeApi().workspaces.listDirectory(input),
