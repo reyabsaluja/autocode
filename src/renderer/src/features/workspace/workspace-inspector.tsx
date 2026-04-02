@@ -46,9 +46,9 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
 
   return (
     <>
-      <section className="flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1 gap-0">
-          <div className="flex min-w-0 flex-1 flex-col">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <WorkspaceCenterTabBar
               activeCenterTab={fileController.activeCenterTab}
               fileTabs={fileController.fileTabs}
@@ -73,7 +73,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
               toggleNewSessionMenu={sessionController.toggleNewSessionMenu}
             />
 
-            <div className="min-h-0 flex-1">
+            <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
               {fileController.activeCenterTab === TERMINAL_TAB_ID ? (
                 <WorkspaceTerminalSurface
                   {...sessionController.terminalSurfaceProps}
