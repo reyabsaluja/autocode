@@ -20,6 +20,7 @@ export interface TaskWorktreePlan {
 }
 
 export interface ProvisionedWorktree {
+  baseRef: string;
   branchName: string;
   created: boolean;
   worktreePath: string;
@@ -34,6 +35,10 @@ export function createGitWorktreeService() {
       baseRef: string | null = null
     ): TaskWorktreePlan {
       return createTaskWorktreePlan(projectId, taskId, title, baseRef);
+    },
+
+    async resolveTaskBaseRef(project: Project, baseRef: string | null): Promise<string> {
+      return baseRef ?? resolveBaseRef(project.gitRoot, project.defaultBranch);
     },
 
     async createTaskWorktree({
@@ -98,7 +103,10 @@ async function ensureTaskWorktree(
   mkdirSync(path.dirname(worktreePath), { recursive: true });
 
   if (registeredWorktrees.has(worktreePath)) {
+    const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
+
     return {
+      baseRef,
       branchName,
       created: false,
       worktreePath
@@ -117,6 +125,7 @@ async function ensureTaskWorktree(
   await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
 
   return {
+    baseRef,
     branchName,
     created: true,
     worktreePath

@@ -23,7 +23,7 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
 
   return {
     async createTaskWorkspace(input: CreateTaskInput): Promise<TaskWorkspace> {
-      const creation = prepareTaskWorkspaceCreation(
+      const creation = await prepareTaskWorkspaceCreation(
         input,
         gitWorktreeService,
         taskWorkspaceRepository
@@ -72,18 +72,21 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
   };
 }
 
-function prepareTaskWorkspaceCreation(
+async function prepareTaskWorkspaceCreation(
   input: CreateTaskInput,
   gitWorktreeService: ReturnType<typeof createGitWorktreeService>,
   taskWorkspaceRepository: ReturnType<typeof createTaskWorkspaceRepository>
-): PreparedTaskWorkspaceCreation {
+): Promise<PreparedTaskWorkspaceCreation> {
   const project = taskWorkspaceRepository.findProjectById(input.projectId);
 
   if (!project) {
     throw new Error('Project could not be found.');
   }
 
-  const baseRef = resolveTaskWorkspaceBaseRef(input, taskWorkspaceRepository, project.id);
+  const baseRef = await gitWorktreeService.resolveTaskBaseRef(
+    project,
+    resolveTaskWorkspaceBaseRef(input, taskWorkspaceRepository, project.id)
+  );
   const timestamp = new Date().toISOString();
   const taskWorkspace = taskWorkspaceRepository.createProvisioningTaskWorkspace({
     buildProvisioningWorktree: (task) =>
@@ -116,7 +119,7 @@ async function provisionTaskWorkspace(
     });
 
     return taskWorkspaceRepository.finalizeTaskWorkspace({
-      baseRef: taskWorkspace.worktree?.baseRef ?? null,
+      baseRef: provisionedWorktree.baseRef,
       branchName: provisionedWorktree.branchName,
       projectId: project.id,
       taskId: taskWorkspace.task.id,
