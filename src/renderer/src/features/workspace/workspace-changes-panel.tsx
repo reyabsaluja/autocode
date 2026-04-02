@@ -5,7 +5,9 @@ import { ChevronDown, ChevronRight, GitCommitHorizontal, Loader2, Plus } from 'l
 import type {
   WorkspaceChange,
   WorkspaceCommitLogEntry,
-  WorkspacePublishStatus
+  WorkspacePublishStatus,
+  WorkspacePullRequestStatus,
+  WorkspaceReviewStatus
 } from '@shared/domain/workspace-inspection';
 
 interface WorkspaceChangesPanelProps {
@@ -19,14 +21,18 @@ interface WorkspaceChangesPanelProps {
   isLoading: boolean;
   isLoadingCommits: boolean;
   isLoadingPublishStatus: boolean;
+  isCreatingPullRequest: boolean;
+  isOpeningPullRequest: boolean;
   isPushing: boolean;
   loadErrorMessage: string | null;
   onCommit: () => Promise<void>;
+  onCreatePullRequest: () => Promise<void>;
   onCommitMessageChange: (value: string) => void;
+  onOpenPullRequest: () => Promise<void>;
   onPush: () => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectChange: (path: string) => void;
-  publishStatus: WorkspacePublishStatus | null;
+  reviewStatus: WorkspaceReviewStatus | null;
   publishStatusErrorMessage: string | null;
   selectedPath: string | null;
 }
@@ -42,13 +48,17 @@ export function WorkspaceChangesPanel({
   isLoading,
   isLoadingCommits,
   isLoadingPublishStatus,
+  isCreatingPullRequest,
+  isOpeningPullRequest,
   isPushing,
   loadErrorMessage,
   onCommit,
+  onCreatePullRequest,
   onCommitMessageChange,
+  onOpenPullRequest,
   onPush,
   onSelectChange,
-  publishStatus,
+  reviewStatus,
   publishStatusErrorMessage,
   selectedPath
 }: WorkspaceChangesPanelProps) {
@@ -59,15 +69,16 @@ export function WorkspaceChangesPanel({
   const unstaged = changes.filter((c) => !c.isStaged);
   const allChanges = changes;
   const hasCommitDraft = commitMessage.trim().length > 0;
-  const isPushMode = changes.length === 0 && !hasCommitDraft;
-  const isPushActionEnabled = Boolean(publishStatus?.canPush);
-  const actionErrorMessage = commitErrorMessage ?? publishStatusErrorMessage;
-  const actionButtonLabel = resolvePrimaryActionLabel(
-    isPushMode,
-    isPushActionEnabled,
+  const isReviewMode = changes.length === 0 && !hasCommitDraft;
+  const publishStatus = reviewStatus?.publish ?? null;
+  const pullRequestStatus = reviewStatus?.pullRequest ?? null;
+  const workspaceAction = resolveWorkspaceAction({
     isLoadingPublishStatus,
-    publishStatus
-  );
+    isReviewMode,
+    publishStatus,
+    pullRequestStatus
+  });
+  const actionErrorMessage = commitErrorMessage ?? publishStatusErrorMessage;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -177,13 +188,13 @@ export function WorkspaceChangesPanel({
         <div className="mb-2 flex items-center gap-1.5">
           <GitCommitHorizontal className="h-3 w-3 text-white/30" />
           <span className="font-geist text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">
-            {isPushMode ? 'Push' : 'Commit'}
+            {workspaceAction.sectionLabel}
           </span>
         </div>
-        {isPushMode ? (
+        {isReviewMode ? (
           <div className="rounded-md border border-white/[0.10] bg-black/[0.20] px-3 py-2">
             <p className="font-geist text-[12px] text-white/70">
-              {formatPublishSummary(isLoadingPublishStatus, publishStatus)}
+              {formatReviewSummary(isLoadingPublishStatus, publishStatus, pullRequestStatus)}
             </p>
           </div>
         ) : (
@@ -203,29 +214,53 @@ export function WorkspaceChangesPanel({
             'mt-2 flex w-full items-center justify-center rounded-md bg-white px-3 py-2 font-geist text-[12px] font-semibold text-[#1c1c1c] transition',
             'hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50'
           )}
-          disabled={
-            isPushMode
-              ? isPushing || isLoadingPublishStatus || !isPushActionEnabled
-              : isCommitting || changes.length === 0 || commitMessage.trim().length === 0
-          }
+          disabled={resolveWorkspaceActionDisabled({
+            action: workspaceAction.kind,
+            changesCount: changes.length,
+            hasCommitMessage: commitMessage.trim().length > 0,
+            isCommitting,
+            isCreatingPullRequest,
+            isLoadingPublishStatus,
+            isOpeningPullRequest,
+            isPushing,
+            pullRequestStatus,
+            publishStatus
+          })}
           onClick={() => {
-            if (isPushMode) {
-              void onPush();
-              return;
+            switch (workspaceAction.kind) {
+              case 'commit':
+                void onCommit();
+                return;
+              case 'push':
+                void onPush();
+                return;
+              case 'create_pr':
+                void onCreatePullRequest();
+                return;
+              case 'open_pr':
+                void onOpenPullRequest();
+                return;
             }
-
-            void onCommit();
           }}
           type="button"
         >
-          {(isPushMode ? isPushing : isCommitting) ? (
+          {resolveWorkspaceActionLoading({
+            action: workspaceAction.kind,
+            isCommitting,
+            isCreatingPullRequest,
+            isOpeningPullRequest,
+            isPushing
+          }) ? (
             <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           ) : null}
-          {(isPushMode ? isPushing : isCommitting)
-            ? isPushMode
-              ? 'Pushing...'
-              : 'Committing...'
-            : actionButtonLabel}
+          {resolveWorkspaceActionButtonLabel({
+            action: workspaceAction.kind,
+            actionLabel: workspaceAction.buttonLabel,
+            isCommitting,
+            isCreatingPullRequest,
+            isOpeningPullRequest,
+            isPushing
+          })}
         </button>
 
         {commitNotice ? (
@@ -363,21 +398,120 @@ function PanelMessage({ children, tone = 'subtle' }: { children: React.ReactNode
   );
 }
 
-function resolvePrimaryActionLabel(
-  isPushMode: boolean,
-  isPushActionEnabled: boolean,
+function formatReviewSummary(
+  isLoadingPublishStatus: boolean,
+  publishStatus: WorkspacePublishStatus | null,
+  pullRequestStatus: WorkspacePullRequestStatus | null
+): string {
+  if (isLoadingPublishStatus) {
+    return 'Checking branch and pull request status for this task.';
+  }
+
+  if (publishStatus?.canPush) {
+    return formatPublishSummary(publishStatus);
+  }
+
+  if (
+    pullRequestStatus &&
+    (pullRequestStatus.state !== 'none' || pullRequestStatus.canCreate)
+  ) {
+    return pullRequestStatus.message ?? 'Pull request status is available for this task branch.';
+  }
+
+  if (!publishStatus) {
+    return 'Remote status is not available yet.';
+  }
+
+  return formatPublishSummary(publishStatus);
+}
+
+function formatPublishSummary(publishStatus: WorkspacePublishStatus): string {
+  const target = publishStatus.upstreamBranch ?? publishStatus.remoteName ?? 'Remote';
+
+  switch (publishStatus.state) {
+    case 'no_remote':
+      return 'No Git remote is configured for this repository yet.';
+    case 'unpublished':
+      return publishStatus.aheadCount > 0
+        ? `${target} · ${publishStatus.aheadCount} local commit${publishStatus.aheadCount === 1 ? '' : 's'} ready to push.`
+        : `${target} · branch not published yet.`;
+    case 'ahead':
+      return `${target} · ahead by ${publishStatus.aheadCount} commit${publishStatus.aheadCount === 1 ? '' : 's'}.`;
+    case 'behind':
+      return `${target} · behind by ${publishStatus.behindCount} commit${publishStatus.behindCount === 1 ? '' : 's'}.`;
+    case 'diverged':
+      return `${target} · ahead by ${publishStatus.aheadCount} and behind by ${publishStatus.behindCount}.`;
+    case 'up_to_date':
+      return `${target} · up to date.`;
+  }
+}
+
+function resolveWorkspaceAction(input: {
+  isLoadingPublishStatus: boolean;
+  isReviewMode: boolean;
+  publishStatus: WorkspacePublishStatus | null;
+  pullRequestStatus: WorkspacePullRequestStatus | null;
+}): {
+  buttonLabel: string;
+  kind: 'commit' | 'create_pr' | 'open_pr' | 'push';
+  sectionLabel: string;
+} {
+  if (!input.isReviewMode) {
+    return {
+      buttonLabel: 'Commit',
+      kind: 'commit',
+      sectionLabel: 'Commit'
+    };
+  }
+
+  if (input.publishStatus?.canPush) {
+    return {
+      buttonLabel: 'Push',
+      kind: 'push',
+      sectionLabel: 'Push'
+    };
+  }
+
+  if (input.pullRequestStatus?.url) {
+    return {
+      buttonLabel: input.pullRequestStatus.state === 'open' ? 'Open PR' : 'View PR',
+      kind: 'open_pr',
+      sectionLabel: 'Pull Request'
+    };
+  }
+
+  if (
+    input.pullRequestStatus &&
+    (input.pullRequestStatus.canCreate || input.publishStatus?.state === 'up_to_date')
+  ) {
+    return {
+      buttonLabel: input.pullRequestStatus.canCreate
+        ? 'Create PR'
+        : resolveCreatePullRequestButtonLabel(input.pullRequestStatus),
+      kind: 'create_pr',
+      sectionLabel: 'Pull Request'
+    };
+  }
+
+  return {
+    buttonLabel: resolvePushButtonLabel(
+      input.isLoadingPublishStatus,
+      input.publishStatus
+    ),
+    kind: 'push',
+    sectionLabel: 'Push'
+  };
+}
+
+function resolvePushButtonLabel(
   isLoadingPublishStatus: boolean,
   publishStatus: WorkspacePublishStatus | null
 ): string {
-  if (!isPushMode) {
-    return 'Commit';
-  }
-
   if (isLoadingPublishStatus) {
     return 'Checking...';
   }
 
-  if (isPushActionEnabled) {
+  if (publishStatus?.canPush) {
     return 'Push';
   }
 
@@ -396,34 +530,90 @@ function resolvePrimaryActionLabel(
   }
 }
 
-function formatPublishSummary(
-  isLoadingPublishStatus: boolean,
-  publishStatus: WorkspacePublishStatus | null
+function resolveWorkspaceActionDisabled(input: {
+  action: 'commit' | 'create_pr' | 'open_pr' | 'push';
+  changesCount: number;
+  hasCommitMessage: boolean;
+  isCommitting: boolean;
+  isCreatingPullRequest: boolean;
+  isLoadingPublishStatus: boolean;
+  isOpeningPullRequest: boolean;
+  isPushing: boolean;
+  pullRequestStatus: WorkspacePullRequestStatus | null;
+  publishStatus: WorkspacePublishStatus | null;
+}): boolean {
+  switch (input.action) {
+    case 'commit':
+      return input.isCommitting || input.changesCount === 0 || !input.hasCommitMessage;
+    case 'push':
+      return input.isPushing || input.isLoadingPublishStatus || !Boolean(input.publishStatus?.canPush);
+    case 'create_pr':
+      return (
+        input.isCreatingPullRequest ||
+        input.isLoadingPublishStatus ||
+        !Boolean(input.pullRequestStatus?.canCreate)
+      );
+    case 'open_pr':
+      return input.isOpeningPullRequest || !Boolean(input.pullRequestStatus?.url);
+  }
+}
+
+function resolveWorkspaceActionLoading(input: {
+  action: 'commit' | 'create_pr' | 'open_pr' | 'push';
+  isCommitting: boolean;
+  isCreatingPullRequest: boolean;
+  isOpeningPullRequest: boolean;
+  isPushing: boolean;
+}): boolean {
+  switch (input.action) {
+    case 'commit':
+      return input.isCommitting;
+    case 'push':
+      return input.isPushing;
+    case 'create_pr':
+      return input.isCreatingPullRequest;
+    case 'open_pr':
+      return input.isOpeningPullRequest;
+  }
+}
+
+function resolveCreatePullRequestButtonLabel(
+  pullRequestStatus: WorkspacePullRequestStatus
 ): string {
-  if (isLoadingPublishStatus) {
-    return 'Checking remote status for this task branch.';
+  switch (pullRequestStatus.state) {
+    case 'auth_required':
+    case 'unsupported':
+      return 'PR unavailable';
+    case 'none':
+      return 'Create PR';
+    case 'open':
+      return 'Open PR';
+    case 'merged':
+    case 'closed':
+      return 'View PR';
+  }
+}
+
+function resolveWorkspaceActionButtonLabel(input: {
+  action: 'commit' | 'create_pr' | 'open_pr' | 'push';
+  actionLabel: string;
+  isCommitting: boolean;
+  isCreatingPullRequest: boolean;
+  isOpeningPullRequest: boolean;
+  isPushing: boolean;
+}): string {
+  if (!resolveWorkspaceActionLoading(input)) {
+    return input.actionLabel;
   }
 
-  if (!publishStatus) {
-    return 'Remote status is not available yet.';
-  }
-
-  const target = publishStatus.upstreamBranch ?? publishStatus.remoteName ?? 'Remote';
-
-  switch (publishStatus.state) {
-    case 'no_remote':
-      return 'No Git remote is configured for this repository yet.';
-    case 'unpublished':
-      return publishStatus.aheadCount > 0
-        ? `${target} · ${publishStatus.aheadCount} local commit${publishStatus.aheadCount === 1 ? '' : 's'} ready to push.`
-        : `${target} · branch not published yet.`;
-    case 'ahead':
-      return `${target} · ahead by ${publishStatus.aheadCount} commit${publishStatus.aheadCount === 1 ? '' : 's'}.`;
-    case 'behind':
-      return `${target} · behind by ${publishStatus.behindCount} commit${publishStatus.behindCount === 1 ? '' : 's'}.`;
-    case 'diverged':
-      return `${target} · ahead by ${publishStatus.aheadCount} and behind by ${publishStatus.behindCount}.`;
-    case 'up_to_date':
-      return `${target} · up to date.`;
+  switch (input.action) {
+    case 'commit':
+      return 'Committing...';
+    case 'push':
+      return 'Pushing...';
+    case 'create_pr':
+      return 'Creating PR...';
+    case 'open_pr':
+      return 'Opening PR...';
   }
 }

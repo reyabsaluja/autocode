@@ -5,7 +5,7 @@ import { Files, GitCompare, RefreshCw } from 'lucide-react';
 import type {
   WorkspaceChange,
   WorkspaceCommitLogEntry,
-  WorkspacePublishStatus
+  WorkspaceReviewStatus
 } from '@shared/domain/workspace-inspection';
 
 import { WorkspaceChangesPanel } from './workspace-changes-panel';
@@ -24,17 +24,21 @@ interface WorkspaceInspectorSidebarProps {
   isLoadingChanges: boolean;
   isLoadingCommits: boolean;
   isLoadingPublishStatus: boolean;
+  isCreatingPullRequest: boolean;
+  isOpeningPullRequest: boolean;
   isPushing: boolean;
   commitsLoadErrorMessage: string | null;
   onCommit: () => Promise<void>;
+  onCreatePullRequest: () => Promise<void>;
   onCommitMessageChange: (message: string) => void;
+  onOpenPullRequest: () => Promise<void>;
   onPush: () => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectChange: (path: string) => void;
   onSelectFile: (path: string) => void;
   onSelectSidebarTab: (tab: 'changes' | 'files') => void;
   onToggleDirectory: (directoryPath: string) => void;
-  publishStatus: WorkspacePublishStatus | null;
+  reviewStatus: WorkspaceReviewStatus | null;
   publishStatusErrorMessage: string | null;
   selectedPath: string | null;
   taskId: number;
@@ -54,16 +58,20 @@ export function WorkspaceInspectorSidebar({
   isLoadingChanges,
   isLoadingCommits,
   isLoadingPublishStatus,
+  isCreatingPullRequest,
+  isOpeningPullRequest,
   isPushing,
   onCommit,
+  onCreatePullRequest,
   onCommitMessageChange,
+  onOpenPullRequest,
   onPush,
   onRefresh,
   onSelectChange,
   onSelectFile,
   onSelectSidebarTab,
   onToggleDirectory,
-  publishStatus,
+  reviewStatus,
   publishStatusErrorMessage,
   selectedPath,
   taskId
@@ -119,14 +127,18 @@ export function WorkspaceInspectorSidebar({
             isLoading={isLoadingChanges}
             isLoadingCommits={isLoadingCommits}
             isLoadingPublishStatus={isLoadingPublishStatus}
+            isCreatingPullRequest={isCreatingPullRequest}
+            isOpeningPullRequest={isOpeningPullRequest}
             isPushing={isPushing}
             loadErrorMessage={changesLoadErrorMessage}
             onCommit={onCommit}
+            onCreatePullRequest={onCreatePullRequest}
             onCommitMessageChange={onCommitMessageChange}
+            onOpenPullRequest={onOpenPullRequest}
             onPush={onPush}
             onRefresh={onRefresh}
             onSelectChange={onSelectChange}
-            publishStatus={publishStatus}
+            reviewStatus={reviewStatus}
             publishStatusErrorMessage={publishStatusErrorMessage}
             selectedPath={selectedPath}
           />

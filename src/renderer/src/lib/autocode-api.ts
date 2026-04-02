@@ -47,6 +47,8 @@ export const autocodeApi: AutocodeApi = {
     getPublishStatus: (input) => getAutocodeApi().workspaces.getPublishStatus(input),
     commitAll: (input) => getAutocodeApi().workspaces.commitAll(input),
     pushBranch: (input) => getAutocodeApi().workspaces.pushBranch(input),
+    createPullRequest: (input) => getAutocodeApi().workspaces.createPullRequest(input),
+    openPullRequest: (input) => getAutocodeApi().workspaces.openPullRequest(input),
     readFile: (input) => getAutocodeApi().workspaces.readFile(input),
     subscribeInspection: (taskId, callback) =>
       getAutocodeApi().workspaces.subscribeInspection(taskId, callback),

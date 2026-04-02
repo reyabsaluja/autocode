@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
 
 import { getDatabaseContext } from './database/client';
 import { AUTOCODE_APP_NAME } from './database/paths';
@@ -73,7 +73,11 @@ async function bootstrap(): Promise<void> {
   const taskService = createTaskService(db, {
     deleteByTask: agentSessionService.deleteByTask
   });
-  const workspaceService = createWorkspaceService(db, publishWorkspaceInspectionChange);
+  const workspaceService = createWorkspaceService(
+    db,
+    publishWorkspaceInspectionChange,
+    (url) => shell.openExternal(url)
+  );
   const workspaceFileService = createWorkspaceFileService(db, publishWorkspaceInspectionChange);
 
   await taskService.reconcileProvisioningTaskWorkspaces();

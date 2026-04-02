@@ -99,6 +99,7 @@ export async function resolveGitBranchPublishStatus(
       behindCount: 0,
       branchName: input.branchName,
       canPush: false,
+      defaultBranch: input.defaultBranch,
       remoteName: null,
       state: 'no_remote',
       upstreamBranch: null
@@ -113,6 +114,7 @@ export async function resolveGitBranchPublishStatus(
       behindCount: 0,
       branchName: input.branchName,
       canPush: aheadCount > 0,
+      defaultBranch: input.defaultBranch,
       remoteName,
       state: 'unpublished',
       upstreamBranch: null
@@ -127,6 +129,7 @@ export async function resolveGitBranchPublishStatus(
     behindCount,
     branchName: input.branchName,
     canPush: state === 'ahead',
+    defaultBranch: input.defaultBranch,
     remoteName,
     state,
     upstreamBranch

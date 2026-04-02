@@ -4,8 +4,10 @@ import type {
   WorkspaceChangesResult,
   WorkspaceCommitInput,
   WorkspaceCommitResult,
+  WorkspaceCreatePullRequestInput,
   WorkspaceDiffInput,
   WorkspaceDirectoryInput,
+  WorkspaceOpenPullRequestInput,
   WorkspacePublishStatusInput,
   WorkspacePushInput,
   WorkspaceRecentCommitsResult
@@ -16,7 +18,8 @@ import type {
   WorkspaceDiff,
   WorkspaceDirectoryEntry,
   WorkspaceDirectorySnapshot,
-  WorkspacePublishStatus
+  WorkspacePublishStatus,
+  WorkspaceReviewStatus
 } from '../../shared/domain/workspace-inspection';
 import type { TaskStatus } from '../../shared/domain/task';
 import type { AppDatabase } from '../database/client';
@@ -25,6 +28,10 @@ import {
   pushGitBranch,
   resolveGitBranchPublishStatus
 } from './git-client';
+import {
+  createWorkspacePullRequest,
+  inspectWorkspacePullRequestStatus
+} from './github-cli-service';
 import { parseWorkspaceChanges } from './workspace-change-parser';
 import {
   createWorkspaceRuntime,
@@ -38,7 +45,8 @@ import {
 
 export function createWorkspaceService(
   db: AppDatabase,
-  publishWorkspaceInspectionChange?: (taskId: number) => void
+  publishWorkspaceInspectionChange?: (taskId: number) => void,
+  openExternalUrl?: (url: string) => Promise<void> | void
 ) {
   const workspaceRuntime = createWorkspaceRuntime(db);
   const { taskWorkspaceRepository } = workspaceRuntime;
@@ -214,12 +222,16 @@ export function createWorkspaceService(
       };
     },
 
-    async getPublishStatus(input: WorkspacePublishStatusInput): Promise<WorkspacePublishStatus> {
+    async getPublishStatus(input: WorkspacePublishStatusInput): Promise<WorkspaceReviewStatus> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
-      return resolveWorkspacePublishStatus(context.worktreePath, context.worktree, context.project.defaultBranch);
+      return resolveWorkspaceReviewStatus(
+        context.worktreePath,
+        context.worktree,
+        context.project.defaultBranch
+      );
     },
 
-    async pushBranch(input: WorkspacePushInput): Promise<WorkspacePublishStatus> {
+    async pushBranch(input: WorkspacePushInput): Promise<WorkspaceReviewStatus> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
       const publishStatus = await resolveWorkspacePublishStatus(
         context.worktreePath,
@@ -244,11 +256,53 @@ export function createWorkspaceService(
 
       publishWorkspaceInspectionChange?.(input.taskId);
 
-      return resolveWorkspacePublishStatus(
+      return resolveWorkspaceReviewStatus(
         context.worktreePath,
         context.worktree,
         context.project.defaultBranch
       );
+    },
+
+    async createPullRequest(input: WorkspaceCreatePullRequestInput): Promise<WorkspaceReviewStatus> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      const publishStatus = await resolveWorkspacePublishStatus(
+        context.worktreePath,
+        context.worktree,
+        context.project.defaultBranch
+      );
+
+      const pullRequest = await createWorkspacePullRequest(context.worktreePath, {
+        baseBranch: context.project.defaultBranch,
+        body: buildPullRequestBody(context.task.title, context.task.description),
+        branchName: context.worktree.branchName,
+        publishStatus,
+        title: context.task.title.trim()
+      });
+
+      return {
+        publish: publishStatus,
+        pullRequest
+      };
+    },
+
+    async openPullRequest(input: WorkspaceOpenPullRequestInput): Promise<void> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      const reviewStatus = await resolveWorkspaceReviewStatus(
+        context.worktreePath,
+        context.worktree,
+        context.project.defaultBranch
+      );
+      const pullRequestUrl = reviewStatus.pullRequest.url;
+
+      if (!pullRequestUrl) {
+        throw new Error('This task branch does not have a pull request to open yet.');
+      }
+
+      if (!openExternalUrl) {
+        throw new Error('Autocode could not open external URLs from this workspace.');
+      }
+
+      await openExternalUrl(pullRequestUrl);
     }
   };
 }
@@ -473,6 +527,24 @@ async function resolveWorkspacePublishStatus(
   });
 }
 
+async function resolveWorkspaceReviewStatus(
+  worktreePath: string,
+  worktree: { baseRef: string | null; branchName: string },
+  defaultBranch: string | null
+): Promise<WorkspaceReviewStatus> {
+  const publish = await resolveWorkspacePublishStatus(worktreePath, worktree, defaultBranch);
+  const pullRequest = await inspectWorkspacePullRequestStatus(worktreePath, {
+    baseBranch: defaultBranch,
+    branchName: worktree.branchName,
+    publishStatus: publish
+  });
+
+  return {
+    publish,
+    pullRequest
+  };
+}
+
 function normalizePushError(message: string): string {
   if (
     message.includes('Authentication failed') ||
@@ -518,4 +590,14 @@ function resolvePushUnavailableMessage(status: WorkspacePublishStatus): string {
     case 'up_to_date':
       return 'This branch is already up to date on the remote.';
   }
+}
+
+function buildPullRequestBody(title: string, description: string | null): string {
+  const normalizedDescription = description?.trim() ?? '';
+
+  if (normalizedDescription) {
+    return normalizedDescription;
+  }
+
+  return `Autocode task: ${title.trim()}`;
 }

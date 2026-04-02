@@ -9,7 +9,8 @@ import {
   workspaceCommitResultSchema as workspaceCommitDomainResultSchema,
   workspaceDiffSchema,
   workspaceDirectorySnapshotSchema,
-  workspacePublishStatusSchema
+  workspacePublishStatusSchema,
+  workspaceReviewStatusSchema
 } from '../domain/workspace-inspection';
 
 const taskIdSchema = z.number().int().positive();
@@ -47,6 +48,14 @@ export const workspacePushInputSchema = z.object({
   taskId: taskIdSchema
 });
 
+export const workspaceCreatePullRequestInputSchema = z.object({
+  taskId: taskIdSchema
+});
+
+export const workspaceOpenPullRequestInputSchema = z.object({
+  taskId: taskIdSchema
+});
+
 export const workspaceCollectionSyncSchema = z.object({
   project: projectSchema,
   taskWorkspace: taskWorkspaceSchema
@@ -73,8 +82,10 @@ export const workspaceCommitResultSchema = workspaceCommitDomainResultSchema.ext
   project: projectSchema,
   taskWorkspace: taskWorkspaceSchema
 });
-export const workspacePublishStatusResultSchema = workspacePublishStatusSchema;
-export const workspacePushResultSchema = workspacePublishStatusSchema;
+export const workspacePublishStatusResultSchema = workspaceReviewStatusSchema;
+export const workspacePushResultSchema = workspaceReviewStatusSchema;
+export const workspaceCreatePullRequestResultSchema = workspaceReviewStatusSchema;
+export const workspaceOpenPullRequestResultSchema = z.void();
 
 export type WorkspaceDirectoryInput = z.infer<typeof workspaceDirectoryInputSchema>;
 export type WorkspaceChangesInput = z.infer<typeof workspaceChangesInputSchema>;
@@ -83,6 +94,8 @@ export type WorkspaceDiffInput = z.infer<typeof workspaceDiffInputSchema>;
 export type WorkspaceCommitInput = z.infer<typeof workspaceCommitInputSchema>;
 export type WorkspacePublishStatusInput = z.infer<typeof workspacePublishStatusInputSchema>;
 export type WorkspacePushInput = z.infer<typeof workspacePushInputSchema>;
+export type WorkspaceCreatePullRequestInput = z.infer<typeof workspaceCreatePullRequestInputSchema>;
+export type WorkspaceOpenPullRequestInput = z.infer<typeof workspaceOpenPullRequestInputSchema>;
 export type WorkspaceCollectionSync = z.infer<typeof workspaceCollectionSyncSchema>;
 export type WorkspaceInspectionEvent = z.infer<typeof workspaceInspectionEventSchema>;
 export type WorkspaceChangesObservation = z.infer<typeof workspaceChangesObservationSchema>;
@@ -93,3 +106,5 @@ export type WorkspaceDiffResult = z.infer<typeof workspaceDiffResultSchema>;
 export type WorkspaceCommitResult = z.infer<typeof workspaceCommitResultSchema>;
 export type WorkspacePublishStatusResult = z.infer<typeof workspacePublishStatusResultSchema>;
 export type WorkspacePushResult = z.infer<typeof workspacePushResultSchema>;
+export type WorkspaceCreatePullRequestResult = z.infer<typeof workspaceCreatePullRequestResultSchema>;
+export type WorkspaceOpenPullRequestResult = z.infer<typeof workspaceOpenPullRequestResultSchema>;

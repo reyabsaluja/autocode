@@ -13,10 +13,12 @@ import {
 import { queryKeys } from '../../lib/query-keys';
 import {
   useCommitWorkspaceMutation,
+  useCreatePullRequestMutation,
   useWorkspaceChangesQuery,
   useWorkspacePublishStatusQuery,
   useWorkspaceRecentCommitsQuery,
   useWorkspaceInspectionStream,
+  useOpenPullRequestMutation,
   usePushWorkspaceBranchMutation
 } from './workspace-hooks';
 
@@ -36,6 +38,8 @@ export function useWorkspaceFileEditorController({
   const recentCommitsQuery = useWorkspaceRecentCommitsQuery(taskId, activeSidebarTab === 'changes');
   const publishStatusQuery = useWorkspacePublishStatusQuery(taskId, activeSidebarTab === 'changes');
   const commitMutation = useCommitWorkspaceMutation(taskId);
+  const createPullRequestMutation = useCreatePullRequestMutation(taskId);
+  const openPullRequestMutation = useOpenPullRequestMutation(taskId);
   const pushMutation = usePushWorkspaceBranchMutation(taskId);
   const { dialogProps, requestTransition } = useUnsavedChangesGuard(editorRef);
   const [activeCenterTab, setActiveCenterTab] = useState<string>(TERMINAL_TAB_ID);
@@ -45,7 +49,7 @@ export function useWorkspaceFileEditorController({
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
   const changes = changesQuery.data?.changes ?? [];
   const commits = recentCommitsQuery.data ?? [];
-  const publishStatus = publishStatusQuery.data ?? null;
+  const reviewStatus = publishStatusQuery.data ?? null;
   const activeFileTab = useMemo(
     () => fileTabs.find((tab) => tab.path === activeCenterTab) ?? null,
     [activeCenterTab, fileTabs]
@@ -64,8 +68,10 @@ export function useWorkspaceFileEditorController({
     setCommitMessage('');
     setCommitNotice(null);
     commitMutation.reset();
+    createPullRequestMutation.reset();
+    openPullRequestMutation.reset();
     pushMutation.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- commitMutation is intentionally excluded; including it causes a reset loop because useMutation returns a new object reference each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mutation objects are intentionally excluded; including them causes a reset loop because useMutation returns new object references.
   }, [taskId]);
 
   useEffect(() => {
@@ -117,10 +123,36 @@ export function useWorkspaceFileEditorController({
   const handlePush = async () => {
     try {
       const result = await pushMutation.mutateAsync();
-      const destination = result.upstreamBranch ?? (
-        result.remoteName ? `${result.remoteName}/${result.branchName}` : result.branchName
+      const destination = result.publish.upstreamBranch ?? (
+        result.publish.remoteName
+          ? `${result.publish.remoteName}/${result.publish.branchName}`
+          : result.publish.branchName
       );
-      setCommitNotice(`Pushed ${result.branchName} to ${destination}.`);
+      setCommitNotice(`Pushed ${result.publish.branchName} to ${destination}.`);
+    } catch {
+      // The mutation error is rendered in the panel.
+    }
+  };
+
+  const handleCreatePullRequest = async () => {
+    try {
+      const result = await createPullRequestMutation.mutateAsync();
+      const pullRequest = result.pullRequest;
+
+      if (pullRequest.number && pullRequest.url) {
+        setCommitNotice(`Created PR #${pullRequest.number}: ${pullRequest.url}`);
+        return;
+      }
+
+      setCommitNotice('Created a pull request for this task branch.');
+    } catch {
+      // The mutation error is rendered in the panel.
+    }
+  };
+
+  const handleOpenPullRequest = async () => {
+    try {
+      await openPullRequestMutation.mutateAsync();
     } catch {
       // The mutation error is rendered in the panel.
     }
@@ -304,6 +336,8 @@ export function useWorkspaceFileEditorController({
     changesQuery,
     commitErrorMessage:
       formatWorkspaceInspectorError(commitMutation.error) ??
+      formatWorkspaceInspectorError(createPullRequestMutation.error) ??
+      formatWorkspaceInspectorError(openPullRequestMutation.error) ??
       formatWorkspaceInspectorError(pushMutation.error),
     commitMessage,
     commitMutation,
@@ -318,13 +352,19 @@ export function useWorkspaceFileEditorController({
     fileTabs,
     expandedDirectories,
     handleCommit,
+    handleCreatePullRequest,
+    handleOpenPullRequest,
     handlePush,
     handleRefresh,
     isLoadingChanges: changesQuery.isLoading,
     isLoadingPublishStatus: publishStatusQuery.isLoading,
+    isCreatingPullRequest: createPullRequestMutation.isPending,
+    isOpeningPullRequest: openPullRequestMutation.isPending,
     isPushing: pushMutation.isPending,
-    publishStatus,
+    reviewStatus,
     publishStatusErrorMessage: formatWorkspaceInspectorError(publishStatusQuery.error),
+    createPullRequestMutation,
+    openPullRequestMutation,
     pushMutation,
     requestCloseFileTab,
     requestFileSelection,

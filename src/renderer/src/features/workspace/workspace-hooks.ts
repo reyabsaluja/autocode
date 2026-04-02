@@ -4,8 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   WorkspaceCollectionSync,
   WorkspaceCommitInput,
+  WorkspaceCreatePullRequestInput,
   WorkspaceDirectoryInput,
   WorkspaceDiffInput,
+  WorkspaceOpenPullRequestInput,
   WorkspacePublishStatusInput,
   WorkspacePushInput,
   WorkspaceRecentCommitsInput
@@ -202,6 +204,46 @@ export function usePushWorkspaceBranchMutation(taskId: number | null) {
       if (taskId !== null) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) });
       }
+    }
+  });
+}
+
+export function useCreatePullRequestMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => {
+      if (taskId === null) {
+        throw new Error('Select a task workspace before creating a pull request.');
+      }
+
+      return autocodeApi.workspaces.createPullRequest({
+        taskId
+      } satisfies WorkspaceCreatePullRequestInput);
+    },
+    onSuccess: async () => {
+      if (taskId !== null) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) });
+      }
+    },
+    onError: async () => {
+      if (taskId !== null) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) });
+      }
+    }
+  });
+}
+
+export function useOpenPullRequestMutation(taskId: number | null) {
+  return useMutation({
+    mutationFn: () => {
+      if (taskId === null) {
+        throw new Error('Select a task workspace before opening a pull request.');
+      }
+
+      return autocodeApi.workspaces.openPullRequest({
+        taskId
+      } satisfies WorkspaceOpenPullRequestInput);
     }
   });
 }

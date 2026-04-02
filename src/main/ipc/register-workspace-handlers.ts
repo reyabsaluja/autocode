@@ -7,12 +7,18 @@ import {
   type WorkspaceCommitInput,
   workspaceCommitInputSchema,
   workspaceCommitResultSchema,
+  type WorkspaceCreatePullRequestInput,
+  workspaceCreatePullRequestInputSchema,
+  workspaceCreatePullRequestResultSchema,
   type WorkspaceDiffInput,
   workspaceDiffInputSchema,
   workspaceDiffResultSchema,
   type WorkspaceDirectoryInput,
   workspaceDirectoryInputSchema,
   workspaceDirectoryResultSchema,
+  type WorkspaceOpenPullRequestInput,
+  workspaceOpenPullRequestInputSchema,
+  workspaceOpenPullRequestResultSchema,
   type WorkspacePublishStatusInput,
   workspacePublishStatusInputSchema,
   workspacePublishStatusResultSchema,
@@ -90,6 +96,20 @@ export function registerWorkspaceHandlers(
       workspaceService.pushBranch(input),
     inputSchema: workspacePushInputSchema,
     outputSchema: workspacePushResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.createPullRequest, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceCreatePullRequestInput) =>
+      workspaceService.createPullRequest(input),
+    inputSchema: workspaceCreatePullRequestInputSchema,
+    outputSchema: workspaceCreatePullRequestResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.openPullRequest, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceOpenPullRequestInput) =>
+      workspaceService.openPullRequest(input),
+    inputSchema: workspaceOpenPullRequestInputSchema,
+    outputSchema: workspaceOpenPullRequestResultSchema
   });
 
   handleValidatedIpc(workspaceChannels.readFile, {

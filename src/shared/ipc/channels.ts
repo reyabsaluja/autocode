@@ -23,9 +23,11 @@ export const taskChannels = {
 
 export const workspaceChannels = {
   commitAll: 'workspaces:commitAll',
+  createPullRequest: 'workspaces:createPullRequest',
   event: 'workspaces:event',
   getDiff: 'workspaces:getDiff',
   getPublishStatus: 'workspaces:getPublishStatus',
+  openPullRequest: 'workspaces:openPullRequest',
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',
   listRecentCommits: 'workspaces:listRecentCommits',

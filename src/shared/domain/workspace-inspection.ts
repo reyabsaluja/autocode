@@ -66,9 +66,37 @@ export const workspacePublishStatusSchema = z.object({
   behindCount: z.number().int().nonnegative(),
   branchName: z.string().min(1),
   canPush: z.boolean(),
+  defaultBranch: z.string().min(1).nullable(),
   remoteName: z.string().min(1).nullable(),
   state: workspacePublishStateSchema,
   upstreamBranch: z.string().min(1).nullable()
+});
+
+export const workspacePullRequestStateValues = [
+  'unsupported',
+  'auth_required',
+  'none',
+  'open',
+  'merged',
+  'closed'
+] as const;
+
+export const workspacePullRequestStateSchema = z.enum(workspacePullRequestStateValues);
+
+export const workspacePullRequestStatusSchema = z.object({
+  baseBranch: z.string().min(1).nullable(),
+  canCreate: z.boolean(),
+  headBranch: z.string().min(1),
+  isDraft: z.boolean(),
+  message: z.string().nullable(),
+  number: z.number().int().positive().nullable(),
+  state: workspacePullRequestStateSchema,
+  url: z.string().min(1).nullable()
+});
+
+export const workspaceReviewStatusSchema = z.object({
+  publish: workspacePublishStatusSchema,
+  pullRequest: workspacePullRequestStatusSchema
 });
 
 export type WorkspaceDirectoryEntry = z.infer<typeof workspaceDirectoryEntrySchema>;
@@ -80,3 +108,6 @@ export type WorkspaceCommitResult = z.infer<typeof workspaceCommitResultSchema>;
 export type WorkspaceCommitLogEntry = z.infer<typeof workspaceCommitLogEntrySchema>;
 export type WorkspacePublishState = z.infer<typeof workspacePublishStateSchema>;
 export type WorkspacePublishStatus = z.infer<typeof workspacePublishStatusSchema>;
+export type WorkspacePullRequestState = z.infer<typeof workspacePullRequestStateSchema>;
+export type WorkspacePullRequestStatus = z.infer<typeof workspacePullRequestStatusSchema>;
+export type WorkspaceReviewStatus = z.infer<typeof workspaceReviewStatusSchema>;

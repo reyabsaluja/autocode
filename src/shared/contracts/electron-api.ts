@@ -25,10 +25,14 @@ import type {
   WorkspaceChangesResult,
   WorkspaceCommitInput,
   WorkspaceCommitResult,
+  WorkspaceCreatePullRequestInput,
+  WorkspaceCreatePullRequestResult,
   WorkspaceDiffInput,
   WorkspaceDiffResult,
   WorkspaceDirectoryInput,
   WorkspaceDirectoryResult,
+  WorkspaceOpenPullRequestInput,
+  WorkspaceOpenPullRequestResult,
   WorkspacePublishStatusInput,
   WorkspacePublishStatusResult,
   WorkspacePushInput,
@@ -81,6 +85,10 @@ export interface AutocodeApi {
     getPublishStatus: (input: WorkspacePublishStatusInput) => Promise<WorkspacePublishStatusResult>;
     commitAll: (input: WorkspaceCommitInput) => Promise<WorkspaceCommitResult>;
     pushBranch: (input: WorkspacePushInput) => Promise<WorkspacePushResult>;
+    createPullRequest: (
+      input: WorkspaceCreatePullRequestInput
+    ) => Promise<WorkspaceCreatePullRequestResult>;
+    openPullRequest: (input: WorkspaceOpenPullRequestInput) => Promise<WorkspaceOpenPullRequestResult>;
     readFile: (input: WorkspaceFileReadInput) => Promise<WorkspaceFileReadResult>;
     writeFile: (input: WorkspaceFileWriteInput) => Promise<WorkspaceFileWriteResult>;
     subscribeInspection: (

@@ -38,10 +38,14 @@ import {
   workspaceChangesResultSchema,
   workspaceCommitInputSchema,
   workspaceCommitResultSchema,
+  workspaceCreatePullRequestInputSchema,
+  workspaceCreatePullRequestResultSchema,
   workspaceDiffInputSchema,
   workspaceDiffResultSchema,
   workspaceDirectoryInputSchema,
   workspaceDirectoryResultSchema,
+  workspaceOpenPullRequestInputSchema,
+  workspaceOpenPullRequestResultSchema,
   workspacePublishStatusInputSchema,
   workspacePublishStatusResultSchema,
   workspacePushInputSchema,
@@ -199,6 +203,18 @@ const api: AutocodeApi = {
         input,
         inputSchema: workspacePushInputSchema,
         outputSchema: workspacePushResultSchema
+      }),
+    createPullRequest: (input) =>
+      invokeValidatedIpc(workspaceChannels.createPullRequest, {
+        input,
+        inputSchema: workspaceCreatePullRequestInputSchema,
+        outputSchema: workspaceCreatePullRequestResultSchema
+      }),
+    openPullRequest: (input) =>
+      invokeValidatedIpc(workspaceChannels.openPullRequest, {
+        input,
+        inputSchema: workspaceOpenPullRequestInputSchema,
+        outputSchema: workspaceOpenPullRequestResultSchema
       }),
     readFile: (input) =>
       invokeValidatedIpc(workspaceChannels.readFile, {
