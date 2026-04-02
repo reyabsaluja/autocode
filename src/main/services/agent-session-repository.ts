@@ -85,7 +85,7 @@ export function createAgentSessionRepository(db: AppDatabase) {
       );
     },
 
-    findActiveByTaskIdAndProvider(taskId: number, provider: AgentProvider): AgentSession | null {
+    findActiveByTaskId(taskId: number): AgentSession | null {
       const session =
         db
           .select()
@@ -93,7 +93,6 @@ export function createAgentSessionRepository(db: AppDatabase) {
           .where(
             and(
               eq(agentSessionsTable.taskId, taskId),
-              eq(agentSessionsTable.provider, provider),
               inArray(agentSessionsTable.status, ['starting', 'running'])
             )
           )

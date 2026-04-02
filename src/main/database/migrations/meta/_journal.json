@@ -36,6 +36,13 @@
       "when": 1775082870161,
       "tag": "0004_legal_scream",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1775092412008,
+      "tag": "0005_single_active_session_per_task",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,9 @@ describe('workspace change parser', () => {
 
     expect(changes).toEqual([
       {
+        isStaged: false,
+        linesAdded: null,
+        linesRemoved: null,
         previousPath: null,
         relativePath: 'app/page.tsx',
         status: 'modified'
@@ -20,6 +23,9 @@ describe('workspace change parser', () => {
 
     expect(changes).toEqual([
       {
+        isStaged: false,
+        linesAdded: null,
+        linesRemoved: null,
         previousPath: null,
         relativePath: ' spaced name.tsx ',
         status: 'untracked'

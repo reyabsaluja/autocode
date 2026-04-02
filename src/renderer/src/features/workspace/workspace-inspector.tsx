@@ -221,6 +221,12 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isNewSessionMenuOpen]);
 
+  useEffect(() => {
+    if (activeSession && isNewSessionMenuOpen) {
+      setIsNewSessionMenuOpen(false);
+    }
+  }, [activeSession, isNewSessionMenuOpen]);
+
   const handleRefresh = async () => {
     setCommitNotice(null);
     commitMutation.reset();
@@ -340,6 +346,12 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
 
   function requestStartSession(provider: AgentProvider) {
     setIsNewSessionMenuOpen(false);
+
+    if (activeSession) {
+      requestSessionSelection(activeSession.id);
+      return;
+    }
+
     requestCenterTransition({
       body: `Save or discard your changes to ${
         editorRef.current?.getActiveFilePath() ?? 'the current file'
@@ -512,13 +524,17 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
               <button
                 className={clsx(
                   'flex h-7 items-center gap-0.5 rounded-md px-1.5 transition',
-                  startSessionMutation.isPending
+                  startSessionMutation.isPending || activeSession
                     ? 'bg-white/[0.03] text-white/15'
                     : 'bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white'
                 )}
-                disabled={startSessionMutation.isPending}
+                disabled={startSessionMutation.isPending || activeSession !== null}
                 onClick={() => setIsNewSessionMenuOpen((c) => !c)}
-                title="New session"
+                title={
+                  activeSession
+                    ? `Terminate the active ${getProviderDisplayName(activeSession.provider)} session before starting another.`
+                    : 'New session'
+                }
                 type="button"
               >
                 {startSessionMutation.isPending ? (

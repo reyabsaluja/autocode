@@ -150,9 +150,10 @@ export function createAgentSessionService(
     async start(input: StartAgentSessionInput): Promise<AgentSession> {
       const provider = input.provider;
       const displayName = PROVIDER_DISPLAY_NAMES[provider];
+      const existingActiveSession = agentSessionRepository.findActiveByTaskId(input.taskId);
 
-      if (agentSessionRepository.findActiveByTaskIdAndProvider(input.taskId, provider)) {
-        throw new Error(`This task already has an active ${displayName} session.`);
+      if (existingActiveSession) {
+        throw new Error(createActiveSessionConflictMessage(existingActiveSession.provider, provider));
       }
 
       const context = await workspaceRuntime.observeWorkspaceContext(input.taskId);
@@ -170,7 +171,9 @@ export function createAgentSessionService(
           worktreeId: context.worktree.id
         });
       } catch (error) {
-        throw new Error(normalizeActiveSessionConflict(error, displayName));
+        throw new Error(
+          normalizeActiveSessionConflict(error, input.taskId, provider, agentSessionRepository)
+        );
       }
       const transcriptPath = resolveAgentSessionTranscriptPath(sessionsRoot, placeholderSession.id);
 
@@ -615,14 +618,43 @@ function normalizeAgentSpawnError(error: unknown, displayName: string): string {
   return message;
 }
 
-function normalizeActiveSessionConflict(error: unknown, displayName: string): string {
-  const message = error instanceof Error ? error.message : String(error);
+function createActiveSessionConflictMessage(
+  activeProvider: AgentProvider,
+  requestedProvider: AgentProvider
+): string {
+  const activeDisplayName = PROVIDER_DISPLAY_NAMES[activeProvider] ?? activeProvider;
+  const requestedDisplayName = PROVIDER_DISPLAY_NAMES[requestedProvider] ?? requestedProvider;
 
-  if (message.includes('agent_sessions_task_provider_active_unique')) {
-    return `This task already has an active ${displayName} session.`;
+  if (activeProvider === requestedProvider) {
+    return `This task already has an active ${activeDisplayName} session.`;
   }
 
-  return message || `Autocode could not create a new ${displayName} session.`;
+  return `This task already has an active ${activeDisplayName} session. Terminate it before starting ${requestedDisplayName}.`;
+}
+
+function normalizeActiveSessionConflict(
+  error: unknown,
+  taskId: number,
+  requestedProvider: AgentProvider,
+  agentSessionRepository: ReturnType<typeof createAgentSessionRepository>
+): string {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (
+    message.includes('agent_sessions_task_provider_active_unique') ||
+    message.includes('agent_sessions_task_id_active_unique')
+  ) {
+    const existingActiveSession = agentSessionRepository.findActiveByTaskId(taskId);
+
+    if (existingActiveSession) {
+      return createActiveSessionConflictMessage(existingActiveSession.provider, requestedProvider);
+    }
+
+    return 'This task already has an active session. Terminate it before starting another one.';
+  }
+
+  const requestedDisplayName = PROVIDER_DISPLAY_NAMES[requestedProvider] ?? requestedProvider;
+  return message || `Autocode could not create a new ${requestedDisplayName} session.`;
 }
 
 function buildAgentProcessEnv(): Record<string, string> {
