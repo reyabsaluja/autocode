@@ -59,7 +59,8 @@ export function useWorkspaceFileEditorController({
     setCommitMessage('');
     setCommitNotice(null);
     commitMutation.reset();
-  }, [commitMutation, taskId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- commitMutation is intentionally excluded; including it causes a reset loop because useMutation returns a new object reference each render.
+  }, [taskId]);
 
   useEffect(() => {
     if (!activeFileTab || activeFileTab.selectionMode !== 'changes') {
