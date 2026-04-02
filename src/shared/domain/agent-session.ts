@@ -45,6 +45,7 @@ export const agentSessionSnapshotEventSchema = z.object({
 
 export const agentSessionEntriesEventSchema = z.object({
   entries: z.array(agentSessionTranscriptEntrySchema),
+  taskId: z.number().int().positive(),
   sessionId: z.number().int().positive(),
   type: z.literal('entries')
 });

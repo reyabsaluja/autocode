@@ -48,6 +48,15 @@ export function createWorkspaceFileService(
         context.worktreePath,
         relativePath
       );
+      const currentBuffer = await readFile(targetPath);
+
+      if (currentBuffer.includes(0)) {
+        throw new Error('This file became binary on disk and cannot be saved from the editor.');
+      }
+
+      if (currentBuffer.toString('utf8') !== input.expectedContent) {
+        throw new Error('This file changed on disk. Reload it before saving so you can review the newer edits.');
+      }
 
       await writeFile(targetPath, input.content, 'utf8');
       publishWorkspaceInspectionChange?.(input.taskId);

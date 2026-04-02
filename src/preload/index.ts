@@ -114,7 +114,9 @@ const api: AutocodeApi = {
         agentSessionChannels.event,
         agentSessionEventResultSchema,
         (event) => {
-          if (event.type === 'snapshot' && event.session.taskId !== taskId) {
+          const eventTaskId = event.type === 'snapshot' ? event.session.taskId : event.taskId;
+
+          if (eventTaskId !== taskId) {
             return;
           }
 

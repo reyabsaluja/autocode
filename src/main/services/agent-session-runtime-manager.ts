@@ -121,6 +121,7 @@ export function createAgentSessionRuntimeManager({
     if (failureEntry) {
       emitEvent({
         entries: [failureEntry],
+        taskId: failedSession.taskId,
         sessionId: input.sessionId,
         type: 'entries'
       });
@@ -191,6 +192,7 @@ export function createAgentSessionRuntimeManager({
       if (interruptionEntry) {
         emitEvent({
           entries: [interruptionEntry],
+          taskId: nextSession.taskId,
           sessionId: session.id,
           type: 'entries'
         });
@@ -342,6 +344,7 @@ export function createAgentSessionRuntimeManager({
       runtime.pty.write(text);
       emitEvent({
         entries: [entry],
+        taskId: requireSession(sessionId).taskId,
         sessionId,
         type: 'entries'
       });
@@ -485,6 +488,7 @@ export function createAgentSessionRuntimeManager({
       if (systemEntry) {
         emitEvent({
           entries: [systemEntry],
+          taskId: nextSession.taskId,
           sessionId,
           type: 'entries'
         });
@@ -568,6 +572,7 @@ export function createAgentSessionRuntimeManager({
 
       emitEvent({
         entries: [entry],
+        taskId: requireSession(sessionId).taskId,
         sessionId,
         type: 'entries'
       });

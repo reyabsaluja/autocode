@@ -24,7 +24,7 @@ export function useWorkspaceFileQuery(
         relativePath: relativePath!,
         taskId: taskId!
       } satisfies WorkspaceFileReadInput),
-    refetchOnMount: false,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });
@@ -39,6 +39,7 @@ export function useWriteWorkspaceFileMutation(taskId: number | null, relativePat
 
       return autocodeApi.workspaces.writeFile({
         content: input.content,
+        expectedContent: input.expectedContent,
         relativePath,
         taskId
       });

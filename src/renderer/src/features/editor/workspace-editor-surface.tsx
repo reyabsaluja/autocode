@@ -10,6 +10,10 @@ import { WorkspaceDiffViewer } from '../workspace/workspace-diff-viewer';
 import { useWorkspaceDiffQuery } from '../workspace/workspace-hooks';
 import { useWorkspaceLanguageSupport } from './editor-language';
 import { useWorkspaceFileQuery, useWriteWorkspaceFileMutation } from './editor-hooks';
+import {
+  resolveLatestWorkspaceFileContent,
+  resolveWorkspaceEditorSyncState
+} from './workspace-editor-sync';
 
 export interface WorkspaceEditorHandle {
   discardUnsavedChanges: () => void;
@@ -39,6 +43,19 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
     const [saveNotice, setSaveNotice] = useState<string | null>(null);
     const activeIdentity = activeFilePath ? `${taskId}:${activeFilePath}` : null;
     const isDirty = bufferContent !== lastSavedContent;
+    const latestFileContent = fileQuery.data?.content ?? '';
+    const fileSyncState = resolveWorkspaceEditorSyncState({
+      bufferContent,
+      isDirty,
+      lastSavedContent,
+      latestContent: latestFileContent
+    });
+    const hasExternalFileConflict =
+      shouldLoadFile &&
+      loadedIdentity === activeIdentity &&
+      Boolean(fileQuery.data) &&
+      !fileQuery.data?.isBinary &&
+      fileSyncState.hasExternalConflict;
     const languageExtensions = useWorkspaceLanguageSupport(activeFilePath);
     const diffLineSummary = useMemo(() => {
       if (mode !== 'diff' || !diffQuery.data?.text) {
@@ -76,6 +93,17 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
       const shouldResetBuffer = loadedIdentity !== activeIdentity || !isDirty;
 
       if (!shouldResetBuffer) {
+        if (resolveWorkspaceEditorSyncState({
+          bufferContent,
+          isDirty,
+          lastSavedContent,
+          latestContent: nextContent
+        }).didDiskCatchUp) {
+          setLastSavedContent(nextContent);
+          setLoadedIdentity(activeIdentity);
+          setSaveNotice(null);
+        }
+
         return;
       }
 
@@ -83,7 +111,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
       setLastSavedContent(nextContent);
       setLoadedIdentity(activeIdentity);
       setSaveNotice(null);
-    }, [activeIdentity, fileQuery.data, isDirty, loadedIdentity, shouldLoadFile]);
+    }, [activeIdentity, bufferContent, fileQuery.data, isDirty, lastSavedContent, loadedIdentity, shouldLoadFile]);
 
     useEffect(() => {
       const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -103,7 +131,9 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
       ref,
       () => ({
         discardUnsavedChanges: () => {
-          setBufferContent(lastSavedContent);
+          const latestContent = resolveLatestWorkspaceFileContent(fileQuery.data?.content, lastSavedContent);
+          setBufferContent(latestContent);
+          setLastSavedContent(latestContent);
           setSaveNotice(null);
           writeFileMutation.reset();
         },
@@ -111,17 +141,18 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
         hasUnsavedChanges: () => isDirty,
         saveActiveFile: () => persistFile()
       }),
-      [activeFilePath, bufferContent, fileQuery.data?.isBinary, isDirty, lastSavedContent, writeFileMutation]
+      [activeFilePath, bufferContent, fileQuery.data?.content, fileQuery.data?.isBinary, hasExternalFileConflict, isDirty, lastSavedContent, writeFileMutation]
     );
 
     const persistFile = async () => {
-      if (!activeFilePath || fileQuery.data?.isBinary) {
+      if (!activeFilePath || fileQuery.data?.isBinary || hasExternalFileConflict) {
         return false;
       }
 
       try {
         const result = await writeFileMutation.mutateAsync({
-          content: bufferContent
+          content: bufferContent,
+          expectedContent: lastSavedContent
         });
         setLastSavedContent(bufferContent);
         setSaveNotice(`Saved ${basename(result.relativePath)}.`);
@@ -179,19 +210,25 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
                 'disabled:cursor-not-allowed disabled:opacity-40'
               )}
               disabled={!activeFilePath || !isDirty}
-              onClick={() => setBufferContent(lastSavedContent)}
-              title="Discard changes"
+              onClick={() => {
+                const latestContent = resolveLatestWorkspaceFileContent(fileQuery.data?.content, lastSavedContent);
+                setBufferContent(latestContent);
+                setLastSavedContent(latestContent);
+                setSaveNotice(null);
+                writeFileMutation.reset();
+              }}
+              title={hasExternalFileConflict ? 'Reload from disk' : 'Discard changes'}
               type="button"
             >
               <Undo2 className="h-3 w-3" />
-              Discard
+              {hasExternalFileConflict ? 'Reload' : 'Discard'}
             </button>
             <button
               className={clsx(
                 'flex items-center gap-1 rounded-md bg-white px-2 py-1 font-geist text-[11px] font-semibold text-[#141414] transition',
                 'hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40'
               )}
-              disabled={!activeFilePath || isBinary || writeFileMutation.isPending || !isDirty}
+              disabled={!activeFilePath || hasExternalFileConflict || isBinary || writeFileMutation.isPending || !isDirty}
               onClick={() => { void persistFile(); }}
               type="button"
             >
@@ -208,6 +245,13 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
         {saveNotice ? (
           <div className="border-b border-emerald-500/10 bg-emerald-500/[0.04] px-4 py-2 font-geist text-[12px] text-emerald-300">
             {saveNotice}
+          </div>
+        ) : null}
+
+        {hasExternalFileConflict ? (
+          <div className="flex items-center gap-2 border-b border-amber-500/10 bg-amber-500/[0.04] px-4 py-2 font-geist text-[12px] text-amber-300">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            This file changed on disk while you had unsaved edits. Reload it before saving so you can review the newer changes.
           </div>
         ) : null}
 

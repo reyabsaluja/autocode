@@ -58,9 +58,34 @@ describe('agent session contracts', () => {
             text: 'hello'
           }
         ],
+        taskId: 7,
         sessionId: 1,
         type: 'entries'
       })
     ).toThrow();
+  });
+
+  test('validates task-scoped entry events', () => {
+    const result = agentSessionEventResultSchema.parse({
+      entries: [
+        {
+          at: '2026-04-01T12:00:00.000Z',
+          seq: 1,
+          stream: 'stdout',
+          text: 'hello'
+        }
+      ],
+      taskId: 7,
+      sessionId: 1,
+      type: 'entries'
+    });
+
+    expect(result.type).toBe('entries');
+
+    if (result.type !== 'entries') {
+      throw new Error('Expected an entry event.');
+    }
+
+    expect(result.taskId).toBe(7);
   });
 });

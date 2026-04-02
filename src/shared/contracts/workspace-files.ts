@@ -14,6 +14,7 @@ export const workspaceFileReadInputSchema = z.object({
 
 export const workspaceFileWriteInputSchema = z.object({
   content: z.string(),
+  expectedContent: z.string(),
   relativePath: z.string().trim().min(1),
   taskId: taskIdSchema
 });

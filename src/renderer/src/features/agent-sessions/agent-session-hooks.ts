@@ -157,7 +157,7 @@ export function useAgentSessionTranscriptTailQuery(sessionId: number | null, ena
       sessionId !== null
         ? queryKeys.agentSessionTranscript(sessionId)
         : ['agent-sessions', 'idle', 'transcript'],
-    refetchOnMount: false,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });
