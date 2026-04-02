@@ -52,10 +52,6 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
             <WorkspaceCenterTabBar
               activeCenterTab={fileController.activeCenterTab}
               fileTabs={fileController.fileTabs}
-              isNewSessionMenuOpen={sessionController.isNewSessionMenuOpen}
-              newSessionButtonDisabled={sessionController.newSessionButtonDisabled}
-              newSessionButtonTitle={sessionController.newSessionButtonTitle}
-              newSessionMenuRef={sessionController.newSessionMenuRef}
               onCloseFileTab={fileController.requestCloseFileTab}
               onDeleteSession={sessionController.requestDeleteSession}
               onRequestFileTabActivation={fileController.requestFileTabActivation}
@@ -70,7 +66,6 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
               sessions={sessionController.sessions}
               startSessionPending={sessionController.startSessionMutation.isPending}
               terminateSessionPending={sessionController.terminateSessionMutation.isPending}
-              toggleNewSessionMenu={sessionController.toggleNewSessionMenu}
             />
 
             <div className="relative z-0 min-h-0 min-w-0 flex-1 overflow-hidden isolate">

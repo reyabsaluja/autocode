@@ -40,8 +40,6 @@ export function useWorkspaceTerminalSessionController({
   const sessionsQuery = useAgentSessionsQuery(taskId);
   const sessions = sessionsQuery.data ?? [];
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
-  const [isNewSessionMenuOpen, setIsNewSessionMenuOpen] = useState(false);
-  const newSessionMenuRef = useRef<HTMLDivElement | null>(null);
   const [terminalSize, setTerminalSize] = useState(DEFAULT_TERMINAL_SIZE);
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
   const selectedSession = useMemo(
@@ -69,7 +67,6 @@ export function useWorkspaceTerminalSessionController({
 
   useEffect(() => {
     setSelectedSessionId(null);
-    setIsNewSessionMenuOpen(false);
     setTerminalSize(DEFAULT_TERMINAL_SIZE);
     lastReportedTerminalSizeRef.current = DEFAULT_TERMINAL_SIZE;
   }, [taskId]);
@@ -88,21 +85,6 @@ export function useWorkspaceTerminalSessionController({
     }
   }, [selectedSessionId, sessions]);
 
-  useEffect(() => {
-    if (!isNewSessionMenuOpen) {
-      return;
-    }
-
-    function handleClickOutside(event: MouseEvent) {
-      if (newSessionMenuRef.current && !newSessionMenuRef.current.contains(event.target as Node)) {
-        setIsNewSessionMenuOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isNewSessionMenuOpen]);
-
   function requestSessionSelection(sessionId: number) {
     if (activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === sessionId) {
       return;
@@ -120,8 +102,6 @@ export function useWorkspaceTerminalSessionController({
   }
 
   function requestStartSession(provider: AgentProvider) {
-    setIsNewSessionMenuOpen(false);
-
     runWithCenterTransition({
       body: 'Save or discard your changes to the current file before starting a new session.',
       key: `session:start:${taskId}:${provider}:${sessions.length}`,
@@ -168,10 +148,6 @@ export function useWorkspaceTerminalSessionController({
         error instanceof Error ? error.message : `Autocode could not delete this ${displayName} session.`
       );
     });
-  }
-
-  function toggleNewSessionMenu() {
-    setIsNewSessionMenuOpen((current) => !current);
   }
 
   const selectedSessionRef = useRef(selectedSession);
@@ -221,10 +197,6 @@ export function useWorkspaceTerminalSessionController({
 
   return {
     deleteSessionMutation,
-    isNewSessionMenuOpen,
-    newSessionButtonDisabled: startSessionMutation.isPending,
-    newSessionButtonTitle: 'New session',
-    newSessionMenuRef,
     requestDeleteSession,
     requestStartSession,
     requestSessionSelection,
@@ -235,12 +207,10 @@ export function useWorkspaceTerminalSessionController({
     sendInputMutation,
     sessions,
     sessionsQuery,
-    setIsNewSessionMenuOpen,
     startSessionMutation,
     terminateSessionMutation,
     terminalErrorMessage,
     terminalSurfaceProps,
-    toggleNewSessionMenu,
     transcriptQuery
   };
 }

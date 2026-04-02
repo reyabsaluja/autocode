@@ -1,18 +1,33 @@
-import type { ReactNode, RefObject } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { Bot, ChevronDown, FileCode2, Plus, Square, Terminal, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Bot,
+  Eye,
+  EyeOff,
+  FileCode2,
+  RotateCcw,
+  Settings,
+  Square,
+  Terminal,
+  X
+} from 'lucide-react';
 
 import type { AgentProvider, AgentSession } from '@shared/domain/agent-session';
 import type { WorkspaceFileTab } from './workspace-inspector-shared';
-import { basename, getProviderDisplayName, getProviderSessionIndex, isActiveSessionStatus, TERMINAL_TAB_ID } from './workspace-inspector-shared';
+import {
+  basename,
+  getProviderDisplayName,
+  getProviderSessionIndex,
+  isActiveSessionStatus,
+  TERMINAL_TAB_ID
+} from './workspace-inspector-shared';
+import { useProviderPreferencesStore } from '../../stores/provider-preferences-store';
 
 interface WorkspaceCenterTabBarProps {
   activeCenterTab: string;
   fileTabs: WorkspaceFileTab[];
-  isNewSessionMenuOpen: boolean;
-  newSessionButtonDisabled: boolean;
-  newSessionButtonTitle: string;
-  newSessionMenuRef: RefObject<HTMLDivElement | null>;
   onCloseFileTab: (path: string) => void;
   onDeleteSession: (sessionId: number) => void;
   onRequestFileTabActivation: (path: string) => void;
@@ -25,16 +40,11 @@ interface WorkspaceCenterTabBarProps {
   sessions: AgentSession[];
   startSessionPending: boolean;
   terminateSessionPending: boolean;
-  toggleNewSessionMenu: () => void;
 }
 
 export function WorkspaceCenterTabBar({
   activeCenterTab,
   fileTabs,
-  isNewSessionMenuOpen,
-  newSessionButtonDisabled,
-  newSessionButtonTitle,
-  newSessionMenuRef,
   onCloseFileTab,
   onDeleteSession,
   onRequestFileTabActivation,
@@ -46,9 +56,12 @@ export function WorkspaceCenterTabBar({
   selectedSessionIsActive,
   sessions,
   startSessionPending,
-  terminateSessionPending,
-  toggleNewSessionMenu
+  terminateSessionPending
 }: WorkspaceCenterTabBarProps) {
+  const visibleProviders = useProviderPreferencesStore(
+    (state) => state.providers.filter((entry) => entry.visible)
+  );
+
   return (
     <div className="flex items-center gap-1.5 border-b border-white/[0.06] bg-[#141414] px-3 py-1.5">
       {sessions.length === 0 ? (
@@ -83,46 +96,7 @@ export function WorkspaceCenterTabBar({
           );
         })
       )}
-      <div className="relative" ref={newSessionMenuRef}>
-        <button
-          className={clsx(
-            'flex h-7 items-center gap-0.5 rounded-md px-1.5 transition',
-            newSessionButtonDisabled
-              ? 'bg-white/[0.03] text-white/15'
-              : 'bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white'
-          )}
-          disabled={newSessionButtonDisabled}
-          onClick={toggleNewSessionMenu}
-          title={newSessionButtonTitle}
-          type="button"
-        >
-          {startSessionPending ? (
-            <Plus className="h-3.5 w-3.5 animate-pulse" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
-          <ChevronDown className="h-2.5 w-2.5" />
-        </button>
-        {isNewSessionMenuOpen ? (
-          <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-lg border border-white/[0.10] bg-[#1c1c1c] py-1 shadow-xl">
-            <NewSessionOption
-              icon={<Terminal className="h-3.5 w-3.5" />}
-              label="Terminal"
-              onClick={() => onRequestStartSession('terminal')}
-            />
-            <NewSessionOption
-              icon={<CodexSessionGlyph isActive={false} />}
-              label="Codex"
-              onClick={() => onRequestStartSession('codex')}
-            />
-            <NewSessionOption
-              icon={<Bot className="h-3.5 w-3.5" />}
-              label="Claude Code"
-              onClick={() => onRequestStartSession('claude-code')}
-            />
-          </div>
-        ) : null}
-      </div>
+
       {selectedSessionIsActive ? (
         <button
           className="grid h-7 w-7 place-items-center rounded-md bg-rose-500/[0.10] text-rose-300 transition hover:bg-rose-500/[0.18] hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
@@ -134,8 +108,22 @@ export function WorkspaceCenterTabBar({
           <Square className="h-3 w-3" />
         </button>
       ) : null}
+
+      <div className="mx-0.5 h-4 w-px bg-white/[0.08]" />
+
+      {visibleProviders.map((entry) => (
+        <QuickLaunchButton
+          key={entry.id}
+          disabled={startSessionPending}
+          provider={entry.id}
+          onClick={() => onRequestStartSession(entry.id)}
+        />
+      ))}
+
+      <ProviderSettingsButton />
+
       {fileTabs.length > 0 ? (
-        <div className="mx-1 h-4 w-px bg-white/[0.08]" />
+        <div className="mx-0.5 h-4 w-px bg-white/[0.08]" />
       ) : null}
       {fileTabs.map((tab) => (
         <CenterTab
@@ -152,6 +140,152 @@ export function WorkspaceCenterTabBar({
           }}
         />
       ))}
+    </div>
+  );
+}
+
+function QuickLaunchButton({
+  disabled,
+  provider,
+  onClick
+}: {
+  disabled: boolean;
+  provider: AgentProvider;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={clsx(
+        'flex h-7 items-center gap-1.5 rounded-md border border-dashed px-2 font-geist text-[11px] font-medium transition',
+        disabled
+          ? 'border-white/[0.06] text-white/15'
+          : 'border-white/[0.12] text-white/40 hover:border-white/[0.20] hover:bg-white/[0.06] hover:text-white/70'
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      title={`New ${getProviderDisplayName(provider)} session`}
+      type="button"
+    >
+      <ProviderIcon provider={provider} />
+      {getProviderDisplayName(provider)}
+    </button>
+  );
+}
+
+function ProviderSettingsButton() {
+  const [isOpen, setIsOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handleClickOutside(event: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div className="relative" ref={popoverRef}>
+      <button
+        className={clsx(
+          'grid h-7 w-7 place-items-center rounded-md transition',
+          isOpen
+            ? 'bg-white/[0.10] text-white/60'
+            : 'text-white/25 hover:bg-white/[0.06] hover:text-white/50'
+        )}
+        onClick={() => setIsOpen((current) => !current)}
+        title="Provider settings"
+        type="button"
+      >
+        <Settings className="h-3.5 w-3.5" />
+      </button>
+      {isOpen ? <ProviderSettingsPopover /> : null}
+    </div>
+  );
+}
+
+function ProviderSettingsPopover() {
+  const providers = useProviderPreferencesStore((state) => state.providers);
+  const toggleProvider = useProviderPreferencesStore((state) => state.toggleProvider);
+  const reorderProvider = useProviderPreferencesStore((state) => state.reorderProvider);
+  const resetToDefaults = useProviderPreferencesStore((state) => state.resetToDefaults);
+
+  return (
+    <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-xl">
+      <div className="flex items-center justify-between border-b border-white/[0.08] px-3 py-2">
+        <span className="font-geist text-[11px] font-semibold uppercase tracking-[0.08em] text-white/40">
+          Providers
+        </span>
+        <button
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 font-geist text-[10px] text-white/30 transition hover:bg-white/[0.06] hover:text-white/60"
+          onClick={() => {
+            resetToDefaults();
+          }}
+          title="Reset to defaults"
+          type="button"
+        >
+          <RotateCcw className="h-2.5 w-2.5" />
+          Reset
+        </button>
+      </div>
+      <div className="py-1">
+        {providers.map((entry, index) => (
+          <div
+            key={entry.id}
+            className="flex items-center gap-1.5 px-2 py-1"
+          >
+            <ProviderIcon provider={entry.id} />
+            <span className={clsx(
+              'flex-1 font-geist text-[12px] font-medium',
+              entry.visible ? 'text-white/70' : 'text-white/25'
+            )}>
+              {getProviderDisplayName(entry.id)}
+            </span>
+            <button
+              className="grid h-5 w-5 place-items-center rounded text-white/25 transition hover:bg-white/[0.08] hover:text-white/60 disabled:opacity-30"
+              disabled={index === 0}
+              onClick={() => reorderProvider(index, index - 1)}
+              title="Move up"
+              type="button"
+            >
+              <ArrowUp className="h-3 w-3" />
+            </button>
+            <button
+              className="grid h-5 w-5 place-items-center rounded text-white/25 transition hover:bg-white/[0.08] hover:text-white/60 disabled:opacity-30"
+              disabled={index === providers.length - 1}
+              onClick={() => reorderProvider(index, index + 1)}
+              title="Move down"
+              type="button"
+            >
+              <ArrowDown className="h-3 w-3" />
+            </button>
+            <button
+              className={clsx(
+                'grid h-5 w-5 place-items-center rounded transition hover:bg-white/[0.08]',
+                entry.visible
+                  ? 'text-white/40 hover:text-white/70'
+                  : 'text-white/15 hover:text-white/40'
+              )}
+              onClick={() => toggleProvider(entry.id)}
+              title={entry.visible ? 'Hide' : 'Show'}
+              type="button"
+            >
+              {entry.visible ? (
+                <Eye className="h-3 w-3" />
+              ) : (
+                <EyeOff className="h-3 w-3" />
+              )}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -210,6 +344,23 @@ function CenterTab({
   );
 }
 
+function ProviderIcon({ provider }: { provider: AgentProvider }) {
+  switch (provider) {
+    case 'codex':
+      return <CodexGlyph />;
+    case 'claude-code':
+      return <Bot className="h-3 w-3" />;
+    case 'terminal':
+      return <Terminal className="h-3 w-3" />;
+  }
+}
+
+function CodexGlyph() {
+  return (
+    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-white/20" />
+  );
+}
+
 function CodexSessionGlyph({ isActive }: { isActive: boolean }) {
   return (
     <span
@@ -232,25 +383,4 @@ function SessionProviderIcon({ provider, isActive }: { provider: AgentProvider; 
     case 'terminal':
       return <Terminal className={clsx('h-3.5 w-3.5', isActive ? 'text-emerald-300' : '')} />;
   }
-}
-
-function NewSessionOption({
-  icon,
-  label,
-  onClick
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className="flex w-full items-center gap-2 px-3 py-1.5 font-geist text-[12px] text-white/70 transition hover:bg-white/[0.06] hover:text-white"
-      onClick={onClick}
-      type="button"
-    >
-      <span className="shrink-0">{icon}</span>
-      {label}
-    </button>
-  );
 }
