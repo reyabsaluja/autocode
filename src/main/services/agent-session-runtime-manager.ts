@@ -1,7 +1,7 @@
 import { rm } from 'node:fs/promises';
 import os from 'node:os';
 
-import { spawn, type IPty } from 'node-pty';
+import { spawn as spawnPtyProcess, type IPty } from 'node-pty';
 
 import type {
   AgentProvider,
@@ -59,12 +59,36 @@ type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 const ACTIVE_AGENT_SESSION_STATUSES = new Set(['starting', 'running']);
 const WORKSPACE_INSPECTION_REFRESH_THROTTLE_MS = 1_000;
 
+interface AgentSessionRuntimeManagerDependencies {
+  checkTmuxAvailability: typeof checkTmuxAvailability;
+  createTmuxSession: typeof createTmuxSession;
+  getTmuxAttachSpawnArgs: typeof getTmuxAttachSpawnArgs;
+  getTmuxSessionName: typeof getTmuxSessionName;
+  isTmuxSessionAlive: typeof isTmuxSessionAlive;
+  killTmuxSession: typeof killTmuxSession;
+  resizeTmuxSession: typeof resizeTmuxSession;
+  spawnPty: typeof spawnPtyProcess;
+}
+
+const defaultRuntimeManagerDependencies: AgentSessionRuntimeManagerDependencies = {
+  checkTmuxAvailability,
+  createTmuxSession,
+  getTmuxAttachSpawnArgs,
+  getTmuxSessionName,
+  isTmuxSessionAlive,
+  killTmuxSession,
+  resizeTmuxSession,
+  spawnPty: spawnPtyProcess
+};
+
 export function createAgentSessionRuntimeManager({
   agentSessionRepository,
+  dependencies,
   publishEvent,
   publishWorkspaceInspectionChange
 }: {
   agentSessionRepository: ReturnType<typeof createAgentSessionRepository>;
+  dependencies?: Partial<AgentSessionRuntimeManagerDependencies>;
   publishEvent: AgentSessionEventPublisher;
   publishWorkspaceInspectionChange?: (taskId: number) => void;
 }) {
@@ -72,6 +96,10 @@ export function createAgentSessionRuntimeManager({
   const sessionQueues = new Map<number, Promise<unknown>>();
   const workspaceInspectionRefreshTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const tmuxSessionNames = new Map<number, string>();
+  const runtimeDependencies: AgentSessionRuntimeManagerDependencies = {
+    ...defaultRuntimeManagerDependencies,
+    ...dependencies
+  };
   let tmuxAvailable = false;
 
   return {
@@ -136,7 +164,7 @@ export function createAgentSessionRuntimeManager({
   }
 
   async function reconcileInterruptedSessions(): Promise<void> {
-    tmuxAvailable = await checkTmuxAvailability();
+    tmuxAvailable = await runtimeDependencies.checkTmuxAvailability();
     const timestamp = new Date().toISOString();
 
     for (const session of agentSessionRepository.listActiveSessions()) {
@@ -147,8 +175,8 @@ export function createAgentSessionRuntimeManager({
       }
 
       if (tmuxAvailable) {
-        const sessionName = getTmuxSessionName(session.id);
-        const alive = await isTmuxSessionAlive(sessionName);
+        const sessionName = runtimeDependencies.getTmuxSessionName(session.id);
+        const alive = await runtimeDependencies.isTmuxSessionAlive(sessionName);
 
         if (alive) {
           try {
@@ -208,12 +236,13 @@ export function createAgentSessionRuntimeManager({
   async function startRuntime(input: StartAgentSessionRuntimeInput): Promise<{ pid: number }> {
     let pty: IPty;
     let usedTmux = false;
+    let createdTmuxSessionName: string | null = null;
 
     if (tmuxAvailable) {
       try {
-        const sessionName = getTmuxSessionName(input.sessionId);
+        const sessionName = runtimeDependencies.getTmuxSessionName(input.sessionId);
 
-        await createTmuxSession({
+        await runtimeDependencies.createTmuxSession({
           cols: input.cols,
           cwd: input.cwd,
           env: input.env,
@@ -221,9 +250,11 @@ export function createAgentSessionRuntimeManager({
           rows: input.rows,
           sessionName
         });
+        createdTmuxSessionName = sessionName;
+        tmuxSessionNames.set(input.sessionId, sessionName);
 
-        const attach = getTmuxAttachSpawnArgs(sessionName);
-        pty = spawn(attach.command, attach.args, {
+        const attach = runtimeDependencies.getTmuxAttachSpawnArgs(sessionName);
+        pty = runtimeDependencies.spawnPty(attach.command, attach.args, {
           cols: input.cols,
           cwd: input.cwd,
           env: input.env,
@@ -231,9 +262,27 @@ export function createAgentSessionRuntimeManager({
           rows: input.rows
         });
 
-        tmuxSessionNames.set(input.sessionId, sessionName);
+        createdTmuxSessionName = null;
         usedTmux = true;
-      } catch {
+      } catch (error) {
+        const cleanedUpTmuxSession = await cleanupFailedTmuxStart(createdTmuxSessionName);
+
+        if (cleanedUpTmuxSession) {
+          tmuxSessionNames.delete(input.sessionId);
+        }
+
+        if (!cleanedUpTmuxSession) {
+          const message = buildTmuxFallbackCleanupErrorMessage(input.provider);
+
+          await failPendingSession({
+            message,
+            sessionId: input.sessionId,
+            timestamp: new Date().toISOString(),
+            transcriptPath: input.transcriptPath
+          });
+          throw error instanceof Error ? new Error(message, { cause: error }) : new Error(message);
+        }
+
         // tmux session creation failed — fall through to direct spawn
         usedTmux = false;
       }
@@ -241,7 +290,7 @@ export function createAgentSessionRuntimeManager({
 
     if (!usedTmux) {
       try {
-        pty = spawn(input.executablePath, [], {
+        pty = runtimeDependencies.spawnPty(input.executablePath, [], {
           cols: input.cols,
           cwd: input.cwd,
           env: input.env,
@@ -284,11 +333,11 @@ export function createAgentSessionRuntimeManager({
     sessionId: number;
     transcriptPath: string;
   }): Promise<void> {
-    const sessionName = getTmuxSessionName(input.sessionId);
-    const attach = getTmuxAttachSpawnArgs(sessionName);
+    const sessionName = runtimeDependencies.getTmuxSessionName(input.sessionId);
+    const attach = runtimeDependencies.getTmuxAttachSpawnArgs(sessionName);
     const attachEnv = buildAttachProcessEnv();
 
-    const pty = spawn(attach.command, attach.args, {
+    const pty = runtimeDependencies.spawnPty(attach.command, attach.args, {
       cols: 120,
       cwd: os.homedir(),
       env: attachEnv,
@@ -319,7 +368,7 @@ export function createAgentSessionRuntimeManager({
 
     const sessionName = tmuxSessionNames.get(sessionId);
     if (sessionName) {
-      await resizeTmuxSession(sessionName, cols, rows);
+      await runtimeDependencies.resizeTmuxSession(sessionName, cols, rows);
     }
   }
 
@@ -397,7 +446,7 @@ export function createAgentSessionRuntimeManager({
 
     const sessionName = tmuxSessionNames.get(sessionId);
     if (sessionName) {
-      await killTmuxSession(sessionName);
+      await runtimeDependencies.killTmuxSession(sessionName);
       tmuxSessionNames.delete(sessionId);
     }
     runtimes.delete(sessionId);
@@ -450,7 +499,7 @@ export function createAgentSessionRuntimeManager({
       if (options.killRuntime) {
         const sessionName = tmuxSessionNames.get(sessionId);
         if (sessionName) {
-          await killTmuxSession(sessionName);
+          await runtimeDependencies.killTmuxSession(sessionName);
           tmuxSessionNames.delete(sessionId);
         }
         runtime.pty.kill();
@@ -515,7 +564,7 @@ export function createAgentSessionRuntimeManager({
     const sessionName = tmuxSessionNames.get(sessionId);
 
     if (sessionName) {
-      const alive = await isTmuxSessionAlive(sessionName);
+      const alive = await runtimeDependencies.isTmuxSessionAlive(sessionName);
 
       if (alive) {
         // The tmux attach process disconnected (app closing or crash),
@@ -593,6 +642,26 @@ export function createAgentSessionRuntimeManager({
     } catch {
       return null;
     }
+  }
+
+  async function cleanupFailedTmuxStart(sessionName: string | null): Promise<boolean> {
+    if (!sessionName) {
+      return true;
+    }
+
+    await runtimeDependencies.killTmuxSession(sessionName);
+
+    const stillAlive = await runtimeDependencies.isTmuxSessionAlive(sessionName);
+
+    if (!stillAlive) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function buildTmuxFallbackCleanupErrorMessage(provider: AgentProvider): string {
+    return `Autocode could not clean up the tmux-backed ${getAgentProviderDisplayName(provider)} session after startup failed, so it did not fall back to a second process.`;
   }
 
   function requireRuntime(sessionId: number): AgentSessionRuntime {
