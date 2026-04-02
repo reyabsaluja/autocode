@@ -46,13 +46,13 @@ export function createGitWorktreeService() {
     },
 
     async cleanupTaskWorktree(project: Project, branchName: string, worktreePath: string): Promise<void> {
-      const registeredWorktrees = await listRegisteredWorktrees(project.gitRoot);
+      const registeredWorktrees = await listRegisteredWorktreesIfRepositoryExists(project.gitRoot);
 
-      if (registeredWorktrees.has(worktreePath)) {
+      if (registeredWorktrees?.has(worktreePath)) {
         await execGit(['worktree', 'remove', '--force', worktreePath], project.gitRoot);
       }
 
-      if (await gitRefExists(project.gitRoot, branchName)) {
+      if (registeredWorktrees !== null && await gitRefExists(project.gitRoot, branchName)) {
         await execGit(['branch', '-D', branchName], project.gitRoot);
       }
 
@@ -61,6 +61,14 @@ export function createGitWorktreeService() {
       }
     }
   };
+}
+
+async function listRegisteredWorktreesIfRepositoryExists(gitRoot: string): Promise<Set<string> | null> {
+  if (!existsSync(gitRoot)) {
+    return null;
+  }
+
+  return listRegisteredWorktrees(gitRoot);
 }
 
 async function resolveBaseRef(gitRoot: string, defaultBranch: string | null): Promise<string> {

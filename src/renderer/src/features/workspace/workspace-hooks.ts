@@ -53,7 +53,7 @@ export function useWorkspaceChangesQuery(taskId: number | null) {
     enabled: taskId !== null,
     queryKey: taskId !== null ? queryKeys.workspaceChanges(taskId) : ['workspace', 'idle', 'changes'],
     queryFn: () => autocodeApi.workspaces.listChanges({ taskId: taskId! }),
-    refetchOnMount: false,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });

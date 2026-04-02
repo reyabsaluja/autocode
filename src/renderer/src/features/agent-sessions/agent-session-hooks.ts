@@ -19,7 +19,7 @@ export function useAgentSessionsQuery(taskId: number | null) {
     enabled: taskId !== null,
     queryFn: () => autocodeApi.agentSessions.listByTask({ taskId: taskId! }),
     queryKey: taskId !== null ? queryKeys.agentSessions(taskId) : ['agent-sessions', 'idle'],
-    refetchOnMount: false,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });
