@@ -214,7 +214,10 @@ function SectionHeader({
     <div className="flex items-center gap-1 px-3 py-1.5">
       <button
         className="flex min-w-0 items-center gap-1.5 text-left"
-        onClick={onToggle}
+        onMouseDown={(event) => {
+          event.preventDefault();
+          onToggle();
+        }}
         type="button"
       >
         {isOpen ? (
@@ -257,7 +260,10 @@ function ChangeFileList({
                   ? 'bg-white/[0.10] text-white'
                   : 'text-white/60 hover:bg-white/[0.06] hover:text-white/90'
               )}
-              onClick={() => onSelectChange(change.relativePath)}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                onSelectChange(change.relativePath);
+              }}
               type="button"
             >
               <ChangeStatusIndicator status={change.status} />

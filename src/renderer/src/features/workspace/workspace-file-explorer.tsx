@@ -93,7 +93,9 @@ function WorkspaceFileTreeNode({
             ? 'bg-white/[0.10] text-white'
             : 'text-white/60 hover:bg-white/[0.06] hover:text-white/90'
         )}
-        onClick={() => {
+        onMouseDown={(event) => {
+          event.preventDefault();
+
           if (isDirectory) {
             onToggleDirectory(entry.relativePath);
             return;

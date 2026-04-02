@@ -61,18 +61,21 @@ export function WorkspaceInspectorSidebar({
           icon={<Files className="h-3.5 w-3.5" />}
           isActive={activeSidebarTab === 'files'}
           label="Files"
-          onClick={() => onSelectSidebarTab('files')}
+          onPress={() => onSelectSidebarTab('files')}
         />
         <SidebarTab
           icon={<GitCompare className="h-3.5 w-3.5" />}
           isActive={activeSidebarTab === 'changes'}
           label="Changes"
-          onClick={() => onSelectSidebarTab('changes')}
+          onPress={() => onSelectSidebarTab('changes')}
         />
         <div className="ml-auto flex items-center gap-1">
           <button
             className="grid h-7 w-7 place-items-center rounded-md text-white/40 transition hover:bg-white/[0.08] hover:text-white/70"
-            onClick={onRefresh}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              void onRefresh();
+            }}
             title="Refresh"
             type="button"
           >
@@ -118,12 +121,12 @@ function SidebarTab({
   icon,
   isActive,
   label,
-  onClick
+  onPress
 }: {
   icon: ReactNode;
   isActive: boolean;
   label: string;
-  onClick: () => void;
+  onPress: () => void;
 }) {
   return (
     <button
@@ -133,7 +136,10 @@ function SidebarTab({
           ? 'bg-white/[0.10] text-white'
           : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
       )}
-      onClick={onClick}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onPress();
+      }}
       type="button"
     >
       {icon}
