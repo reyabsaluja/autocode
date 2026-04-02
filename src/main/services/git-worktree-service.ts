@@ -5,12 +5,7 @@ import { rm } from 'node:fs/promises';
 import type { Project } from '../../shared/domain/project';
 import type { Task } from '../../shared/domain/task';
 import { resolveAutocodeWorktreesRoot } from '../database/paths';
-import {
-  execGit,
-  gitRefExists,
-  listRegisteredWorktreeBranchPaths,
-  listRegisteredWorktrees
-} from './git-client';
+import { execGit, gitRefExists, listRegisteredWorktrees } from './git-client';
 
 interface CreateTaskWorktreeInput {
   plannedWorktree?: TaskWorktreePlan;
@@ -99,7 +94,6 @@ async function ensureTaskWorktree(
   let branchName = worktreePlan.branchName;
   const { worktreePath } = worktreePlan;
   const registeredWorktrees = await listRegisteredWorktrees(project.gitRoot);
-  const registeredBranchPaths = await listRegisteredWorktreeBranchPaths(project.gitRoot);
 
   mkdirSync(path.dirname(worktreePath), { recursive: true });
 
@@ -116,19 +110,11 @@ async function ensureTaskWorktree(
   }
 
   if (await gitRefExists(project.gitRoot, branchName)) {
-    const registeredBranchPath = registeredBranchPaths.get(branchName);
-
-    if (registeredBranchPath && registeredBranchPath !== worktreePath) {
-      branchName = await resolveAvailableBranchName(project.gitRoot, branchName);
-      const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
-      await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
-    } else {
-      await execGit(['worktree', 'add', worktreePath, branchName], project.gitRoot);
-    }
-  } else {
-    const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
-    await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
+    branchName = await resolveAvailableBranchName(project.gitRoot, branchName);
   }
+
+  const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
+  await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
 
   return {
     branchName,

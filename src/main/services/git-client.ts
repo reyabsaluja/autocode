@@ -66,21 +66,6 @@ export async function listRegisteredWorktrees(gitRoot: string): Promise<Set<stri
   return new Set(records.map((record) => record.path));
 }
 
-export async function listRegisteredWorktreeBranchPaths(gitRoot: string): Promise<Map<string, string>> {
-  const records = await listRegisteredWorktreeRecords(gitRoot);
-  const branchPaths = new Map<string, string>();
-
-  for (const record of records) {
-    if (!record.branchName) {
-      continue;
-    }
-
-    branchPaths.set(record.branchName, record.path);
-  }
-
-  return branchPaths;
-}
-
 export async function resolveGitBranchPublishStatus(
   gitRoot: string,
   input: ResolveGitBranchPublishStatusInput
