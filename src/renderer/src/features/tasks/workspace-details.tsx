@@ -1,10 +1,14 @@
-import { forwardRef, useEffect, useState } from 'react';
-import { AlertTriangle, FolderGit2, GitBranch, Loader2 } from 'lucide-react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, FolderGit2, GitBranch, GitMerge, Loader2 } from 'lucide-react';
 
 import type { Project } from '@shared/domain/project';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import type { WorkspaceEditorHandle } from '../editor/workspace-editor-surface';
+import { UnsavedChangesDialog } from '../editor/unsaved-changes-dialog';
+import { useUnsavedChangesGuard } from '../editor/use-unsaved-changes-guard';
+import { useIntegrateBaseMutation, useMergeTaskIntoWorkspaceMutation } from '../workspace/workspace-hooks';
+import { WorkspaceIntegrateDialog } from '../workspace/workspace-integrate-dialog';
 
 type WorkspaceInspectorComponent = typeof import('../workspace/workspace-inspector')['WorkspaceInspector'];
 
@@ -15,6 +19,7 @@ interface WorkspaceDetailsProps {
   onRequestTaskSelection: (taskId: number) => void;
   project: Project | null;
   taskWorkspace: TaskWorkspace | null;
+  taskWorkspaces: TaskWorkspace[];
 }
 
 export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetailsProps>(function WorkspaceDetails({
@@ -23,10 +28,65 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   onForkTaskWorkspace,
   onRequestTaskSelection,
   project,
-  taskWorkspace
+  taskWorkspace,
+  taskWorkspaces
 }, ref) {
+  const editorRef = useRef<WorkspaceEditorHandle | null>(null);
   const [WorkspaceInspectorComponent, setWorkspaceInspectorComponent] =
     useState<WorkspaceInspectorComponent | null>(null);
+  const [isIntegrateDialogOpen, setIsIntegrateDialogOpen] = useState(false);
+  const [integrationNotice, setIntegrationNotice] = useState<string | null>(null);
+  const { dialogProps, requestTransition } = useUnsavedChangesGuard(editorRef);
+  const taskId = taskWorkspace?.task.id ?? null;
+  const integrateBaseMutation = useIntegrateBaseMutation(taskId);
+  const mergeTaskMutation = useMergeTaskIntoWorkspaceMutation(taskId);
+  const currentTask = taskWorkspace?.task ?? null;
+  const currentWorktree = taskWorkspace?.worktree ?? null;
+  const baseRef = currentWorktree?.baseRef ?? project?.defaultBranch ?? null;
+  const baseTaskWorkspace = useMemo(
+    () =>
+      baseRef && currentTask
+        ? taskWorkspaces.find(
+            (workspace) =>
+              workspace.task.id !== currentTask.id &&
+              workspace.worktree?.branchName === baseRef
+          ) ?? null
+        : null,
+    [baseRef, currentTask, taskWorkspaces]
+  );
+  const baseLabel = baseTaskWorkspace?.task.title ?? baseRef;
+  const integrationCandidates = useMemo(
+    () =>
+      currentTask
+        ? taskWorkspaces
+            .filter(
+              (workspace) =>
+                workspace.task.id !== currentTask.id &&
+                workspace.worktree !== null
+            )
+            .map((workspace) => ({
+              branchName: workspace.worktree!.branchName,
+              taskId: workspace.task.id,
+              title: workspace.task.title
+            }))
+        : [],
+    [currentTask, taskWorkspaces]
+  );
+  const canIntegrate = Boolean(baseLabel) || integrationCandidates.length > 0;
+  const integrationErrorMessage =
+    (integrateBaseMutation.error instanceof Error ? integrateBaseMutation.error.message : null) ??
+    (mergeTaskMutation.error instanceof Error ? mergeTaskMutation.error.message : null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      discardUnsavedChanges: () => editorRef.current?.discardUnsavedChanges(),
+      getActiveFilePath: () => editorRef.current?.getActiveFilePath() ?? null,
+      hasUnsavedChanges: () => editorRef.current?.hasUnsavedChanges() ?? false,
+      saveActiveFile: async () => (await editorRef.current?.saveActiveFile()) ?? false
+    }),
+    []
+  );
 
   useEffect(() => {
     if (!taskWorkspace?.worktree || WorkspaceInspectorComponent) {
@@ -45,6 +105,14 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
       isCancelled = true;
     };
   }, [WorkspaceInspectorComponent, taskWorkspace?.worktree]);
+
+  useEffect(() => {
+    setIsIntegrateDialogOpen(false);
+    setIntegrationNotice(null);
+    integrateBaseMutation.reset();
+    mergeTaskMutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mutation objects are intentionally excluded to avoid reset loops from new references.
+  }, [taskId]);
 
   if (!project) {
     return (
@@ -84,6 +152,39 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   const { task, worktree } = taskWorkspace;
 
+  function requestIntegrationAction(key: string, run: () => void) {
+    requestTransition({
+      body: `Save or discard your changes to ${
+        editorRef.current?.getActiveFilePath() ?? 'the current file'
+      } before integrating branches in this workspace.`,
+      key,
+      run,
+      title: 'Unsaved workspace edits'
+    });
+  }
+
+  function handleIntegrateBase() {
+    requestIntegrationAction(`integrate-base:${task.id}`, () => {
+      void integrateBaseMutation.mutateAsync().then((result) => {
+        setIntegrationNotice(result.message);
+        setIsIntegrateDialogOpen(false);
+      }).catch(() => {
+        // The dialog renders the current integration error.
+      });
+    });
+  }
+
+  function handleMergeTask(sourceTaskId: number) {
+    requestIntegrationAction(`integrate-task:${task.id}:${sourceTaskId}`, () => {
+      void mergeTaskMutation.mutateAsync(sourceTaskId).then((result) => {
+        setIntegrationNotice(result.message);
+        setIsIntegrateDialogOpen(false);
+      }).catch(() => {
+        // The dialog renders the current integration error.
+      });
+    });
+  }
+
   return (
     <section className="flex h-full flex-col animate-fade-in">
       <header className="flex h-[38px] shrink-0 items-center border-b border-white/[0.06] bg-[#141414] px-4">
@@ -104,12 +205,39 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
               <GitBranch className="h-3.5 w-3.5" />
             )}
           </button>
+          <button
+            className="inline-flex h-7 items-center gap-1.5 rounded bg-white/[0.08] px-2.5 font-geist text-[12px] font-medium text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!canIntegrate || integrateBaseMutation.isPending || mergeTaskMutation.isPending}
+            onClick={() => {
+              setIntegrationNotice(null);
+              setIsIntegrateDialogOpen(true);
+            }}
+            title={canIntegrate ? 'Integrate base or task changes into this workspace' : 'No branches are available to integrate into this task'}
+            type="button"
+          >
+            {integrateBaseMutation.isPending || mergeTaskMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <GitMerge className="h-3.5 w-3.5" />
+            )}
+            Integrate
+          </button>
           <HeaderBadge icon={<FolderGit2 className="h-3 w-3" />} value={project.name} />
           {worktree ? (
             <HeaderBadge icon={<GitBranch className="h-3 w-3" />} value={worktree.branchName} />
           ) : null}
+          {baseLabel ? (
+            <HeaderBadge value={`Based on ${baseLabel}`} />
+          ) : null}
         </div>
       </header>
+
+      {integrationNotice ? (
+        <div className="flex items-center gap-2 border-b border-emerald-500/15 bg-emerald-500/[0.05] px-4 py-2 font-geist text-[12px] text-emerald-200">
+          <GitMerge className="h-3.5 w-3.5 shrink-0" />
+          {integrationNotice}
+        </div>
+      ) : null}
 
       {task.lastError ? (
         <div className="flex items-center gap-2 border-b border-rose-500/15 bg-rose-500/[0.04] px-4 py-2 font-geist text-[12px] text-rose-300">
@@ -123,7 +251,7 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
           <WorkspaceInspectorComponent
             key={taskWorkspace.task.id}
             onRequestTaskSelection={onRequestTaskSelection}
-            ref={ref}
+            ref={editorRef}
             taskWorkspace={taskWorkspace}
           />
         ) : (
@@ -141,6 +269,24 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
           </p>
         </div>
       )}
+
+      <WorkspaceIntegrateDialog
+        baseLabel={baseLabel}
+        errorMessage={integrationErrorMessage}
+        isIntegratingBase={integrateBaseMutation.isPending}
+        isMergingTaskId={mergeTaskMutation.isPending ? mergeTaskMutation.variables ?? null : null}
+        isOpen={isIntegrateDialogOpen}
+        mergeCandidates={integrationCandidates}
+        onClose={() => setIsIntegrateDialogOpen(false)}
+        onIntegrateBase={handleIntegrateBase}
+        onMergeTask={handleMergeTask}
+        taskTitle={task.title}
+      />
+
+      <UnsavedChangesDialog
+        {...dialogProps}
+        title="Unsaved workspace edits"
+      />
     </section>
   );
 });

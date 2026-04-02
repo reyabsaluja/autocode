@@ -16,6 +16,11 @@ import {
   type WorkspaceDirectoryInput,
   workspaceDirectoryInputSchema,
   workspaceDirectoryResultSchema,
+  type WorkspaceIntegrateBaseInput,
+  workspaceIntegrateBaseInputSchema,
+  workspaceIntegrationResultSchema,
+  type WorkspaceMergeTaskInput,
+  workspaceMergeTaskInputSchema,
   type WorkspaceOpenPullRequestInput,
   workspaceOpenPullRequestInputSchema,
   workspaceOpenPullRequestResultSchema,
@@ -103,6 +108,20 @@ export function registerWorkspaceHandlers(
       workspaceService.createPullRequest(input),
     inputSchema: workspaceCreatePullRequestInputSchema,
     outputSchema: workspaceCreatePullRequestResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.integrateBase, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceIntegrateBaseInput) =>
+      workspaceService.integrateBase(input),
+    inputSchema: workspaceIntegrateBaseInputSchema,
+    outputSchema: workspaceIntegrationResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.mergeTask, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceMergeTaskInput) =>
+      workspaceService.mergeTask(input),
+    inputSchema: workspaceMergeTaskInputSchema,
+    outputSchema: workspaceIntegrationResultSchema
   });
 
   handleValidatedIpc(workspaceChannels.openPullRequest, {

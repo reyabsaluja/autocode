@@ -124,6 +124,7 @@ export function App() {
           onRequestTaskSelection={workspaceSession.requestTaskSelection}
           project={workspaceSession.selectedProject}
           taskWorkspace={workspaceSession.selectedTaskWorkspace}
+          taskWorkspaces={workspaceSession.taskWorkspaces}
         />
       </main>
 

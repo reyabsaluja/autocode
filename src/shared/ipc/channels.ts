@@ -27,11 +27,13 @@ export const workspaceChannels = {
   event: 'workspaces:event',
   getDiff: 'workspaces:getDiff',
   getPublishStatus: 'workspaces:getPublishStatus',
+  integrateBase: 'workspaces:integrateBase',
   openPullRequest: 'workspaces:openPullRequest',
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',
   listRecentCommits: 'workspaces:listRecentCommits',
   listDirectory: 'workspaces:listDirectory',
+  mergeTask: 'workspaces:mergeTask',
   pushBranch: 'workspaces:pushBranch',
   writeFile: 'workspaces:writeFile'
 } as const;

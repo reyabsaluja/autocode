@@ -7,10 +7,12 @@ import type {
   WorkspaceCreatePullRequestInput,
   WorkspaceDirectoryInput,
   WorkspaceDiffInput,
+  WorkspaceIntegrateBaseInput,
   WorkspaceOpenPullRequestInput,
   WorkspacePublishStatusInput,
   WorkspacePushInput,
-  WorkspaceRecentCommitsInput
+  WorkspaceRecentCommitsInput,
+  WorkspaceMergeTaskInput
 } from '@shared/contracts/workspaces';
 import type { Project } from '@shared/domain/project';
 import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
@@ -244,6 +246,77 @@ export function useOpenPullRequestMutation(taskId: number | null) {
       return autocodeApi.workspaces.openPullRequest({
         taskId
       } satisfies WorkspaceOpenPullRequestInput);
+    }
+  });
+}
+
+export function useIntegrateBaseMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => {
+      if (taskId === null) {
+        throw new Error('Select a task workspace before integrating from its base.');
+      }
+
+      return autocodeApi.workspaces.integrateBase({
+        taskId
+      } satisfies WorkspaceIntegrateBaseInput);
+    },
+    onSuccess: async () => {
+      if (taskId !== null) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspaceRecentCommits(taskId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) }),
+          invalidateWorkspaceCollectionsForTask(queryClient, taskId)
+        ]);
+      }
+    },
+    onError: async () => {
+      if (taskId !== null) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) }),
+          invalidateWorkspaceCollectionsForTask(queryClient, taskId)
+        ]);
+      }
+    }
+  });
+}
+
+export function useMergeTaskIntoWorkspaceMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sourceTaskId: number) => {
+      if (taskId === null) {
+        throw new Error('Select a task workspace before integrating another task.');
+      }
+
+      return autocodeApi.workspaces.mergeTask({
+        sourceTaskId,
+        taskId
+      } satisfies WorkspaceMergeTaskInput);
+    },
+    onSuccess: async () => {
+      if (taskId !== null) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspaceRecentCommits(taskId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) }),
+          invalidateWorkspaceCollectionsForTask(queryClient, taskId)
+        ]);
+      }
+    },
+    onError: async () => {
+      if (taskId !== null) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) }),
+          invalidateWorkspaceCollectionsForTask(queryClient, taskId)
+        ]);
+      }
     }
   });
 }

@@ -56,6 +56,15 @@ export const workspaceOpenPullRequestInputSchema = z.object({
   taskId: taskIdSchema
 });
 
+export const workspaceIntegrateBaseInputSchema = z.object({
+  taskId: taskIdSchema
+});
+
+export const workspaceMergeTaskInputSchema = z.object({
+  sourceTaskId: taskIdSchema,
+  taskId: taskIdSchema
+});
+
 export const workspaceCollectionSyncSchema = z.object({
   project: projectSchema,
   taskWorkspace: taskWorkspaceSchema
@@ -86,6 +95,9 @@ export const workspacePublishStatusResultSchema = workspaceReviewStatusSchema;
 export const workspacePushResultSchema = workspaceReviewStatusSchema;
 export const workspaceCreatePullRequestResultSchema = workspaceReviewStatusSchema;
 export const workspaceOpenPullRequestResultSchema = z.void();
+export const workspaceIntegrationResultSchema = z.object({
+  message: z.string().min(1)
+});
 
 export type WorkspaceDirectoryInput = z.infer<typeof workspaceDirectoryInputSchema>;
 export type WorkspaceChangesInput = z.infer<typeof workspaceChangesInputSchema>;
@@ -96,6 +108,8 @@ export type WorkspacePublishStatusInput = z.infer<typeof workspacePublishStatusI
 export type WorkspacePushInput = z.infer<typeof workspacePushInputSchema>;
 export type WorkspaceCreatePullRequestInput = z.infer<typeof workspaceCreatePullRequestInputSchema>;
 export type WorkspaceOpenPullRequestInput = z.infer<typeof workspaceOpenPullRequestInputSchema>;
+export type WorkspaceIntegrateBaseInput = z.infer<typeof workspaceIntegrateBaseInputSchema>;
+export type WorkspaceMergeTaskInput = z.infer<typeof workspaceMergeTaskInputSchema>;
 export type WorkspaceCollectionSync = z.infer<typeof workspaceCollectionSyncSchema>;
 export type WorkspaceInspectionEvent = z.infer<typeof workspaceInspectionEventSchema>;
 export type WorkspaceChangesObservation = z.infer<typeof workspaceChangesObservationSchema>;
@@ -108,3 +122,4 @@ export type WorkspacePublishStatusResult = z.infer<typeof workspacePublishStatus
 export type WorkspacePushResult = z.infer<typeof workspacePushResultSchema>;
 export type WorkspaceCreatePullRequestResult = z.infer<typeof workspaceCreatePullRequestResultSchema>;
 export type WorkspaceOpenPullRequestResult = z.infer<typeof workspaceOpenPullRequestResultSchema>;
+export type WorkspaceIntegrationResult = z.infer<typeof workspaceIntegrationResultSchema>;

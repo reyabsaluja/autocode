@@ -326,6 +326,12 @@ function createGitCommandError(error: unknown): Error {
     return new Error(stderr);
   }
 
+  const stdout = extractCommandStdout(error).trim();
+
+  if (stdout) {
+    return new Error(stdout);
+  }
+
   return error instanceof Error ? error : new Error('Autocode could not run the requested Git command.');
 }
 

@@ -44,6 +44,9 @@ import {
   workspaceDiffResultSchema,
   workspaceDirectoryInputSchema,
   workspaceDirectoryResultSchema,
+  workspaceIntegrateBaseInputSchema,
+  workspaceIntegrationResultSchema,
+  workspaceMergeTaskInputSchema,
   workspaceOpenPullRequestInputSchema,
   workspaceOpenPullRequestResultSchema,
   workspacePublishStatusInputSchema,
@@ -209,6 +212,18 @@ const api: AutocodeApi = {
         input,
         inputSchema: workspaceCreatePullRequestInputSchema,
         outputSchema: workspaceCreatePullRequestResultSchema
+      }),
+    integrateBase: (input) =>
+      invokeValidatedIpc(workspaceChannels.integrateBase, {
+        input,
+        inputSchema: workspaceIntegrateBaseInputSchema,
+        outputSchema: workspaceIntegrationResultSchema
+      }),
+    mergeTask: (input) =>
+      invokeValidatedIpc(workspaceChannels.mergeTask, {
+        input,
+        inputSchema: workspaceMergeTaskInputSchema,
+        outputSchema: workspaceIntegrationResultSchema
       }),
     openPullRequest: (input) =>
       invokeValidatedIpc(workspaceChannels.openPullRequest, {

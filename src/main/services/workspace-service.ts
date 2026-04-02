@@ -7,6 +7,9 @@ import type {
   WorkspaceCreatePullRequestInput,
   WorkspaceDiffInput,
   WorkspaceDirectoryInput,
+  WorkspaceIntegrateBaseInput,
+  WorkspaceIntegrationResult,
+  WorkspaceMergeTaskInput,
   WorkspaceOpenPullRequestInput,
   WorkspacePublishStatusInput,
   WorkspacePushInput,
@@ -285,6 +288,50 @@ export function createWorkspaceService(
       };
     },
 
+    async integrateBase(input: WorkspaceIntegrateBaseInput): Promise<WorkspaceIntegrationResult> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      const baseRef = resolveWorkspaceBaseRef(context.worktree.baseRef, context.project.defaultBranch);
+
+      if (!baseRef) {
+        throw new Error('This task does not have a base branch to integrate from.');
+      }
+
+      return integrateWorkspaceBranch({
+        label: baseRef,
+        projectId: context.project.id,
+        sourceRef: baseRef,
+        taskId: input.taskId,
+        taskStatus: context.task.status,
+        taskStatusBeforeFailure: context.taskStatusBeforeFailure,
+        timestamp: new Date().toISOString(),
+        worktreePath: context.worktreePath
+      });
+    },
+
+    async mergeTask(input: WorkspaceMergeTaskInput): Promise<WorkspaceIntegrationResult> {
+      if (input.sourceTaskId === input.taskId) {
+        throw new Error('Choose a different task to integrate from.');
+      }
+
+      const targetContext = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      const sourceContext = await workspaceRuntime.resolveWorkspaceContext(input.sourceTaskId);
+
+      if (targetContext.project.id !== sourceContext.project.id) {
+        throw new Error('Tasks can only integrate changes from the same project.');
+      }
+
+      return integrateWorkspaceBranch({
+        label: sourceContext.task.title,
+        projectId: targetContext.project.id,
+        sourceRef: sourceContext.worktree.branchName,
+        taskId: input.taskId,
+        taskStatus: targetContext.task.status,
+        taskStatusBeforeFailure: targetContext.taskStatusBeforeFailure,
+        timestamp: new Date().toISOString(),
+        worktreePath: targetContext.worktreePath
+      });
+    },
+
     async openPullRequest(input: WorkspaceOpenPullRequestInput): Promise<void> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
       const reviewStatus = await resolveWorkspaceReviewStatus(
@@ -305,6 +352,62 @@ export function createWorkspaceService(
       await openExternalUrl(pullRequestUrl);
     }
   };
+
+  async function integrateWorkspaceBranch(input: {
+    label: string;
+    projectId: number;
+    sourceRef: string;
+    taskId: number;
+    taskStatus: TaskStatus;
+    taskStatusBeforeFailure: TaskStatus | null;
+    timestamp: string;
+    worktreePath: string;
+  }): Promise<WorkspaceIntegrationResult> {
+    const existingChanges = await listWorkspaceChanges(input.worktreePath);
+
+    if (existingChanges.length > 0) {
+      throw new Error('Commit or discard workspace changes before integrating branches.');
+    }
+
+    try {
+      const mergeOutput = await execGit(
+        ['merge', '--no-edit', input.sourceRef],
+        input.worktreePath
+      );
+      await persistSuccessfulIntegration(
+        taskWorkspaceRepository,
+        input.projectId,
+        input.taskId,
+        input.taskStatus,
+        input.taskStatusBeforeFailure,
+        input.timestamp,
+        input.worktreePath
+      );
+      publishWorkspaceInspectionChange?.(input.taskId);
+
+      if (mergeOutput.includes('Already up to date.')) {
+        return {
+          message: `Already up to date with ${input.label}.`
+        };
+      }
+
+      return {
+        message: `Integrated changes from ${input.label}.`
+      };
+    } catch (error) {
+      const message = normalizeIntegrationError(error, input.label);
+      const worktreeStatus = isMergeConflictError(message) ? 'dirty' : 'failed';
+
+      taskWorkspaceRepository.recordWorkspaceHealth({
+        lastError: message,
+        taskId: input.taskId,
+        timestamp: input.timestamp,
+        worktreeStatus
+      });
+      publishWorkspaceInspectionChange?.(input.taskId);
+      throw new Error(message);
+    }
+  }
 }
 
 function persistWorkspaceObservationFailure(
@@ -600,4 +703,60 @@ function buildPullRequestBody(title: string, description: string | null): string
   }
 
   return `Autocode task: ${title.trim()}`;
+}
+
+function resolveWorkspaceBaseRef(baseRef: string | null, defaultBranch: string | null): string | null {
+  return baseRef ?? defaultBranch ?? null;
+}
+
+async function persistSuccessfulIntegration(
+  taskWorkspaceRepository: ReturnType<typeof createWorkspaceRuntime>['taskWorkspaceRepository'],
+  projectId: number,
+  taskId: number,
+  taskStatus: TaskStatus,
+  taskStatusBeforeFailure: TaskStatus | null,
+  timestamp: string,
+  worktreePath: string
+): Promise<void> {
+  const changes = await listWorkspaceChanges(worktreePath);
+  const worktreeStatus = changes.length > 0 ? 'dirty' : 'ready';
+  const operationalTaskStatus = resolveOperationalTaskStatus(taskStatus, taskStatusBeforeFailure);
+
+  taskWorkspaceRepository.touchTaskWorkspace(
+    taskId,
+    projectId,
+    operationalTaskStatus,
+    timestamp
+  );
+
+  if (worktreeStatus !== 'ready') {
+    taskWorkspaceRepository.recordWorkspaceHealth({
+      lastError: null,
+      taskId,
+      timestamp,
+      worktreeStatus
+    });
+  }
+}
+
+function normalizeIntegrationError(error: unknown, label: string): string {
+  const message = error instanceof Error ? error.message : 'Autocode could not integrate this branch.';
+
+  if (isMergeConflictError(message)) {
+    return `Autocode found conflicts while integrating ${label}. Resolve them in this workspace, then continue.`;
+  }
+
+  if (message.includes('not something we can merge')) {
+    return `Autocode could not find ${label} to integrate into this task.`;
+  }
+
+  return message;
+}
+
+function isMergeConflictError(message: string): boolean {
+  return (
+    message.includes('CONFLICT') ||
+    message.includes('Automatic merge failed') ||
+    message.includes('fix conflicts and then commit the result')
+  );
 }
