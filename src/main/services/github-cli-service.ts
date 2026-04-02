@@ -221,7 +221,7 @@ function formatExistingPullRequestMessage(pullRequest: GitHubPullRequestRecord):
   return `${statusLabel} #${pullRequest.number} against ${pullRequest.baseRefName}.`;
 }
 
-function normalizePullRequestInspectionError(
+export function normalizePullRequestInspectionError(
   error: unknown,
   input: InspectWorkspacePullRequestStatusInput,
   fallback: WorkspacePullRequestStatus
@@ -265,11 +265,8 @@ function normalizePullRequestInspectionError(
   return {
     ...fallback,
     canCreate: false,
-    message:
-      fallback.message ??
-      resolveReadyPullRequestMessage(input, false) ??
-      'Autocode could not inspect pull request status for this branch.',
-    state: fallback.state
+    message: message || 'Autocode could not inspect pull request status for this branch.',
+    state: 'error'
   };
 }
 

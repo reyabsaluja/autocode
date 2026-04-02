@@ -582,6 +582,7 @@ function resolveCreatePullRequestButtonLabel(
 ): string {
   switch (pullRequestStatus.state) {
     case 'auth_required':
+    case 'error':
     case 'unsupported':
       return 'PR unavailable';
     case 'none':

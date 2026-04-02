@@ -75,6 +75,7 @@ export const workspacePublishStatusSchema = z.object({
 export const workspacePullRequestStateValues = [
   'unsupported',
   'auth_required',
+  'error',
   'none',
   'open',
   'merged',

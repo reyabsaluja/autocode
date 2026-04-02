@@ -268,6 +268,10 @@ export function createWorkspaceService(
 
     async createPullRequest(input: WorkspaceCreatePullRequestInput): Promise<WorkspaceReviewStatus> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      const baseBranch = resolveWorkspaceBaseRef(
+        context.worktree.baseRef,
+        context.project.defaultBranch
+      );
       const publishStatus = await resolveWorkspacePublishStatus(
         context.worktreePath,
         context.worktree,
@@ -275,7 +279,7 @@ export function createWorkspaceService(
       );
 
       const pullRequest = await createWorkspacePullRequest(context.worktreePath, {
-        baseBranch: context.project.defaultBranch,
+        baseBranch,
         body: buildPullRequestBody(context.task.title, context.task.description),
         branchName: context.worktree.branchName,
         publishStatus,
@@ -637,7 +641,7 @@ async function resolveWorkspaceReviewStatus(
 ): Promise<WorkspaceReviewStatus> {
   const publish = await resolveWorkspacePublishStatus(worktreePath, worktree, defaultBranch);
   const pullRequest = await inspectWorkspacePullRequestStatus(worktreePath, {
-    baseBranch: defaultBranch,
+    baseBranch: resolveWorkspaceBaseRef(worktree.baseRef, defaultBranch),
     branchName: worktree.branchName,
     publishStatus: publish
   });
@@ -705,7 +709,7 @@ function buildPullRequestBody(title: string, description: string | null): string
   return `Autocode task: ${title.trim()}`;
 }
 
-function resolveWorkspaceBaseRef(baseRef: string | null, defaultBranch: string | null): string | null {
+export function resolveWorkspaceBaseRef(baseRef: string | null, defaultBranch: string | null): string | null {
   return baseRef ?? defaultBranch ?? null;
 }
 

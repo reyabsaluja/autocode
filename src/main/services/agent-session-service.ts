@@ -87,15 +87,39 @@ export function createAgentSessionService(
 
     async start(input: StartAgentSessionInput): Promise<AgentSession> {
       const context = await workspaceRuntime.observeWorkspaceContext(input.taskId);
+      const activeSession = agentSessionRepository.findActiveByTaskId(input.taskId);
+
+      if (activeSession) {
+        throw new Error(formatActiveSessionConflictMessage(activeSession));
+      }
+
       const timestamp = new Date().toISOString();
       const command = getAgentProviderCommand(input.provider);
-      const placeholderSession = createPendingSession(
-        timestamp,
-        input.provider,
-        input.taskId,
-        context.worktree.id,
-        command
-      );
+      let placeholderSession: AgentSession;
+
+      try {
+        placeholderSession = createPendingSession(
+          timestamp,
+          input.provider,
+          input.taskId,
+          context.worktree.id,
+          command
+        );
+      } catch (error) {
+        if (isSingleActiveSessionConstraintError(error)) {
+          const conflictingSession = agentSessionRepository.findActiveByTaskId(input.taskId);
+          throw new Error(
+            conflictingSession
+              ? formatActiveSessionConflictMessage(conflictingSession)
+              : 'This task already has an active session. Stop it before starting another session in the same workspace.'
+          );
+        }
+
+        throw error instanceof Error
+          ? error
+          : new Error('Autocode could not create the requested session.');
+      }
+
       const transcriptPath = resolveAgentSessionTranscriptPath(sessionsRoot, placeholderSession.id);
 
       agentSessionRepository.setTranscriptPath(placeholderSession.id, transcriptPath, timestamp);
@@ -216,4 +240,17 @@ export function createAgentSessionService(
 
     return session;
   }
+}
+
+export function formatActiveSessionConflictMessage(session: AgentSession): string {
+  const providerLabel = getAgentProviderDisplayName(session.provider);
+
+  return `This task already has an active ${providerLabel} session. Stop it before starting another session in the same workspace, or create an isolated task instead.`;
+}
+
+function isSingleActiveSessionConstraintError(error: unknown): boolean {
+  return Boolean(
+    error instanceof Error &&
+      error.message.includes('agent_sessions_task_id_active_unique')
+  );
 }

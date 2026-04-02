@@ -3,7 +3,8 @@ import { describe, expect, test } from 'bun:test';
 import {
   workspaceChangesResultSchema,
   workspaceInspectionEventResultSchema,
-  workspaceRecentCommitsResultSchema
+  workspaceRecentCommitsResultSchema,
+  workspacePublishStatusResultSchema
 } from './workspaces';
 
 describe('workspace contracts', () => {
@@ -82,5 +83,32 @@ describe('workspace contracts', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]?.sha).toBe('abcdef1234');
+  });
+
+  test('accepts explicit pull request inspection failures', () => {
+    const result = workspacePublishStatusResultSchema.parse({
+      publish: {
+        aheadCount: 0,
+        behindCount: 0,
+        branchName: 'autocode/task-8',
+        canPush: false,
+        defaultBranch: 'main',
+        remoteName: 'origin',
+        state: 'up_to_date',
+        upstreamBranch: 'origin/autocode/task-8'
+      },
+      pullRequest: {
+        baseBranch: 'main',
+        canCreate: false,
+        headBranch: 'autocode/task-8',
+        isDraft: false,
+        message: 'GitHub CLI is not installed or is not available on PATH.',
+        number: null,
+        state: 'error',
+        url: null
+      }
+    });
+
+    expect(result.pullRequest.state).toBe('error');
   });
 });
