@@ -55,7 +55,7 @@ export function WorkspaceInspectorSidebar({
   taskId
 }: WorkspaceInspectorSidebarProps) {
   return (
-    <aside className="relative z-10 flex min-h-0 w-[300px] shrink-0 flex-col overflow-hidden border-l border-white/[0.06] bg-[#1c1c1c]">
+    <aside className="relative z-10 flex min-h-0 w-full flex-col overflow-hidden border-l border-white/[0.06] bg-[#1c1c1c]">
       <div className="flex items-center gap-1 border-b border-white/[0.06] bg-[#141414] px-3 py-1.5">
         <SidebarTab
           icon={<Files className="h-3.5 w-3.5" />}
