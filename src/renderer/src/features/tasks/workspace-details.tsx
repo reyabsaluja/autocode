@@ -9,13 +9,19 @@ import type { WorkspaceEditorHandle } from '../editor/workspace-editor-surface';
 type WorkspaceInspectorComponent = typeof import('../workspace/workspace-inspector')['WorkspaceInspector'];
 
 interface WorkspaceDetailsProps {
+  isForkingTask: boolean;
   isLoadingTasks: boolean;
+  onForkTaskWorkspace: () => Promise<unknown>;
+  onRequestTaskSelection: (taskId: number) => void;
   project: Project | null;
   taskWorkspace: TaskWorkspace | null;
 }
 
 export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetailsProps>(function WorkspaceDetails({
+  isForkingTask,
   isLoadingTasks,
+  onForkTaskWorkspace,
+  onRequestTaskSelection,
   project,
   taskWorkspace
 }, ref) {
@@ -84,6 +90,20 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
         <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">{task.title}</p>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
+          <button
+            aria-label="Create an isolated task branch"
+            className="inline-flex h-7 w-7 items-center justify-center rounded bg-white/[0.08] text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isForkingTask}
+            onClick={() => { void onForkTaskWorkspace(); }}
+            title="Create a new isolated task workspace from this task's current branch"
+            type="button"
+          >
+            {isForkingTask ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <GitBranch className="h-3.5 w-3.5" />
+            )}
+          </button>
           <HeaderBadge icon={<FolderGit2 className="h-3 w-3" />} value={project.name} />
           {worktree ? (
             <HeaderBadge icon={<GitBranch className="h-3 w-3" />} value={worktree.branchName} />
@@ -102,6 +122,7 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
         WorkspaceInspectorComponent ? (
           <WorkspaceInspectorComponent
             key={taskWorkspace.task.id}
+            onRequestTaskSelection={onRequestTaskSelection}
             ref={ref}
             taskWorkspace={taskWorkspace}
           />
@@ -138,4 +159,3 @@ function HeaderBadge({
     </span>
   );
 }
-

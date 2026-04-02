@@ -54,6 +54,7 @@ describe('workspace contracts', () => {
             updatedAt: '2026-04-01T12:00:00.000Z'
           },
           worktree: {
+            baseRef: null,
             branchName: 'task-8',
             createdAt: '2026-04-01T12:00:00.000Z',
             id: 5,

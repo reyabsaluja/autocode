@@ -15,11 +15,12 @@ import { useWorkspaceFileEditorController } from './use-workspace-file-editor-co
 import { useWorkspaceTerminalSessionController } from './use-workspace-terminal-session-controller';
 
 interface WorkspaceInspectorProps {
+  onRequestTaskSelection: (taskId: number) => void;
   taskWorkspace: TaskWorkspace;
 }
 
 export const WorkspaceInspector = forwardRef<WorkspaceEditorHandle, WorkspaceInspectorProps>(
-function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
+function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: WorkspaceInspectorProps, ref) {
   const editorRef = useRef<WorkspaceEditorHandle | null>(null);
   const taskId = taskWorkspace.task.id;
   const fileController = useWorkspaceFileEditorController({
@@ -28,8 +29,10 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
   });
   const sessionController = useWorkspaceTerminalSessionController({
     activeCenterTab: fileController.activeCenterTab,
+    onRequestTaskSelection,
     showTerminal: fileController.showTerminal,
     taskId,
+    taskWorkspace,
     runWithCenterTransition: fileController.runWithCenterTransition
   });
 
@@ -64,7 +67,7 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
               selectedSessionId={sessionController.selectedSessionId}
               selectedSessionIsActive={sessionController.selectedSessionIsActive}
               sessions={sessionController.sessions}
-              startSessionPending={sessionController.startSessionMutation.isPending}
+              startSessionPending={sessionController.startSessionPending}
               terminateSessionPending={sessionController.terminateSessionMutation.isPending}
             />
 

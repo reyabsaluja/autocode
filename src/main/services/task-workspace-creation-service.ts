@@ -83,10 +83,11 @@ function prepareTaskWorkspaceCreation(
     throw new Error('Project could not be found.');
   }
 
+  const baseRef = resolveTaskWorkspaceBaseRef(input, taskWorkspaceRepository, project.id);
   const timestamp = new Date().toISOString();
   const taskWorkspace = taskWorkspaceRepository.createProvisioningTaskWorkspace({
     buildProvisioningWorktree: (task) =>
-      gitWorktreeService.planTaskWorktree(project.id, task.id, task.title),
+      gitWorktreeService.planTaskWorktree(project.id, task.id, task.title, baseRef),
     description: input.description ?? null,
     projectId: project.id,
     timestamp,
@@ -115,6 +116,7 @@ async function provisionTaskWorkspace(
     });
 
     return taskWorkspaceRepository.finalizeTaskWorkspace({
+      baseRef: taskWorkspace.worktree?.baseRef ?? null,
       branchName: provisionedWorktree.branchName,
       projectId: project.id,
       taskId: taskWorkspace.task.id,
@@ -162,9 +164,32 @@ function resolveTaskWorktreePlan(taskWorkspace: TaskWorkspace): TaskWorktreePlan
   }
 
   return {
+    baseRef: taskWorkspace.worktree.baseRef,
     branchName: taskWorkspace.worktree.branchName,
     worktreePath: taskWorkspace.worktree.worktreePath
   };
+}
+
+function resolveTaskWorkspaceBaseRef(
+  input: CreateTaskInput,
+  taskWorkspaceRepository: ReturnType<typeof createTaskWorkspaceRepository>,
+  projectId: number
+): string | null {
+  if (input.baseTaskId === undefined) {
+    return null;
+  }
+
+  const baseTaskWorkspace = taskWorkspaceRepository.findWorkspaceContextByTaskId(input.baseTaskId);
+
+  if (!baseTaskWorkspace) {
+    throw new Error('Base task workspace could not be found.');
+  }
+
+  if (baseTaskWorkspace.project.id !== projectId) {
+    throw new Error('Isolated task workspaces must branch from a task in the same project.');
+  }
+
+  return baseTaskWorkspace.worktree.branchName;
 }
 
 async function cleanupProvisionedWorktree(

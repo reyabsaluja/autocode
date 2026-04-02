@@ -33,6 +33,7 @@ export interface WorkspaceHealthRecordResult {
 }
 
 export interface FinalizeTaskWorkspaceInput {
+  baseRef: string | null;
   branchName: string;
   projectId: number;
   taskId: number;
@@ -41,6 +42,7 @@ export interface FinalizeTaskWorkspaceInput {
 }
 
 interface ProvisioningWorktreeRecord {
+  baseRef: string | null;
   branchName: string;
   worktreePath: string;
 }
@@ -277,6 +279,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
             projectId: input.projectId,
             taskId: task.id,
             branchName: provisioningWorktree.branchName,
+            baseRef: provisioningWorktree.baseRef,
             worktreePath: provisioningWorktree.worktreePath,
             status: 'provisioning',
             createdAt: input.timestamp,
@@ -316,6 +319,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
             projectId: input.projectId,
             taskId: input.taskId,
             branchName: input.branchName,
+            baseRef: input.baseRef,
             worktreePath: input.worktreePath,
             status: 'ready',
             createdAt: input.timestamp,
@@ -325,6 +329,7 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
             target: worktreesTable.taskId,
             set: {
               branchName: input.branchName,
+              baseRef: input.baseRef,
               worktreePath: input.worktreePath,
               status: 'ready',
               updatedAt: input.timestamp

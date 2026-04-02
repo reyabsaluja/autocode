@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
   ArrowDown,
@@ -58,8 +58,10 @@ export function WorkspaceCenterTabBar({
   startSessionPending,
   terminateSessionPending
 }: WorkspaceCenterTabBarProps) {
-  const visibleProviders = useProviderPreferencesStore(
-    (state) => state.providers.filter((entry) => entry.visible)
+  const providers = useProviderPreferencesStore((state) => state.providers);
+  const visibleProviders = useMemo(
+    () => providers.filter((entry) => entry.visible),
+    [providers]
   );
 
   return (

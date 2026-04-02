@@ -6,7 +6,7 @@ import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 import { AgentSessionTerminal } from './agent-session-terminal';
 
 interface WorkspaceTerminalSurfaceProps {
-  emptyStateMode: 'idle' | 'starting';
+  emptyStateMode: 'idle' | 'selectSession' | 'starting';
   entries: AgentSessionTranscriptEntry[];
   errorMessage: string | null;
   isInteractive: boolean;
@@ -50,6 +50,13 @@ export const WorkspaceTerminalSurface = memo(function WorkspaceTerminalSurface({
                   <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-white/18" />
                   <p className="font-geist text-[14px] font-medium text-white/72">
                     Starting session
+                  </p>
+                </>
+              ) : emptyStateMode === 'selectSession' ? (
+                <>
+                  <Terminal className="mx-auto mb-4 h-8 w-8 text-white/15" />
+                  <p className="font-geist text-[14px] font-medium text-white/72">
+                    Select a session tab to reopen its transcript.
                   </p>
                 </>
               ) : (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, type RefObject } from 'react';
 
 import type { Project } from '@shared/domain/project';
+import type { Task } from '@shared/domain/task';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import type { WorkspaceEditorHandle } from '../features/editor/workspace-editor-surface';
@@ -170,6 +171,23 @@ export function useWorkspaceSessionController({
     [createTaskMutation, requestTaskSelection]
   );
 
+  const forkSelectedTaskWorkspace = useCallback(
+    async () => {
+      if (!selectedTaskWorkspace) {
+        throw new Error('Select a task workspace before creating an isolated copy.');
+      }
+
+      const workspace = await createTaskMutation.mutateAsync({
+        baseTaskId: selectedTaskWorkspace.task.id,
+        description: selectedTaskWorkspace.task.description ?? '',
+        title: buildForkedTaskTitle(selectedTaskWorkspace.task)
+      });
+      requestTaskSelection(workspace.task.id);
+      return workspace;
+    },
+    [createTaskMutation, requestTaskSelection, selectedTaskWorkspace]
+  );
+
   const requestTaskDeletion = useCallback(
     (workspace: TaskWorkspace) => {
       const confirmed = window.confirm(
@@ -210,6 +228,7 @@ export function useWorkspaceSessionController({
     createTaskMutation,
     createTaskWorkspace,
     deleteTaskMutation,
+    forkSelectedTaskWorkspace,
     requestProjectSelection,
     requestTaskDeletion,
     requestTaskSelection,
@@ -226,4 +245,12 @@ function createContextSwitchBody(editorRef: RefObject<WorkspaceEditorHandle | nu
   return `Save or discard your changes to ${
     editorRef.current?.getActiveFilePath() ?? 'the current file'
   } before leaving this workspace.`;
+}
+
+function buildForkedTaskTitle(task: Task): string {
+  const baseTitle = task.title.trim();
+  const suffix = ' (isolated)';
+  const nextTitle = baseTitle.endsWith(suffix) ? baseTitle : `${baseTitle}${suffix}`;
+
+  return nextTitle.slice(0, 160);
 }

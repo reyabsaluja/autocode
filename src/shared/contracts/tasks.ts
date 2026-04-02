@@ -4,6 +4,7 @@ import { taskWorkspaceSchema } from '../domain/task-workspace';
 
 export const createTaskInputSchema = z.object({
   projectId: z.number().int().positive(),
+  baseTaskId: z.number().int().positive().optional(),
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(4000).optional().transform((value) => {
     if (!value) {

@@ -15,6 +15,7 @@ export const worktreeSchema = z.object({
   projectId: z.number().int().positive(),
   taskId: z.number().int().positive(),
   branchName: z.string().min(1),
+  baseRef: z.string().min(1).nullable(),
   worktreePath: z.string().min(1),
   status: worktreeStatusSchema,
   createdAt: z.string().datetime(),

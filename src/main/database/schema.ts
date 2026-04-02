@@ -56,6 +56,7 @@ export const worktreesTable = sqliteTable(
       .notNull()
       .references(() => tasksTable.id, { onDelete: 'cascade' }),
     branchName: text('branch_name').notNull(),
+    baseRef: text('base_ref'),
     worktreePath: text('worktree_path').notNull(),
     status: text('status').$type<WorktreeStatus>().notNull(),
     createdAt: text('created_at').notNull(),

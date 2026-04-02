@@ -118,7 +118,10 @@ export function App() {
       <main className="flex min-w-0 flex-1 flex-col">
         <WorkspaceDetails
           ref={editorRef}
+          isForkingTask={workspaceSession.createTaskMutation.isPending}
           isLoadingTasks={workspaceSession.taskWorkspacesQuery.isLoading}
+          onForkTaskWorkspace={workspaceSession.forkSelectedTaskWorkspace}
+          onRequestTaskSelection={workspaceSession.requestTaskSelection}
           project={workspaceSession.selectedProject}
           taskWorkspace={workspaceSession.selectedTaskWorkspace}
         />

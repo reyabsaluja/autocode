@@ -15,6 +15,7 @@ interface CreateTaskWorktreeInput {
 
 export interface TaskWorktreePlan {
   branchName: string;
+  baseRef: string | null;
   worktreePath: string;
 }
 
@@ -26,8 +27,13 @@ export interface ProvisionedWorktree {
 
 export function createGitWorktreeService() {
   return {
-    planTaskWorktree(projectId: number, taskId: number, title: string): TaskWorktreePlan {
-      return createTaskWorktreePlan(projectId, taskId, title);
+    planTaskWorktree(
+      projectId: number,
+      taskId: number,
+      title: string,
+      baseRef: string | null = null
+    ): TaskWorktreePlan {
+      return createTaskWorktreePlan(projectId, taskId, title, baseRef);
     },
 
     async createTaskWorktree({
@@ -97,7 +103,7 @@ async function ensureTaskWorktree(
   if (await gitRefExists(project.gitRoot, branchName)) {
     await execGit(['worktree', 'add', worktreePath, branchName], project.gitRoot);
   } else {
-    const baseRef = await resolveBaseRef(project.gitRoot, project.defaultBranch);
+    const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
     await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
   }
 
@@ -108,9 +114,15 @@ async function ensureTaskWorktree(
   };
 }
 
-function createTaskWorktreePlan(projectId: number, taskId: number, title: string): TaskWorktreePlan {
+function createTaskWorktreePlan(
+  projectId: number,
+  taskId: number,
+  title: string,
+  baseRef: string | null = null
+): TaskWorktreePlan {
   return {
     branchName: createTaskBranchName(taskId, title),
+    baseRef,
     worktreePath: resolveTaskWorktreePath(projectId, taskId, title)
   };
 }
