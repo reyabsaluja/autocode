@@ -1,4 +1,5 @@
 import { rm } from 'node:fs/promises';
+import os from 'node:os';
 
 import { spawn, type IPty } from 'node-pty';
 
@@ -18,6 +19,15 @@ import {
   ensureAgentSessionTranscriptFile,
   formatAgentSessionTranscriptEntry
 } from './agent-session-transcript';
+import {
+  checkTmuxAvailability,
+  createTmuxSession,
+  getTmuxAttachSpawnArgs,
+  getTmuxSessionName,
+  isTmuxSessionAlive,
+  killTmuxSession,
+  resizeTmuxSession
+} from './tmux-client';
 
 interface AgentSessionRuntime {
   finalized: boolean;
@@ -61,6 +71,8 @@ export function createAgentSessionRuntimeManager({
   const runtimes = new Map<number, AgentSessionRuntime>();
   const sessionQueues = new Map<number, Promise<unknown>>();
   const workspaceInspectionRefreshTimers = new Map<number, ReturnType<typeof setTimeout>>();
+  const tmuxSessionNames = new Map<number, string>();
+  let tmuxAvailable = false;
 
   return {
     deleteSession,
@@ -123,6 +135,7 @@ export function createAgentSessionRuntimeManager({
   }
 
   async function reconcileInterruptedSessions(): Promise<void> {
+    tmuxAvailable = await checkTmuxAvailability();
     const timestamp = new Date().toISOString();
 
     for (const session of agentSessionRepository.listActiveSessions()) {
@@ -130,6 +143,31 @@ export function createAgentSessionRuntimeManager({
 
       if (!internalSession) {
         continue;
+      }
+
+      if (tmuxAvailable) {
+        const sessionName = getTmuxSessionName(session.id);
+        const alive = await isTmuxSessionAlive(sessionName);
+
+        if (alive) {
+          try {
+            await ensureAgentSessionTranscriptFile(internalSession.transcriptPath);
+            await appendSystemEntryIfPossible(
+              session.id,
+              internalSession.transcriptPath,
+              `Reconnected to this ${getAgentProviderDisplayName(session.provider)} session after Autocode restarted.`,
+              timestamp
+            );
+            await reconnectRuntime({
+              provider: session.provider,
+              sessionId: session.id,
+              transcriptPath: internalSession.transcriptPath
+            });
+            continue;
+          } catch {
+            // Reconnection failed — fall through to terminate
+          }
+        }
       }
 
       const interruptionMessage =
@@ -167,26 +205,94 @@ export function createAgentSessionRuntimeManager({
 
   async function startRuntime(input: StartAgentSessionRuntimeInput): Promise<{ pid: number }> {
     let pty: IPty;
+    let usedTmux = false;
 
-    try {
-      pty = spawn(input.executablePath, [], {
-        cols: input.cols,
-        cwd: input.cwd,
-        env: input.env,
-        name: 'xterm-color',
-        rows: input.rows
-      });
-    } catch (error) {
-      const message = normalizeAgentSpawnError(error, input.provider);
+    if (tmuxAvailable) {
+      try {
+        const sessionName = getTmuxSessionName(input.sessionId);
 
-      await failPendingSession({
-        message,
-        sessionId: input.sessionId,
-        timestamp: new Date().toISOString(),
-        transcriptPath: input.transcriptPath
-      });
-      throw new Error(message);
+        await createTmuxSession({
+          cols: input.cols,
+          cwd: input.cwd,
+          env: input.env,
+          executablePath: input.executablePath,
+          rows: input.rows,
+          sessionName
+        });
+
+        const attach = getTmuxAttachSpawnArgs(sessionName);
+        pty = spawn(attach.command, attach.args, {
+          cols: input.cols,
+          cwd: input.cwd,
+          env: input.env,
+          name: 'xterm-color',
+          rows: input.rows
+        });
+
+        tmuxSessionNames.set(input.sessionId, sessionName);
+        usedTmux = true;
+      } catch {
+        // tmux session creation failed — fall through to direct spawn
+        usedTmux = false;
+      }
     }
+
+    if (!usedTmux) {
+      try {
+        pty = spawn(input.executablePath, [], {
+          cols: input.cols,
+          cwd: input.cwd,
+          env: input.env,
+          name: 'xterm-color',
+          rows: input.rows
+        });
+      } catch (error) {
+        const message = normalizeAgentSpawnError(error, input.provider);
+
+        await failPendingSession({
+          message,
+          sessionId: input.sessionId,
+          timestamp: new Date().toISOString(),
+          transcriptPath: input.transcriptPath
+        });
+        throw new Error(message);
+      }
+    }
+
+    const runtime: AgentSessionRuntime = {
+      finalized: false,
+      pty: pty!,
+      sessionId: input.sessionId
+    };
+
+    runtimes.set(input.sessionId, runtime);
+
+    pty!.onData((data) => {
+      void handleRuntimeOutput(runtime.sessionId, input.transcriptPath, data);
+    });
+    pty!.onExit((event) => {
+      void handleRuntimeExit(runtime.sessionId, event.exitCode, input.provider);
+    });
+
+    return { pid: pty!.pid };
+  }
+
+  async function reconnectRuntime(input: {
+    provider: AgentProvider;
+    sessionId: number;
+    transcriptPath: string;
+  }): Promise<void> {
+    const sessionName = getTmuxSessionName(input.sessionId);
+    const attach = getTmuxAttachSpawnArgs(sessionName);
+    const attachEnv = buildAttachProcessEnv();
+
+    const pty = spawn(attach.command, attach.args, {
+      cols: 120,
+      cwd: os.homedir(),
+      env: attachEnv,
+      name: 'xterm-color',
+      rows: 30
+    });
 
     const runtime: AgentSessionRuntime = {
       finalized: false,
@@ -195,6 +301,7 @@ export function createAgentSessionRuntimeManager({
     };
 
     runtimes.set(input.sessionId, runtime);
+    tmuxSessionNames.set(input.sessionId, sessionName);
 
     pty.onData((data) => {
       void handleRuntimeOutput(runtime.sessionId, input.transcriptPath, data);
@@ -202,13 +309,16 @@ export function createAgentSessionRuntimeManager({
     pty.onExit((event) => {
       void handleRuntimeExit(runtime.sessionId, event.exitCode, input.provider);
     });
-
-    return { pid: pty.pid };
   }
 
   async function resizeRuntime(sessionId: number, cols: number, rows: number): Promise<void> {
     const runtime = requireRuntime(sessionId);
     runtime.pty.resize(cols, rows);
+
+    const sessionName = tmuxSessionNames.get(sessionId);
+    if (sessionName) {
+      await resizeTmuxSession(sessionName, cols, rows);
+    }
   }
 
   async function writeToRuntime(sessionId: number, text: string): Promise<void> {
@@ -282,6 +392,11 @@ export function createAgentSessionRuntimeManager({
       });
     }
 
+    const sessionName = tmuxSessionNames.get(sessionId);
+    if (sessionName) {
+      await killTmuxSession(sessionName);
+      tmuxSessionNames.delete(sessionId);
+    }
     runtimes.delete(sessionId);
     sessionQueues.delete(sessionId);
     await rm(session.transcriptPath, { force: true });
@@ -330,6 +445,11 @@ export function createAgentSessionRuntimeManager({
       runtime.finalized = true;
 
       if (options.killRuntime) {
+        const sessionName = tmuxSessionNames.get(sessionId);
+        if (sessionName) {
+          await killTmuxSession(sessionName);
+          tmuxSessionNames.delete(sessionId);
+        }
         runtime.pty.kill();
       }
     }
@@ -386,6 +506,38 @@ export function createAgentSessionRuntimeManager({
   async function handleRuntimeExit(sessionId: number, exitCode: number, provider: AgentProvider): Promise<void> {
     if (!runtimes.has(sessionId)) {
       return;
+    }
+
+    const sessionName = tmuxSessionNames.get(sessionId);
+
+    if (sessionName) {
+      const alive = await isTmuxSessionAlive(sessionName);
+
+      if (alive) {
+        // The tmux attach process disconnected (app closing or crash),
+        // but the agent is still running inside tmux. Remove the dead
+        // runtime without finalizing so reconcile can reconnect later.
+        runtimes.delete(sessionId);
+
+        const internalSession = agentSessionRepository.findInternalById(sessionId);
+
+        if (internalSession) {
+          try {
+            await reconnectRuntime({
+              provider,
+              sessionId,
+              transcriptPath: internalSession.transcriptPath
+            });
+          } catch {
+            // Auto-reconnect failed; session stays running but non-interactive
+            // until the app restarts and reconcile reconnects.
+          }
+        }
+
+        return;
+      }
+
+      tmuxSessionNames.delete(sessionId);
     }
 
     const displayName = getAgentProviderDisplayName(provider);
@@ -509,5 +661,13 @@ export function createAgentSessionRuntimeManager({
     }
 
     publishWorkspaceInspectionChange(taskId);
+  }
+
+  function buildAttachProcessEnv(): Record<string, string> {
+    return Object.fromEntries(
+      Object.entries(process.env).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string'
+      )
+    );
   }
 }
