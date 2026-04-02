@@ -98,16 +98,12 @@ const api: AutocodeApi = {
         inputSchema: startAgentSessionInputSchema,
         outputSchema: startAgentSessionResultSchema
       }),
-    subscribe: (sessionId, callback) =>
+    subscribe: (taskId, callback) =>
       subscribeValidatedIpc(
         agentSessionChannels.event,
         agentSessionEventResultSchema,
         (event) => {
-          if (event.type === 'snapshot' && event.session.id !== sessionId) {
-            return;
-          }
-
-          if (event.type === 'entries' && event.sessionId !== sessionId) {
+          if (event.type === 'snapshot' && event.session.taskId !== taskId) {
             return;
           }
 

@@ -41,10 +41,6 @@ export function useWorkspaceTerminalSessionController({
   const newSessionMenuRef = useRef<HTMLDivElement | null>(null);
   const [terminalSize, setTerminalSize] = useState(DEFAULT_TERMINAL_SIZE);
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
-  const activeSession = useMemo(
-    () => sessions.find((session) => isActiveSessionStatus(session.status)) ?? null,
-    [sessions]
-  );
   const selectedSession = useMemo(
     () => sessions.find((session) => session.id === selectedSessionId) ?? null,
     [selectedSessionId, sessions]
@@ -66,11 +62,7 @@ export function useWorkspaceTerminalSessionController({
     formatWorkspaceInspectorError(transcriptQuery.error) ??
     formatWorkspaceInspectorError(sessionsQuery.error);
 
-  useAgentSessionStream(
-    taskId,
-    activeSession?.id ?? null,
-    activeSession !== null
-  );
+  useAgentSessionStream(taskId);
 
   useEffect(() => {
     setSelectedSessionId(null);
@@ -85,15 +77,13 @@ export function useWorkspaceTerminalSessionController({
       return;
     }
 
-    const nextSelectedSession = activeSession ?? sessions[0] ?? null;
-
     if (
-      nextSelectedSession &&
-      (selectedSessionId === null || !sessions.some((session) => session.id === selectedSessionId))
+      selectedSessionId === null ||
+      !sessions.some((session) => session.id === selectedSessionId)
     ) {
-      setSelectedSessionId(nextSelectedSession.id);
+      setSelectedSessionId(sessions[0]?.id ?? null);
     }
-  }, [activeSession, selectedSessionId, sessions]);
+  }, [selectedSessionId, sessions]);
 
   useEffect(() => {
     if (!isNewSessionMenuOpen) {
@@ -109,12 +99,6 @@ export function useWorkspaceTerminalSessionController({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isNewSessionMenuOpen]);
-
-  useEffect(() => {
-    if (activeSession && isNewSessionMenuOpen) {
-      setIsNewSessionMenuOpen(false);
-    }
-  }, [activeSession, isNewSessionMenuOpen]);
 
   function requestSessionSelection(sessionId: number) {
     if (activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === sessionId) {
@@ -134,11 +118,6 @@ export function useWorkspaceTerminalSessionController({
 
   function requestStartSession(provider: AgentProvider) {
     setIsNewSessionMenuOpen(false);
-
-    if (activeSession) {
-      requestSessionSelection(activeSession.id);
-      return;
-    }
 
     runWithCenterTransition({
       body: 'Save or discard your changes to the current file before starting a new session.',
@@ -176,11 +155,7 @@ export function useWorkspaceTerminalSessionController({
 
     if (selectedSessionId === sessionId) {
       const nextSelectedSession =
-        sessions.find(
-          (entry) => entry.id !== sessionId && isActiveSessionStatus(entry.status)
-        ) ??
-        sessions.find((entry) => entry.id !== sessionId) ??
-        null;
+        sessions.find((entry) => entry.id !== sessionId) ?? null;
 
       setSelectedSessionId(nextSelectedSession?.id ?? null);
     }
@@ -213,13 +188,10 @@ export function useWorkspaceTerminalSessionController({
   }
 
   return {
-    activeSession,
     deleteSessionMutation,
     isNewSessionMenuOpen,
-    newSessionButtonDisabled: startSessionMutation.isPending || activeSession !== null,
-    newSessionButtonTitle: activeSession
-      ? `Terminate the active ${getProviderDisplayName(activeSession.provider)} session before starting another.`
-      : 'New session',
+    newSessionButtonDisabled: startSessionMutation.isPending,
+    newSessionButtonTitle: 'New session',
     newSessionMenuRef,
     requestDeleteSession,
     requestStartSession,

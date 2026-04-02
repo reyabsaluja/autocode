@@ -43,6 +43,13 @@
       "when": 1775092412008,
       "tag": "0005_single_active_session_per_task",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1775103364015,
+      "tag": "0006_minor_menace",
+      "breakpoints": true
     }
   ]
 }

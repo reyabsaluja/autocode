@@ -53,11 +53,7 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
   );
   const transcriptQuery = useAgentSessionTranscriptTailQuery(selectedSessionId, selectedSessionId !== null);
 
-  useAgentSessionStream(
-    taskId,
-    selectedSessionId,
-    transcriptQuery.isSuccess && isActiveSessionStatus(selectedSession?.status)
-  );
+  useAgentSessionStream(taskId);
 
   useEffect(() => {
     setIsOpen(false);

@@ -26,7 +26,7 @@ export const autocodeApi: AutocodeApi = {
     resize: (input) => getAutocodeApi().agentSessions.resize(input),
     sendInput: (input) => getAutocodeApi().agentSessions.sendInput(input),
     start: (input) => getAutocodeApi().agentSessions.start(input),
-    subscribe: (sessionId, callback) => getAutocodeApi().agentSessions.subscribe(sessionId, callback),
+    subscribe: (taskId, callback) => getAutocodeApi().agentSessions.subscribe(taskId, callback),
     terminate: (input) => getAutocodeApi().agentSessions.terminate(input)
   },
   projects: {

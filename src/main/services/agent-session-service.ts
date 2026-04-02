@@ -17,7 +17,6 @@ import { createWorkspaceRuntime } from './workspace-runtime';
 import { createAgentSessionRepository } from './agent-session-repository';
 import {
   buildInitialInputForProvider,
-  createActiveSessionConflictMessage,
   getAgentProviderCommand,
   getAgentProviderDisplayName,
   resolveAgentProviderRuntime
@@ -87,14 +86,6 @@ export function createAgentSessionService(
     },
 
     async start(input: StartAgentSessionInput): Promise<AgentSession> {
-      const existingActiveSession = agentSessionRepository.findActiveByTaskId(input.taskId);
-
-      if (existingActiveSession) {
-        throw new Error(
-          createActiveSessionConflictMessage(existingActiveSession.provider, input.provider)
-        );
-      }
-
       const context = await workspaceRuntime.observeWorkspaceContext(input.taskId);
       const timestamp = new Date().toISOString();
       const command = getAgentProviderCommand(input.provider);
@@ -206,20 +197,14 @@ export function createAgentSessionService(
     worktreeId: number,
     command: string
   ): AgentSession {
-    try {
-      return agentSessionRepository.create({
-        command,
-        createdAt,
-        provider,
-        taskId,
-        transcriptPath: '',
-        worktreeId
-      });
-    } catch (error) {
-      throw new Error(
-        normalizeActiveSessionConflict(error, taskId, provider, agentSessionRepository)
-      );
-    }
+    return agentSessionRepository.create({
+      command,
+      createdAt,
+      provider,
+      taskId,
+      transcriptPath: '',
+      worktreeId
+    });
   }
 
   function requireSession(sessionId: number): AgentSession {
@@ -231,29 +216,4 @@ export function createAgentSessionService(
 
     return session;
   }
-}
-
-function normalizeActiveSessionConflict(
-  error: unknown,
-  taskId: number,
-  requestedProvider: AgentProvider,
-  agentSessionRepository: ReturnType<typeof createAgentSessionRepository>
-): string {
-  const message = error instanceof Error ? error.message : String(error);
-
-  if (
-    message.includes('agent_sessions_task_provider_active_unique') ||
-    message.includes('agent_sessions_task_id_active_unique')
-  ) {
-    const existingActiveSession = agentSessionRepository.findActiveByTaskId(taskId);
-
-    if (existingActiveSession) {
-      return createActiveSessionConflictMessage(existingActiveSession.provider, requestedProvider);
-    }
-
-    return 'This task already has an active session. Terminate it before starting another one.';
-  }
-
-  const requestedDisplayName = getAgentProviderDisplayName(requestedProvider);
-  return message || `Autocode could not create a new ${requestedDisplayName} session.`;
 }

@@ -30,20 +30,6 @@ export function getAgentProviderDisplayName(provider: AgentProvider): string {
   return PROVIDER_DISPLAY_NAMES[provider] ?? provider;
 }
 
-export function createActiveSessionConflictMessage(
-  activeProvider: AgentProvider,
-  requestedProvider: AgentProvider
-): string {
-  const activeDisplayName = getAgentProviderDisplayName(activeProvider);
-  const requestedDisplayName = getAgentProviderDisplayName(requestedProvider);
-
-  if (activeProvider === requestedProvider) {
-    return `This task already has an active ${activeDisplayName} session.`;
-  }
-
-  return `This task already has an active ${activeDisplayName} session. Terminate it before starting ${requestedDisplayName}.`;
-}
-
 export async function resolveAgentProviderRuntime(
   provider: AgentProvider
 ): Promise<ResolvedAgentProviderRuntime> {

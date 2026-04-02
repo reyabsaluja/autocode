@@ -165,20 +165,19 @@ export function useAgentSessionTranscriptTailQuery(sessionId: number | null, ena
 
 export function useAgentSessionStream(
   taskId: number | null,
-  sessionId: number | null,
   enabled = true
 ) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (taskId === null || sessionId === null || !enabled) {
+    if (taskId === null || !enabled) {
       return;
     }
 
-    return autocodeApi.agentSessions.subscribe(sessionId, (event) => {
+    return autocodeApi.agentSessions.subscribe(taskId, (event) => {
       handleAgentSessionEvent(queryClient, taskId, event);
     });
-  }, [enabled, queryClient, sessionId, taskId]);
+  }, [enabled, queryClient, taskId]);
 }
 
 function handleAgentSessionEvent(

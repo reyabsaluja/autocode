@@ -54,7 +54,7 @@ export interface AutocodeApi {
     sendInput: (input: SendAgentSessionInput) => Promise<void>;
     start: (input: StartAgentSessionInput) => Promise<StartAgentSessionResult>;
     subscribe: (
-      sessionId: number,
+      taskId: number,
       callback: (event: AgentSessionEvent) => void
     ) => () => void;
     terminate: (input: TerminateAgentSessionInput) => Promise<TerminateAgentSessionResult>;
