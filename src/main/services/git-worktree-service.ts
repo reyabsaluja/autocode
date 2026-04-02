@@ -153,8 +153,7 @@ function resolveTaskWorktreePath(projectId: number, taskId: number, title: strin
 }
 
 function createTaskBranchName(taskId: number, title: string): string {
-  void taskId;
-  return `autocode/${slugify(title)}`;
+  return `autocode/task-${taskId}-${slugify(title)}`;
 }
 
 async function resolveAvailableBranchName(gitRoot: string, branchName: string): Promise<string> {

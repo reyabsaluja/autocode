@@ -52,7 +52,15 @@ describe('git worktree service cleanup', () => {
   test('plans clean branch names from the task title', () => {
     const gitWorktreeService = createGitWorktreeService();
 
-    expect(gitWorktreeService.planTaskWorktree(1, 15, 'Task C').branchName).toBe('autocode/task-c');
+    expect(gitWorktreeService.planTaskWorktree(1, 15, 'Task C').branchName).toBe('autocode/task-15-task-c');
+  });
+
+  test('uses the task id to avoid aliasing branches across tasks with the same title', () => {
+    const gitWorktreeService = createGitWorktreeService();
+
+    expect(gitWorktreeService.planTaskWorktree(1, 15, 'Task C').branchName).not.toBe(
+      gitWorktreeService.planTaskWorktree(1, 16, 'Task C').branchName
+    );
   });
 
   test('creates a fresh suffixed branch when the planned branch name already exists', async () => {
@@ -71,7 +79,7 @@ describe('git worktree service cleanup', () => {
     await execGit(['add', 'README.md'], repoPath);
     await execGit(['commit', '-m', 'Initial commit'], repoPath);
 
-    await execGit(['checkout', '-b', 'autocode/task-c'], repoPath);
+    await execGit(['checkout', '-b', 'autocode/task-15-task-c'], repoPath);
     await writeFile(path.join(repoPath, 'stale.txt'), 'stale branch state\n');
     await execGit(['add', 'stale.txt'], repoPath);
     await execGit(['commit', '-m', 'Stale branch commit'], repoPath);
@@ -81,7 +89,7 @@ describe('git worktree service cleanup', () => {
     const provisionedWorktree = await gitWorktreeService.createTaskWorktree({
       plannedWorktree: {
         baseRef: 'main',
-        branchName: 'autocode/task-c',
+        branchName: 'autocode/task-15-task-c',
         worktreePath
       },
       project: {
@@ -106,8 +114,8 @@ describe('git worktree service cleanup', () => {
       }
     });
 
-    expect(provisionedWorktree.branchName).toBe('autocode/task-c-2');
-    expect(await execGit(['branch', '--show-current'], worktreePath)).toBe('autocode/task-c-2');
+    expect(provisionedWorktree.branchName).toBe('autocode/task-15-task-c-2');
+    expect(await execGit(['branch', '--show-current'], worktreePath)).toBe('autocode/task-15-task-c-2');
     expect(existsSync(path.join(worktreePath, 'stale.txt'))).toBe(false);
   });
 });
