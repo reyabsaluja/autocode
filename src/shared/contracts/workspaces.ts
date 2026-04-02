@@ -22,6 +22,10 @@ export const workspaceChangesInputSchema = z.object({
   taskId: taskIdSchema
 });
 
+export const workspaceRecentCommitsInputSchema = z.object({
+  taskId: taskIdSchema
+});
+
 export const workspaceDiffInputSchema = z.object({
   previousPath: z.string().trim().min(1).nullable().optional(),
   relativePath: z.string().trim().min(1),
@@ -52,9 +56,9 @@ export const workspaceInspectionEventResultSchema = workspaceInspectionEventSche
 export const workspaceDirectoryResultSchema = workspaceDirectorySnapshotSchema;
 export const workspaceChangesResultSchema = z.object({
   changes: z.array(workspaceChangeSchema),
-  commits: z.array(workspaceCommitLogEntrySchema),
   observation: workspaceChangesObservationSchema
 });
+export const workspaceRecentCommitsResultSchema = z.array(workspaceCommitLogEntrySchema);
 export const workspaceDiffResultSchema = workspaceDiffSchema.nullable();
 export const workspaceCommitResultSchema = workspaceCommitDomainResultSchema.extend({
   project: projectSchema,
@@ -63,6 +67,7 @@ export const workspaceCommitResultSchema = workspaceCommitDomainResultSchema.ext
 
 export type WorkspaceDirectoryInput = z.infer<typeof workspaceDirectoryInputSchema>;
 export type WorkspaceChangesInput = z.infer<typeof workspaceChangesInputSchema>;
+export type WorkspaceRecentCommitsInput = z.infer<typeof workspaceRecentCommitsInputSchema>;
 export type WorkspaceDiffInput = z.infer<typeof workspaceDiffInputSchema>;
 export type WorkspaceCommitInput = z.infer<typeof workspaceCommitInputSchema>;
 export type WorkspaceCollectionSync = z.infer<typeof workspaceCollectionSyncSchema>;
@@ -70,5 +75,6 @@ export type WorkspaceInspectionEvent = z.infer<typeof workspaceInspectionEventSc
 export type WorkspaceChangesObservation = z.infer<typeof workspaceChangesObservationSchema>;
 export type WorkspaceDirectoryResult = z.infer<typeof workspaceDirectoryResultSchema>;
 export type WorkspaceChangesResult = z.infer<typeof workspaceChangesResultSchema>;
+export type WorkspaceRecentCommitsResult = z.infer<typeof workspaceRecentCommitsResultSchema>;
 export type WorkspaceDiffResult = z.infer<typeof workspaceDiffResultSchema>;
 export type WorkspaceCommitResult = z.infer<typeof workspaceCommitResultSchema>;

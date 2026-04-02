@@ -18,6 +18,8 @@ interface WorkspaceInspectorSidebarProps {
   expandedDirectories: string[];
   isCommitting: boolean;
   isLoadingChanges: boolean;
+  isLoadingCommits: boolean;
+  commitsLoadErrorMessage: string | null;
   onCommit: () => Promise<void>;
   onCommitMessageChange: (message: string) => void;
   onRefresh: () => Promise<void>;
@@ -37,9 +39,11 @@ export function WorkspaceInspectorSidebar({
   commitMessage,
   commitNotice,
   commits,
+  commitsLoadErrorMessage,
   expandedDirectories,
   isCommitting,
   isLoadingChanges,
+  isLoadingCommits,
   onCommit,
   onCommitMessageChange,
   onRefresh,
@@ -93,8 +97,10 @@ export function WorkspaceInspectorSidebar({
             commitMessage={commitMessage}
             commitNotice={commitNotice}
             commits={commits}
+            commitsLoadErrorMessage={commitsLoadErrorMessage}
             isCommitting={isCommitting}
             isLoading={isLoadingChanges}
+            isLoadingCommits={isLoadingCommits}
             loadErrorMessage={changesLoadErrorMessage}
             onCommit={onCommit}
             onCommitMessageChange={onCommitMessageChange}

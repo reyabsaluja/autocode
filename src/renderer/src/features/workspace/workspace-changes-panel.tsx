@@ -10,8 +10,10 @@ interface WorkspaceChangesPanelProps {
   commitMessage: string;
   commitNotice: string | null;
   commits: WorkspaceCommitLogEntry[];
+  commitsLoadErrorMessage: string | null;
   isCommitting: boolean;
   isLoading: boolean;
+  isLoadingCommits: boolean;
   loadErrorMessage: string | null;
   onCommit: () => Promise<void>;
   onCommitMessageChange: (value: string) => void;
@@ -26,8 +28,10 @@ export function WorkspaceChangesPanel({
   commitMessage,
   commitNotice,
   commits,
+  commitsLoadErrorMessage,
   isCommitting,
   isLoading,
+  isLoadingCommits,
   loadErrorMessage,
   onCommit,
   onCommitMessageChange,
@@ -39,7 +43,6 @@ export function WorkspaceChangesPanel({
   const [isCommitsOpen, setIsCommitsOpen] = useState(true);
 
   const unstaged = changes.filter((c) => !c.isStaged);
-  const staged = changes.filter((c) => c.isStaged);
   const allChanges = changes;
 
   return (
@@ -112,7 +115,14 @@ export function WorkspaceChangesPanel({
               onToggle={() => setIsCommitsOpen((c) => !c)}
             />
             {isCommitsOpen ? (
-              commits.length > 0 ? (
+              isLoadingCommits ? (
+                <PanelMessage>
+                  <Loader2 className="mr-1.5 inline h-3 w-3 animate-spin" />
+                  Loading commits
+                </PanelMessage>
+              ) : commitsLoadErrorMessage ? (
+                <PanelMessage tone="error">{commitsLoadErrorMessage}</PanelMessage>
+              ) : commits.length > 0 ? (
                 <ul className="py-0.5">
                   {commits.map((entry) => (
                     <li

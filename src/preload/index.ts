@@ -41,7 +41,9 @@ import {
   workspaceDiffInputSchema,
   workspaceDiffResultSchema,
   workspaceDirectoryInputSchema,
-  workspaceDirectoryResultSchema
+  workspaceDirectoryResultSchema,
+  workspaceRecentCommitsInputSchema,
+  workspaceRecentCommitsResultSchema
 } from '../shared/contracts/workspaces';
 import {
   workspaceFileReadInputSchema,
@@ -167,6 +169,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: workspaceChangesInputSchema,
         outputSchema: workspaceChangesResultSchema
+      }),
+    listRecentCommits: (input) =>
+      invokeValidatedIpc(workspaceChannels.listRecentCommits, {
+        input,
+        inputSchema: workspaceRecentCommitsInputSchema,
+        outputSchema: workspaceRecentCommitsResultSchema
       }),
     getDiff: (input) =>
       invokeValidatedIpc(workspaceChannels.getDiff, {

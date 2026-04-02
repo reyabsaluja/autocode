@@ -29,6 +29,8 @@ import type {
   WorkspaceDiffResult,
   WorkspaceDirectoryInput,
   WorkspaceDirectoryResult,
+  WorkspaceRecentCommitsInput,
+  WorkspaceRecentCommitsResult,
   WorkspaceInspectionEvent
 } from './workspaces';
 import type {
@@ -70,6 +72,7 @@ export interface AutocodeApi {
   workspaces: {
     listDirectory: (input: WorkspaceDirectoryInput) => Promise<WorkspaceDirectoryResult>;
     listChanges: (input: WorkspaceChangesInput) => Promise<WorkspaceChangesResult>;
+    listRecentCommits: (input: WorkspaceRecentCommitsInput) => Promise<WorkspaceRecentCommitsResult>;
     getDiff: (input: WorkspaceDiffInput) => Promise<WorkspaceDiffResult>;
     commitAll: (input: WorkspaceCommitInput) => Promise<WorkspaceCommitResult>;
     readFile: (input: WorkspaceFileReadInput) => Promise<WorkspaceFileReadResult>;

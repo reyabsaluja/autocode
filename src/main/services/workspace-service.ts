@@ -5,7 +5,8 @@ import type {
   WorkspaceCommitInput,
   WorkspaceCommitResult,
   WorkspaceDiffInput,
-  WorkspaceDirectoryInput
+  WorkspaceDirectoryInput,
+  WorkspaceRecentCommitsResult
 } from '../../shared/contracts/workspaces';
 import type {
   WorkspaceChange,
@@ -67,21 +68,16 @@ export function createWorkspaceService(
 
       try {
         const context = await workspaceRuntime.observeWorkspaceContext(taskId);
-        const [changes, commits] = await Promise.all([
-          listWorkspaceChanges(context.worktreePath),
-          listRecentCommits(context.worktreePath)
-        ]);
-        const enrichedChanges = await enrichChangesWithNumstat(changes, context.worktreePath);
+        const changes = await listWorkspaceChanges(context.worktreePath);
         const observation = taskWorkspaceRepository.recordWorkspaceHealth({
           lastError: null,
           taskId,
           timestamp,
-          worktreeStatus: enrichedChanges.length > 0 ? 'dirty' : 'ready'
+          worktreeStatus: changes.length > 0 ? 'dirty' : 'ready'
         });
 
         return {
-          changes: enrichedChanges,
-          commits,
+          changes,
           observation: {
             didHealthChange: observation.didChange,
             project: observation.project,
@@ -91,6 +87,11 @@ export function createWorkspaceService(
       } catch (error) {
         throw persistWorkspaceObservationFailure(taskWorkspaceRepository, taskId, timestamp, error);
       }
+    },
+
+    async listRecentCommits(taskId: number): Promise<WorkspaceRecentCommitsResult> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(taskId);
+      return listRecentCommits(context.worktreePath);
     },
 
     async getDiff(input: WorkspaceDiffInput): Promise<WorkspaceDiff | null> {
@@ -375,61 +376,6 @@ async function readDirectoryEntries(worktreePath: string, relativePath: string) 
     throw error instanceof Error
       ? error
       : new Error('Autocode could not read this workspace directory.');
-  }
-}
-
-async function enrichChangesWithNumstat(
-  changes: WorkspaceChange[],
-  worktreePath: string
-): Promise<WorkspaceChange[]> {
-  if (changes.length === 0) {
-    return changes;
-  }
-
-  try {
-    const numstatOutput = await execGit(
-      ['diff', 'HEAD', '--numstat'],
-      worktreePath,
-      { allowedExitCodes: [1] }
-    );
-
-    if (!numstatOutput.trim()) {
-      return changes;
-    }
-
-    const statMap = new Map<string, { added: number; removed: number }>();
-
-    for (const line of numstatOutput.trim().split('\n')) {
-      const parts = line.split('\t');
-
-      if (parts.length < 3) {
-        continue;
-      }
-
-      const added = parts[0] === '-' ? 0 : parseInt(parts[0]!, 10);
-      const removed = parts[1] === '-' ? 0 : parseInt(parts[1]!, 10);
-      const filePath = parts[2]!;
-
-      if (!isNaN(added) && !isNaN(removed)) {
-        statMap.set(filePath, { added, removed });
-      }
-    }
-
-    return changes.map((change) => {
-      const stat = statMap.get(change.relativePath);
-
-      if (!stat) {
-        return change;
-      }
-
-      return {
-        ...change,
-        linesAdded: stat.added,
-        linesRemoved: stat.removed
-      };
-    });
-  } catch {
-    return changes;
   }
 }
 

@@ -99,9 +99,11 @@ function WorkspaceInspector({ taskWorkspace }: WorkspaceInspectorProps, ref) {
             commitMessage={fileController.commitMessage}
             commitNotice={fileController.commitNotice}
             commits={fileController.commits}
+            commitsLoadErrorMessage={fileController.commitsLoadErrorMessage}
             expandedDirectories={fileController.expandedDirectories}
             isCommitting={fileController.commitMutation.isPending}
             isLoadingChanges={fileController.isLoadingChanges}
+            isLoadingCommits={fileController.isLoadingCommits}
             onCommit={fileController.handleCommit}
             onCommitMessageChange={fileController.setCommitMessage}
             onRefresh={fileController.handleRefresh}

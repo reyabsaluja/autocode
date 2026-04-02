@@ -12,7 +12,10 @@ import {
   workspaceDiffResultSchema,
   type WorkspaceDirectoryInput,
   workspaceDirectoryInputSchema,
-  workspaceDirectoryResultSchema
+  workspaceDirectoryResultSchema,
+  type WorkspaceRecentCommitsInput,
+  workspaceRecentCommitsInputSchema,
+  workspaceRecentCommitsResultSchema
 } from '../../shared/contracts/workspaces';
 import {
   type WorkspaceFileReadInput,
@@ -46,6 +49,13 @@ export function registerWorkspaceHandlers(
       workspaceService.listChanges(input.taskId),
     inputSchema: workspaceChangesInputSchema,
     outputSchema: workspaceChangesResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.listRecentCommits, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceRecentCommitsInput) =>
+      workspaceService.listRecentCommits(input.taskId),
+    inputSchema: workspaceRecentCommitsInputSchema,
+    outputSchema: workspaceRecentCommitsResultSchema
   });
 
   handleValidatedIpc(workspaceChannels.getDiff, {

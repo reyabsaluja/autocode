@@ -5,7 +5,8 @@ import type {
   WorkspaceCollectionSync,
   WorkspaceCommitInput,
   WorkspaceDirectoryInput,
-  WorkspaceDiffInput
+  WorkspaceDiffInput,
+  WorkspaceRecentCommitsInput
 } from '@shared/contracts/workspaces';
 import type { Project } from '@shared/domain/project';
 import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
@@ -102,6 +103,21 @@ export function useWorkspaceDiffQuery(
   });
 }
 
+export function useWorkspaceRecentCommitsQuery(taskId: number | null, enabled = true) {
+  return useQuery({
+    enabled: taskId !== null && enabled,
+    queryKey: taskId !== null ? queryKeys.workspaceRecentCommits(taskId) : ['workspace-recent-commits', 'idle'],
+    queryFn: () =>
+      autocodeApi.workspaces.listRecentCommits({
+        taskId: taskId!
+      } satisfies WorkspaceRecentCommitsInput),
+    gcTime: WORKSPACE_EXPLORER_DIRECTORY_GC_TIME_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000
+  });
+}
+
 export function useWorkspaceInspectionStream(taskId: number | null, enabled = true) {
   const queryClient = useQueryClient();
 
@@ -132,6 +148,9 @@ export function useCommitWorkspaceMutation(taskId: number | null) {
     },
     onSuccess: (result) => {
       syncWorkspaceCollections(queryClient, result);
+      if (taskId !== null) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaceRecentCommits(taskId) });
+      }
     },
     onError: async () => {
       if (taskId !== null) {

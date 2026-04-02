@@ -7,6 +7,7 @@ export const queryKeys = {
   taskWorkspaces: (projectId: number) => ['tasks', projectId] as const,
   workspace: (taskId: number) => ['workspace', taskId] as const,
   workspaceChanges: (taskId: number) => ['workspace', taskId, 'changes'] as const,
+  workspaceRecentCommits: (taskId: number) => ['workspace-recent-commits', taskId] as const,
   workspaceDiff: (
     taskId: number,
     relativePath: string,

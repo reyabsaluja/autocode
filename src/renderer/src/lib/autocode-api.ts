@@ -42,6 +42,7 @@ export const autocodeApi: AutocodeApi = {
   workspaces: {
     listDirectory: (input) => getAutocodeApi().workspaces.listDirectory(input),
     listChanges: (input) => getAutocodeApi().workspaces.listChanges(input),
+    listRecentCommits: (input) => getAutocodeApi().workspaces.listRecentCommits(input),
     getDiff: (input) => getAutocodeApi().workspaces.getDiff(input),
     commitAll: (input) => getAutocodeApi().workspaces.commitAll(input),
     readFile: (input) => getAutocodeApi().workspaces.readFile(input),

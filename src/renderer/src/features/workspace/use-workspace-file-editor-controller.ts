@@ -14,6 +14,7 @@ import { queryKeys } from '../../lib/query-keys';
 import {
   useCommitWorkspaceMutation,
   useWorkspaceChangesQuery,
+  useWorkspaceRecentCommitsQuery,
   useWorkspaceInspectionStream
 } from './workspace-hooks';
 
@@ -27,18 +28,19 @@ export function useWorkspaceFileEditorController({
   taskId
 }: UseWorkspaceFileEditorControllerInput) {
   const queryClient = useQueryClient();
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'changes' | 'files'>('files');
   useWorkspaceInspectionStream(taskId);
   const changesQuery = useWorkspaceChangesQuery(taskId);
+  const recentCommitsQuery = useWorkspaceRecentCommitsQuery(taskId, activeSidebarTab === 'changes');
   const commitMutation = useCommitWorkspaceMutation(taskId);
   const { dialogProps, requestTransition } = useUnsavedChangesGuard(editorRef);
-  const [activeSidebarTab, setActiveSidebarTab] = useState<'changes' | 'files'>('files');
   const [activeCenterTab, setActiveCenterTab] = useState<string>(TERMINAL_TAB_ID);
   const [fileTabs, setFileTabs] = useState<WorkspaceFileTab[]>([]);
   const [expandedDirectories, setExpandedDirectories] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState('');
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
   const changes = changesQuery.data?.changes ?? [];
-  const commits = changesQuery.data?.commits ?? [];
+  const commits = recentCommitsQuery.data ?? [];
   const activeFileTab = useMemo(
     () => fileTabs.find((tab) => tab.path === activeCenterTab) ?? null,
     [activeCenterTab, fileTabs]
@@ -88,7 +90,10 @@ export function useWorkspaceFileEditorController({
   const handleRefresh = async () => {
     setCommitNotice(null);
     commitMutation.reset();
-    await queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceRecentCommits(taskId) })
+    ]);
   };
 
   const handleCommit = async () => {
@@ -282,6 +287,8 @@ export function useWorkspaceFileEditorController({
     commitMutation,
     commitNotice,
     commits,
+    commitsLoadErrorMessage: formatWorkspaceInspectorError(recentCommitsQuery.error),
+    isLoadingCommits: recentCommitsQuery.isLoading,
     fileTabLabels: fileTabs.map((tab) => ({
       path: tab.path,
       label: basename(tab.path)

@@ -27,6 +27,7 @@ export const workspaceChannels = {
   getDiff: 'workspaces:getDiff',
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',
+  listRecentCommits: 'workspaces:listRecentCommits',
   listDirectory: 'workspaces:listDirectory',
   writeFile: 'workspaces:writeFile'
 } as const;
