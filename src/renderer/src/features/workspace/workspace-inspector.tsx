@@ -102,8 +102,11 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
             isCommitting={fileController.commitMutation.isPending}
             isLoadingChanges={fileController.isLoadingChanges}
             isLoadingCommits={fileController.isLoadingCommits}
+            isLoadingPublishStatus={fileController.isLoadingPublishStatus}
+            isPushing={fileController.isPushing}
             onCommit={fileController.handleCommit}
             onCommitMessageChange={fileController.setCommitMessage}
+            onPush={fileController.handlePush}
             onRefresh={fileController.handleRefresh}
             onSelectChange={(path) => {
               fileController.requestFileSelection(path, 'changes', 'diff');
@@ -114,6 +117,8 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
             }}
             onSelectSidebarTab={fileController.setActiveSidebarTab}
             onToggleDirectory={fileController.toggleDirectory}
+            publishStatus={fileController.publishStatus}
+            publishStatusErrorMessage={fileController.publishStatusErrorMessage}
             selectedPath={fileController.selectedPath}
             taskId={taskId}
           />

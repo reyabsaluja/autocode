@@ -2,7 +2,11 @@ import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import { Files, GitCompare, RefreshCw } from 'lucide-react';
 
-import type { WorkspaceChange, WorkspaceCommitLogEntry } from '@shared/domain/workspace-inspection';
+import type {
+  WorkspaceChange,
+  WorkspaceCommitLogEntry,
+  WorkspacePublishStatus
+} from '@shared/domain/workspace-inspection';
 
 import { WorkspaceChangesPanel } from './workspace-changes-panel';
 import { WorkspaceFileExplorer } from './workspace-file-explorer';
@@ -19,14 +23,19 @@ interface WorkspaceInspectorSidebarProps {
   isCommitting: boolean;
   isLoadingChanges: boolean;
   isLoadingCommits: boolean;
+  isLoadingPublishStatus: boolean;
+  isPushing: boolean;
   commitsLoadErrorMessage: string | null;
   onCommit: () => Promise<void>;
   onCommitMessageChange: (message: string) => void;
+  onPush: () => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectChange: (path: string) => void;
   onSelectFile: (path: string) => void;
   onSelectSidebarTab: (tab: 'changes' | 'files') => void;
   onToggleDirectory: (directoryPath: string) => void;
+  publishStatus: WorkspacePublishStatus | null;
+  publishStatusErrorMessage: string | null;
   selectedPath: string | null;
   taskId: number;
 }
@@ -44,13 +53,18 @@ export function WorkspaceInspectorSidebar({
   isCommitting,
   isLoadingChanges,
   isLoadingCommits,
+  isLoadingPublishStatus,
+  isPushing,
   onCommit,
   onCommitMessageChange,
+  onPush,
   onRefresh,
   onSelectChange,
   onSelectFile,
   onSelectSidebarTab,
   onToggleDirectory,
+  publishStatus,
+  publishStatusErrorMessage,
   selectedPath,
   taskId
 }: WorkspaceInspectorSidebarProps) {
@@ -104,11 +118,16 @@ export function WorkspaceInspectorSidebar({
             isCommitting={isCommitting}
             isLoading={isLoadingChanges}
             isLoadingCommits={isLoadingCommits}
+            isLoadingPublishStatus={isLoadingPublishStatus}
+            isPushing={isPushing}
             loadErrorMessage={changesLoadErrorMessage}
             onCommit={onCommit}
             onCommitMessageChange={onCommitMessageChange}
+            onPush={onPush}
             onRefresh={onRefresh}
             onSelectChange={onSelectChange}
+            publishStatus={publishStatus}
+            publishStatusErrorMessage={publishStatusErrorMessage}
             selectedPath={selectedPath}
           />
         )}

@@ -25,9 +25,11 @@ export const workspaceChannels = {
   commitAll: 'workspaces:commitAll',
   event: 'workspaces:event',
   getDiff: 'workspaces:getDiff',
+  getPublishStatus: 'workspaces:getPublishStatus',
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',
   listRecentCommits: 'workspaces:listRecentCommits',
   listDirectory: 'workspaces:listDirectory',
+  pushBranch: 'workspaces:pushBranch',
   writeFile: 'workspaces:writeFile'
 } as const;

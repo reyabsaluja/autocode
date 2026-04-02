@@ -6,6 +6,8 @@ import type {
   WorkspaceCommitInput,
   WorkspaceDirectoryInput,
   WorkspaceDiffInput,
+  WorkspacePublishStatusInput,
+  WorkspacePushInput,
   WorkspaceRecentCommitsInput
 } from '@shared/contracts/workspaces';
 import type { Project } from '@shared/domain/project';
@@ -118,6 +120,23 @@ export function useWorkspaceRecentCommitsQuery(taskId: number | null, enabled = 
   });
 }
 
+export function useWorkspacePublishStatusQuery(taskId: number | null, enabled = true) {
+  return useQuery({
+    enabled: taskId !== null && enabled,
+    queryKey:
+      taskId !== null
+        ? queryKeys.workspacePublishStatus(taskId)
+        : ['workspace', 'idle', 'publish-status'],
+    queryFn: () =>
+      autocodeApi.workspaces.getPublishStatus({
+        taskId: taskId!
+      } satisfies WorkspacePublishStatusInput),
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity
+  });
+}
+
 export function useWorkspaceInspectionStream(taskId: number | null, enabled = true) {
   const queryClient = useQueryClient();
 
@@ -150,11 +169,38 @@ export function useCommitWorkspaceMutation(taskId: number | null) {
       syncWorkspaceCollections(queryClient, result);
       if (taskId !== null) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.workspaceRecentCommits(taskId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) });
       }
     },
     onError: async () => {
       if (taskId !== null) {
         await invalidateWorkspaceCollectionsForTask(queryClient, taskId);
+      }
+    }
+  });
+}
+
+export function usePushWorkspaceBranchMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => {
+      if (taskId === null) {
+        throw new Error('Select a task workspace before pushing this branch.');
+      }
+
+      return autocodeApi.workspaces.pushBranch({
+        taskId
+      } satisfies WorkspacePushInput);
+    },
+    onSuccess: async () => {
+      if (taskId !== null) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) });
+      }
+    },
+    onError: async () => {
+      if (taskId !== null) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) });
       }
     }
   });

@@ -42,6 +42,10 @@ import {
   workspaceDiffResultSchema,
   workspaceDirectoryInputSchema,
   workspaceDirectoryResultSchema,
+  workspacePublishStatusInputSchema,
+  workspacePublishStatusResultSchema,
+  workspacePushInputSchema,
+  workspacePushResultSchema,
   workspaceRecentCommitsInputSchema,
   workspaceRecentCommitsResultSchema
 } from '../shared/contracts/workspaces';
@@ -178,11 +182,23 @@ const api: AutocodeApi = {
         inputSchema: workspaceDiffInputSchema,
         outputSchema: workspaceDiffResultSchema
       }),
+    getPublishStatus: (input) =>
+      invokeValidatedIpc(workspaceChannels.getPublishStatus, {
+        input,
+        inputSchema: workspacePublishStatusInputSchema,
+        outputSchema: workspacePublishStatusResultSchema
+      }),
     commitAll: (input) =>
       invokeValidatedIpc(workspaceChannels.commitAll, {
         input,
         inputSchema: workspaceCommitInputSchema,
         outputSchema: workspaceCommitResultSchema
+      }),
+    pushBranch: (input) =>
+      invokeValidatedIpc(workspaceChannels.pushBranch, {
+        input,
+        inputSchema: workspacePushInputSchema,
+        outputSchema: workspacePushResultSchema
       }),
     readFile: (input) =>
       invokeValidatedIpc(workspaceChannels.readFile, {

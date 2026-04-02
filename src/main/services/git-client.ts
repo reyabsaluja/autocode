@@ -3,6 +3,8 @@ import { execFile } from 'node:child_process';
 import { realpath, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 
+import type { WorkspacePublishStatus } from '../../shared/domain/workspace-inspection';
+
 const execFileAsync = promisify(execFile);
 
 export interface GitRepositoryMetadata {
@@ -14,6 +16,12 @@ export interface GitRepositoryMetadata {
 interface ExecGitOptions {
   allowedExitCodes?: number[];
   trimOutput?: boolean;
+}
+
+interface ResolveGitBranchPublishStatusInput {
+  baseRef: string | null;
+  branchName: string;
+  defaultBranch: string | null;
 }
 
 export async function resolveGitRepository(candidatePath: string): Promise<GitRepositoryMetadata> {
@@ -74,6 +82,73 @@ export async function listRegisteredWorktrees(gitRoot: string): Promise<Set<stri
   return worktreePaths;
 }
 
+export async function resolveGitBranchPublishStatus(
+  gitRoot: string,
+  input: ResolveGitBranchPublishStatusInput
+): Promise<WorkspacePublishStatus> {
+  const upstreamBranch = await tryExecGit(
+    ['rev-parse', '--abbrev-ref', '--symbolic-full-name', `${input.branchName}@{upstream}`],
+    gitRoot
+  );
+  const remotes = await listGitRemotes(gitRoot);
+  const remoteName = resolvePreferredPushRemote(remotes, upstreamBranch);
+
+  if (!remoteName) {
+    return {
+      aheadCount: 0,
+      behindCount: 0,
+      branchName: input.branchName,
+      canPush: false,
+      remoteName: null,
+      state: 'no_remote',
+      upstreamBranch: null
+    };
+  }
+
+  if (!upstreamBranch) {
+    const aheadCount = await resolveLocalAheadCountWithoutUpstream(gitRoot, input);
+
+    return {
+      aheadCount,
+      behindCount: 0,
+      branchName: input.branchName,
+      canPush: aheadCount > 0,
+      remoteName,
+      state: 'unpublished',
+      upstreamBranch: null
+    };
+  }
+
+  const { aheadCount, behindCount } = await resolveAheadBehindCounts(gitRoot, upstreamBranch);
+  const state = resolvePublishState(aheadCount, behindCount);
+
+  return {
+    aheadCount,
+    behindCount,
+    branchName: input.branchName,
+    canPush: state === 'ahead',
+    remoteName,
+    state,
+    upstreamBranch
+  };
+}
+
+export async function pushGitBranch(
+  gitRoot: string,
+  input: Pick<WorkspacePublishStatus, 'branchName' | 'remoteName' | 'upstreamBranch'>
+): Promise<void> {
+  if (!input.remoteName) {
+    throw new Error('This repository does not have a Git remote configured for push.');
+  }
+
+  if (input.upstreamBranch) {
+    await execGit(['push'], gitRoot);
+    return;
+  }
+
+  await execGit(['push', '--set-upstream', input.remoteName, input.branchName], gitRoot);
+}
+
 async function resolveGitRoot(candidatePath: string): Promise<string> {
   try {
     const gitRoot = await execGit(['rev-parse', '--show-toplevel'], candidatePath);
@@ -82,6 +157,23 @@ async function resolveGitRoot(candidatePath: string): Promise<string> {
     throw new Error('Selected folder is not inside a Git repository.', {
       cause: error
     });
+  }
+}
+
+async function listGitRemotes(gitRoot: string): Promise<string[]> {
+  try {
+    const output = await execGit(['remote'], gitRoot);
+
+    if (!output) {
+      return [];
+    }
+
+    return output
+      .split('\n')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
   }
 }
 
@@ -102,6 +194,95 @@ async function tryExecGit(args: string[], gitRoot: string): Promise<string | nul
   } catch {
     return null;
   }
+}
+
+async function resolveAheadBehindCounts(
+  gitRoot: string,
+  upstreamBranch: string
+): Promise<{ aheadCount: number; behindCount: number }> {
+  const output = await execGit(
+    ['rev-list', '--left-right', '--count', `${upstreamBranch}...HEAD`],
+    gitRoot
+  );
+  const [behind, ahead] = output.split('\t');
+
+  return {
+    aheadCount: parseGitCount(ahead),
+    behindCount: parseGitCount(behind)
+  };
+}
+
+async function resolveLocalAheadCountWithoutUpstream(
+  gitRoot: string,
+  input: ResolveGitBranchPublishStatusInput
+): Promise<number> {
+  const comparisonRef = await resolveLocalComparisonRef(gitRoot, input);
+
+  if (!comparisonRef) {
+    return 0;
+  }
+
+  const output = await execGit(['rev-list', '--count', `${comparisonRef}..HEAD`], gitRoot);
+  return parseGitCount(output);
+}
+
+async function resolveLocalComparisonRef(
+  gitRoot: string,
+  input: ResolveGitBranchPublishStatusInput
+): Promise<string | null> {
+  const candidates = [
+    input.baseRef,
+    input.defaultBranch ? `origin/${input.defaultBranch}` : null,
+    input.defaultBranch
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    if (await gitRefExists(gitRoot, candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function resolvePreferredPushRemote(
+  remotes: string[],
+  upstreamBranch: string | null
+): string | null {
+  if (upstreamBranch) {
+    const [remoteName] = upstreamBranch.split('/');
+    return remoteName || null;
+  }
+
+  if (remotes.includes('origin')) {
+    return 'origin';
+  }
+
+  return remotes[0] ?? null;
+}
+
+function resolvePublishState(
+  aheadCount: number,
+  behindCount: number
+): WorkspacePublishStatus['state'] {
+  if (aheadCount > 0 && behindCount > 0) {
+    return 'diverged';
+  }
+
+  if (behindCount > 0) {
+    return 'behind';
+  }
+
+  if (aheadCount > 0) {
+    return 'ahead';
+  }
+
+  return 'up_to_date';
+}
+
+function parseGitCount(value: string | undefined): number {
+  const parsed = Number.parseInt(value ?? '0', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 async function resolveExistingDirectory(candidatePath: string): Promise<string> {

@@ -13,6 +13,12 @@ import {
   type WorkspaceDirectoryInput,
   workspaceDirectoryInputSchema,
   workspaceDirectoryResultSchema,
+  type WorkspacePublishStatusInput,
+  workspacePublishStatusInputSchema,
+  workspacePublishStatusResultSchema,
+  type WorkspacePushInput,
+  workspacePushInputSchema,
+  workspacePushResultSchema,
   type WorkspaceRecentCommitsInput,
   workspaceRecentCommitsInputSchema,
   workspaceRecentCommitsResultSchema
@@ -65,11 +71,25 @@ export function registerWorkspaceHandlers(
     outputSchema: workspaceDiffResultSchema
   });
 
+  handleValidatedIpc(workspaceChannels.getPublishStatus, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspacePublishStatusInput) =>
+      workspaceService.getPublishStatus(input),
+    inputSchema: workspacePublishStatusInputSchema,
+    outputSchema: workspacePublishStatusResultSchema
+  });
+
   handleValidatedIpc(workspaceChannels.commitAll, {
     handler: async (_event: IpcMainInvokeEvent, input: WorkspaceCommitInput) =>
       workspaceService.commitAll(input),
     inputSchema: workspaceCommitInputSchema,
     outputSchema: workspaceCommitResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.pushBranch, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspacePushInput) =>
+      workspaceService.pushBranch(input),
+    inputSchema: workspacePushInputSchema,
+    outputSchema: workspacePushResultSchema
   });
 
   handleValidatedIpc(workspaceChannels.readFile, {

@@ -2,7 +2,11 @@ import { useState } from 'react';
 import clsx from 'clsx';
 import { ChevronDown, ChevronRight, GitCommitHorizontal, Loader2, Plus } from 'lucide-react';
 
-import type { WorkspaceChange, WorkspaceCommitLogEntry } from '@shared/domain/workspace-inspection';
+import type {
+  WorkspaceChange,
+  WorkspaceCommitLogEntry,
+  WorkspacePublishStatus
+} from '@shared/domain/workspace-inspection';
 
 interface WorkspaceChangesPanelProps {
   changes: WorkspaceChange[];
@@ -14,11 +18,16 @@ interface WorkspaceChangesPanelProps {
   isCommitting: boolean;
   isLoading: boolean;
   isLoadingCommits: boolean;
+  isLoadingPublishStatus: boolean;
+  isPushing: boolean;
   loadErrorMessage: string | null;
   onCommit: () => Promise<void>;
   onCommitMessageChange: (value: string) => void;
+  onPush: () => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectChange: (path: string) => void;
+  publishStatus: WorkspacePublishStatus | null;
+  publishStatusErrorMessage: string | null;
   selectedPath: string | null;
 }
 
@@ -32,10 +41,15 @@ export function WorkspaceChangesPanel({
   isCommitting,
   isLoading,
   isLoadingCommits,
+  isLoadingPublishStatus,
+  isPushing,
   loadErrorMessage,
   onCommit,
   onCommitMessageChange,
+  onPush,
   onSelectChange,
+  publishStatus,
+  publishStatusErrorMessage,
   selectedPath
 }: WorkspaceChangesPanelProps) {
   const [isUnstagedOpen, setIsUnstagedOpen] = useState(true);
@@ -44,6 +58,16 @@ export function WorkspaceChangesPanel({
 
   const unstaged = changes.filter((c) => !c.isStaged);
   const allChanges = changes;
+  const hasCommitDraft = commitMessage.trim().length > 0;
+  const isPushMode = changes.length === 0 && !hasCommitDraft;
+  const isPushActionEnabled = Boolean(publishStatus?.canPush);
+  const actionErrorMessage = commitErrorMessage ?? publishStatusErrorMessage;
+  const actionButtonLabel = resolvePrimaryActionLabel(
+    isPushMode,
+    isPushActionEnabled,
+    isLoadingPublishStatus,
+    publishStatus
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -153,32 +177,55 @@ export function WorkspaceChangesPanel({
         <div className="mb-2 flex items-center gap-1.5">
           <GitCommitHorizontal className="h-3 w-3 text-white/30" />
           <span className="font-geist text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">
-            Commit
+            {isPushMode ? 'Push' : 'Commit'}
           </span>
         </div>
-        <textarea
-          className={clsx(
-            'min-h-[60px] w-full resize-none rounded-md border border-white/[0.10] bg-black/[0.20] px-3 py-2 font-geist text-[12px] text-white outline-none transition',
-            'placeholder:text-white/30 focus:border-white/[0.20] focus:ring-1 focus:ring-white/[0.06]'
-          )}
-          onChange={(event) => onCommitMessageChange(event.target.value)}
-          placeholder="Commit message"
-          value={commitMessage}
-        />
+        {isPushMode ? (
+          <div className="rounded-md border border-white/[0.10] bg-black/[0.20] px-3 py-2">
+            <p className="font-geist text-[12px] text-white/70">
+              {formatPublishSummary(isLoadingPublishStatus, publishStatus)}
+            </p>
+          </div>
+        ) : (
+          <textarea
+            className={clsx(
+              'min-h-[60px] w-full resize-none rounded-md border border-white/[0.10] bg-black/[0.20] px-3 py-2 font-geist text-[12px] text-white outline-none transition',
+              'placeholder:text-white/30 focus:border-white/[0.20] focus:ring-1 focus:ring-white/[0.06]'
+            )}
+            onChange={(event) => onCommitMessageChange(event.target.value)}
+            placeholder="Commit message"
+            value={commitMessage}
+          />
+        )}
 
         <button
           className={clsx(
             'mt-2 flex w-full items-center justify-center rounded-md bg-white px-3 py-2 font-geist text-[12px] font-semibold text-[#1c1c1c] transition',
             'hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50'
           )}
-          disabled={isCommitting || changes.length === 0 || commitMessage.trim().length === 0}
-          onClick={() => { void onCommit(); }}
+          disabled={
+            isPushMode
+              ? isPushing || isLoadingPublishStatus || !isPushActionEnabled
+              : isCommitting || changes.length === 0 || commitMessage.trim().length === 0
+          }
+          onClick={() => {
+            if (isPushMode) {
+              void onPush();
+              return;
+            }
+
+            void onCommit();
+          }}
           type="button"
         >
-          {isCommitting ? (
+          {(isPushMode ? isPushing : isCommitting) ? (
             <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
           ) : null}
-          {isCommitting ? 'Committing...' : 'Commit'}
+          {(isPushMode ? isPushing : isCommitting)
+            ? isPushMode
+              ? 'Pushing...'
+              : 'Committing...'
+            : actionButtonLabel}
         </button>
 
         {commitNotice ? (
@@ -187,9 +234,9 @@ export function WorkspaceChangesPanel({
           </p>
         ) : null}
 
-        {commitErrorMessage ? (
+        {actionErrorMessage ? (
           <p className="mt-2 rounded-md border border-rose-500/20 bg-rose-500/[0.06] px-2.5 py-2 font-geist text-[12px] text-rose-300">
-            {commitErrorMessage}
+            {actionErrorMessage}
           </p>
         ) : null}
       </div>
@@ -314,4 +361,69 @@ function PanelMessage({ children, tone = 'subtle' }: { children: React.ReactNode
       {children}
     </p>
   );
+}
+
+function resolvePrimaryActionLabel(
+  isPushMode: boolean,
+  isPushActionEnabled: boolean,
+  isLoadingPublishStatus: boolean,
+  publishStatus: WorkspacePublishStatus | null
+): string {
+  if (!isPushMode) {
+    return 'Commit';
+  }
+
+  if (isLoadingPublishStatus) {
+    return 'Checking...';
+  }
+
+  if (isPushActionEnabled) {
+    return 'Push';
+  }
+
+  switch (publishStatus?.state) {
+    case 'no_remote':
+      return 'Push unavailable';
+    case 'behind':
+    case 'diverged':
+      return 'Push blocked';
+    case 'up_to_date':
+      return 'Up to date';
+    case 'unpublished':
+      return 'No commits yet';
+    default:
+      return 'Push';
+  }
+}
+
+function formatPublishSummary(
+  isLoadingPublishStatus: boolean,
+  publishStatus: WorkspacePublishStatus | null
+): string {
+  if (isLoadingPublishStatus) {
+    return 'Checking remote status for this task branch.';
+  }
+
+  if (!publishStatus) {
+    return 'Remote status is not available yet.';
+  }
+
+  const target = publishStatus.upstreamBranch ?? publishStatus.remoteName ?? 'Remote';
+
+  switch (publishStatus.state) {
+    case 'no_remote':
+      return 'No Git remote is configured for this repository yet.';
+    case 'unpublished':
+      return publishStatus.aheadCount > 0
+        ? `${target} · ${publishStatus.aheadCount} local commit${publishStatus.aheadCount === 1 ? '' : 's'} ready to push.`
+        : `${target} · branch not published yet.`;
+    case 'ahead':
+      return `${target} · ahead by ${publishStatus.aheadCount} commit${publishStatus.aheadCount === 1 ? '' : 's'}.`;
+    case 'behind':
+      return `${target} · behind by ${publishStatus.behindCount} commit${publishStatus.behindCount === 1 ? '' : 's'}.`;
+    case 'diverged':
+      return `${target} · ahead by ${publishStatus.aheadCount} and behind by ${publishStatus.behindCount}.`;
+    case 'up_to_date':
+      return `${target} · up to date.`;
+  }
 }

@@ -44,7 +44,9 @@ export const autocodeApi: AutocodeApi = {
     listChanges: (input) => getAutocodeApi().workspaces.listChanges(input),
     listRecentCommits: (input) => getAutocodeApi().workspaces.listRecentCommits(input),
     getDiff: (input) => getAutocodeApi().workspaces.getDiff(input),
+    getPublishStatus: (input) => getAutocodeApi().workspaces.getPublishStatus(input),
     commitAll: (input) => getAutocodeApi().workspaces.commitAll(input),
+    pushBranch: (input) => getAutocodeApi().workspaces.pushBranch(input),
     readFile: (input) => getAutocodeApi().workspaces.readFile(input),
     subscribeInspection: (taskId, callback) =>
       getAutocodeApi().workspaces.subscribeInspection(taskId, callback),

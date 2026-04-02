@@ -6,6 +6,8 @@ import type {
   WorkspaceCommitResult,
   WorkspaceDiffInput,
   WorkspaceDirectoryInput,
+  WorkspacePublishStatusInput,
+  WorkspacePushInput,
   WorkspaceRecentCommitsResult
 } from '../../shared/contracts/workspaces';
 import type {
@@ -13,11 +15,16 @@ import type {
   WorkspaceCommitLogEntry,
   WorkspaceDiff,
   WorkspaceDirectoryEntry,
-  WorkspaceDirectorySnapshot
+  WorkspaceDirectorySnapshot,
+  WorkspacePublishStatus
 } from '../../shared/domain/workspace-inspection';
 import type { TaskStatus } from '../../shared/domain/task';
 import type { AppDatabase } from '../database/client';
-import { execGit } from './git-client';
+import {
+  execGit,
+  pushGitBranch,
+  resolveGitBranchPublishStatus
+} from './git-client';
 import { parseWorkspaceChanges } from './workspace-change-parser';
 import {
   createWorkspaceRuntime,
@@ -205,6 +212,43 @@ export function createWorkspaceService(
           }
         }
       };
+    },
+
+    async getPublishStatus(input: WorkspacePublishStatusInput): Promise<WorkspacePublishStatus> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      return resolveWorkspacePublishStatus(context.worktreePath, context.worktree, context.project.defaultBranch);
+    },
+
+    async pushBranch(input: WorkspacePushInput): Promise<WorkspacePublishStatus> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
+      const publishStatus = await resolveWorkspacePublishStatus(
+        context.worktreePath,
+        context.worktree,
+        context.project.defaultBranch
+      );
+
+      if (!publishStatus.canPush) {
+        throw new Error(resolvePushUnavailableMessage(publishStatus));
+      }
+
+      try {
+        await pushGitBranch(context.worktreePath, publishStatus);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? normalizePushError(error.message)
+            : 'Autocode could not push this branch.';
+
+        throw new Error(message);
+      }
+
+      publishWorkspaceInspectionChange?.(input.taskId);
+
+      return resolveWorkspacePublishStatus(
+        context.worktreePath,
+        context.worktree,
+        context.project.defaultBranch
+      );
     }
   };
 }
@@ -415,4 +459,63 @@ function normalizeCommitError(message: string): string {
   }
 
   return message;
+}
+
+async function resolveWorkspacePublishStatus(
+  worktreePath: string,
+  worktree: { baseRef: string | null; branchName: string },
+  defaultBranch: string | null
+): Promise<WorkspacePublishStatus> {
+  return resolveGitBranchPublishStatus(worktreePath, {
+    baseRef: worktree.baseRef,
+    branchName: worktree.branchName,
+    defaultBranch
+  });
+}
+
+function normalizePushError(message: string): string {
+  if (
+    message.includes('Authentication failed') ||
+    message.includes('Repository not found') ||
+    message.includes('Permission denied') ||
+    message.includes('Could not read from remote repository')
+  ) {
+    return 'Git could not authenticate with the remote or you do not have access to it.';
+  }
+
+  if (
+    message.includes('[rejected]') ||
+    message.includes('non-fast-forward') ||
+    message.includes('fetch first')
+  ) {
+    return 'The remote branch moved ahead. Pull or rebase this task branch before pushing again.';
+  }
+
+  if (
+    message.includes('No configured push destination') ||
+    message.includes('No such remote')
+  ) {
+    return 'This repository does not have a Git remote configured for push.';
+  }
+
+  return message;
+}
+
+function resolvePushUnavailableMessage(status: WorkspacePublishStatus): string {
+  switch (status.state) {
+    case 'no_remote':
+      return 'This repository does not have a Git remote configured for push.';
+    case 'unpublished':
+      return status.aheadCount > 0
+        ? 'This branch is ready to publish.'
+        : 'This branch does not have any local commits to push yet.';
+    case 'ahead':
+      return 'This branch is already ready to push.';
+    case 'behind':
+      return 'The remote branch is ahead. Pull or rebase this task branch before pushing.';
+    case 'diverged':
+      return 'This branch diverged from its remote. Pull or rebase before pushing.';
+    case 'up_to_date':
+      return 'This branch is already up to date on the remote.';
+  }
 }

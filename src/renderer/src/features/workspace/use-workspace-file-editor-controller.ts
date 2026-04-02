@@ -14,8 +14,10 @@ import { queryKeys } from '../../lib/query-keys';
 import {
   useCommitWorkspaceMutation,
   useWorkspaceChangesQuery,
+  useWorkspacePublishStatusQuery,
   useWorkspaceRecentCommitsQuery,
-  useWorkspaceInspectionStream
+  useWorkspaceInspectionStream,
+  usePushWorkspaceBranchMutation
 } from './workspace-hooks';
 
 interface UseWorkspaceFileEditorControllerInput {
@@ -32,7 +34,9 @@ export function useWorkspaceFileEditorController({
   useWorkspaceInspectionStream(taskId);
   const changesQuery = useWorkspaceChangesQuery(taskId);
   const recentCommitsQuery = useWorkspaceRecentCommitsQuery(taskId, activeSidebarTab === 'changes');
+  const publishStatusQuery = useWorkspacePublishStatusQuery(taskId, activeSidebarTab === 'changes');
   const commitMutation = useCommitWorkspaceMutation(taskId);
+  const pushMutation = usePushWorkspaceBranchMutation(taskId);
   const { dialogProps, requestTransition } = useUnsavedChangesGuard(editorRef);
   const [activeCenterTab, setActiveCenterTab] = useState<string>(TERMINAL_TAB_ID);
   const [fileTabs, setFileTabs] = useState<WorkspaceFileTab[]>([]);
@@ -41,6 +45,7 @@ export function useWorkspaceFileEditorController({
   const [commitNotice, setCommitNotice] = useState<string | null>(null);
   const changes = changesQuery.data?.changes ?? [];
   const commits = recentCommitsQuery.data ?? [];
+  const publishStatus = publishStatusQuery.data ?? null;
   const activeFileTab = useMemo(
     () => fileTabs.find((tab) => tab.path === activeCenterTab) ?? null,
     [activeCenterTab, fileTabs]
@@ -59,6 +64,7 @@ export function useWorkspaceFileEditorController({
     setCommitMessage('');
     setCommitNotice(null);
     commitMutation.reset();
+    pushMutation.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- commitMutation is intentionally excluded; including it causes a reset loop because useMutation returns a new object reference each render.
   }, [taskId]);
 
@@ -93,7 +99,8 @@ export function useWorkspaceFileEditorController({
     commitMutation.reset();
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceRecentCommits(taskId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaceRecentCommits(taskId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) })
     ]);
   };
 
@@ -102,6 +109,18 @@ export function useWorkspaceFileEditorController({
       const result = await commitMutation.mutateAsync({ message: commitMessage });
       setCommitNotice(`Committed ${result.commitSha.slice(0, 7)} on this workspace branch.`);
       setCommitMessage('');
+    } catch {
+      // The mutation error is rendered in the panel.
+    }
+  };
+
+  const handlePush = async () => {
+    try {
+      const result = await pushMutation.mutateAsync();
+      const destination = result.upstreamBranch ?? (
+        result.remoteName ? `${result.remoteName}/${result.branchName}` : result.branchName
+      );
+      setCommitNotice(`Pushed ${result.branchName} to ${destination}.`);
     } catch {
       // The mutation error is rendered in the panel.
     }
@@ -283,7 +302,9 @@ export function useWorkspaceFileEditorController({
     changes,
     changesLoadErrorMessage: formatWorkspaceInspectorError(changesQuery.error),
     changesQuery,
-    commitErrorMessage: formatWorkspaceInspectorError(commitMutation.error),
+    commitErrorMessage:
+      formatWorkspaceInspectorError(commitMutation.error) ??
+      formatWorkspaceInspectorError(pushMutation.error),
     commitMessage,
     commitMutation,
     commitNotice,
@@ -297,8 +318,14 @@ export function useWorkspaceFileEditorController({
     fileTabs,
     expandedDirectories,
     handleCommit,
+    handlePush,
     handleRefresh,
     isLoadingChanges: changesQuery.isLoading,
+    isLoadingPublishStatus: publishStatusQuery.isLoading,
+    isPushing: pushMutation.isPending,
+    publishStatus,
+    publishStatusErrorMessage: formatWorkspaceInspectorError(publishStatusQuery.error),
+    pushMutation,
     requestCloseFileTab,
     requestFileSelection,
     requestFileTabActivation,

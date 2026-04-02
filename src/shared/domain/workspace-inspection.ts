@@ -50,6 +50,27 @@ export const workspaceCommitLogEntrySchema = z.object({
   sha: z.string().min(1)
 });
 
+export const workspacePublishStateValues = [
+  'no_remote',
+  'unpublished',
+  'ahead',
+  'behind',
+  'diverged',
+  'up_to_date'
+] as const;
+
+export const workspacePublishStateSchema = z.enum(workspacePublishStateValues);
+
+export const workspacePublishStatusSchema = z.object({
+  aheadCount: z.number().int().nonnegative(),
+  behindCount: z.number().int().nonnegative(),
+  branchName: z.string().min(1),
+  canPush: z.boolean(),
+  remoteName: z.string().min(1).nullable(),
+  state: workspacePublishStateSchema,
+  upstreamBranch: z.string().min(1).nullable()
+});
+
 export type WorkspaceDirectoryEntry = z.infer<typeof workspaceDirectoryEntrySchema>;
 export type WorkspaceDirectorySnapshot = z.infer<typeof workspaceDirectorySnapshotSchema>;
 export type WorkspaceChangeStatus = z.infer<typeof workspaceChangeStatusSchema>;
@@ -57,3 +78,5 @@ export type WorkspaceChange = z.infer<typeof workspaceChangeSchema>;
 export type WorkspaceDiff = z.infer<typeof workspaceDiffSchema>;
 export type WorkspaceCommitResult = z.infer<typeof workspaceCommitResultSchema>;
 export type WorkspaceCommitLogEntry = z.infer<typeof workspaceCommitLogEntrySchema>;
+export type WorkspacePublishState = z.infer<typeof workspacePublishStateSchema>;
+export type WorkspacePublishStatus = z.infer<typeof workspacePublishStatusSchema>;
