@@ -200,19 +200,42 @@ function appendTranscriptEntries(
   current: ReadAgentSessionTranscriptTailResult | undefined,
   nextEntries: AgentSessionTranscriptEntry[]
 ): ReadAgentSessionTranscriptTailResult {
-  const merged = new Map<number, AgentSessionTranscriptEntry>();
-
-  for (const entry of current?.entries ?? []) {
-    merged.set(entry.seq, entry);
+  if (nextEntries.length === 0) {
+    return current ?? { entries: [], lastEventSeq: 0 };
   }
 
-  for (const entry of nextEntries) {
-    merged.set(entry.seq, entry);
+  const currentEntries = current?.entries ?? [];
+  const currentMaxSeq = currentEntries.length > 0
+    ? currentEntries[currentEntries.length - 1]!.seq
+    : -1;
+
+  let entries: AgentSessionTranscriptEntry[];
+
+  const allAfterCurrent = nextEntries.every((e) => e.seq > currentMaxSeq);
+
+  if (allAfterCurrent) {
+    const sorted =
+      nextEntries.length > 1
+        ? [...nextEntries].sort((a, b) => a.seq - b.seq)
+        : nextEntries;
+    entries = currentEntries.length > 0 ? [...currentEntries, ...sorted] : sorted;
+  } else {
+    const merged = new Map<number, AgentSessionTranscriptEntry>();
+
+    for (const entry of currentEntries) {
+      merged.set(entry.seq, entry);
+    }
+
+    for (const entry of nextEntries) {
+      merged.set(entry.seq, entry);
+    }
+
+    entries = [...merged.values()].sort((a, b) => a.seq - b.seq);
   }
 
-  const entries = [...merged.values()]
-    .sort((left, right) => left.seq - right.seq)
-    .slice(-AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES);
+  if (entries.length > AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES) {
+    entries = entries.slice(-AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES);
+  }
 
   return {
     entries,

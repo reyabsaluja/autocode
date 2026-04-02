@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 
@@ -19,7 +19,7 @@ interface AgentSessionTerminalProps {
 const TERMINAL_FONT_FAMILY =
   '"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace';
 
-export function AgentSessionTerminal({
+export const AgentSessionTerminal = memo(function AgentSessionTerminal({
   entries,
   isInteractive,
   isVisible,
@@ -142,4 +142,4 @@ export function AgentSessionTerminal({
   }, [entries]);
 
   return <div className="h-full min-h-[180px] w-full" ref={containerRef} />;
-}
+});

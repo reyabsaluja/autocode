@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AgentProvider } from '@shared/domain/agent-session';
 
@@ -12,6 +12,7 @@ import {
   useStartAgentSessionMutation,
   useTerminateAgentSessionMutation
 } from '../agent-sessions/agent-session-hooks';
+import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 import {
   DEFAULT_TERMINAL_SIZE,
   formatWorkspaceInspectorError,
@@ -20,6 +21,8 @@ import {
   TERMINAL_TAB_ID,
   type WorkspaceCenterTransitionRequest
 } from './workspace-inspector-shared';
+
+const EMPTY_ENTRIES: AgentSessionTranscriptEntry[] = [];
 
 interface UseWorkspaceTerminalSessionControllerInput {
   activeCenterTab: string;
@@ -171,7 +174,10 @@ export function useWorkspaceTerminalSessionController({
     setIsNewSessionMenuOpen((current) => !current);
   }
 
-  function handleTerminalResize(cols: number, rows: number) {
+  const selectedSessionRef = useRef(selectedSession);
+  selectedSessionRef.current = selectedSession;
+
+  const handleTerminalResize = useCallback((cols: number, rows: number) => {
     if (
       lastReportedTerminalSizeRef.current.cols === cols &&
       lastReportedTerminalSizeRef.current.rows === rows
@@ -182,10 +188,36 @@ export function useWorkspaceTerminalSessionController({
     lastReportedTerminalSizeRef.current = { cols, rows };
     setTerminalSize({ cols, rows });
 
-    if (selectedSession && isActiveSessionStatus(selectedSession.status)) {
+    if (selectedSessionRef.current && isActiveSessionStatus(selectedSessionRef.current.status)) {
       resizeSessionMutation.mutate({ cols, rows });
     }
-  }
+  }, [resizeSessionMutation]);
+
+  const handleTerminalData = useCallback((text: string) => {
+    if (isActiveSessionStatus(selectedSessionRef.current?.status)) {
+      sendInputMutation.mutate({ text });
+    }
+  }, [sendInputMutation]);
+
+  const entries = transcriptQuery.data?.entries ?? EMPTY_ENTRIES;
+
+  const terminalSurfaceProps = useMemo(() => ({
+    emptyStateMode: startSessionMutation.isPending ? ('starting' as const) : ('idle' as const),
+    entries,
+    errorMessage: terminalErrorMessage,
+    isInteractive: isActiveSessionStatus(selectedSession?.status),
+    onData: handleTerminalData,
+    onResize: handleTerminalResize,
+    sessionId: selectedSession?.id ?? null
+  }), [
+    entries,
+    handleTerminalData,
+    handleTerminalResize,
+    selectedSession?.id,
+    selectedSession?.status,
+    startSessionMutation.isPending,
+    terminalErrorMessage
+  ]);
 
   return {
     deleteSessionMutation,
@@ -207,19 +239,7 @@ export function useWorkspaceTerminalSessionController({
     startSessionMutation,
     terminateSessionMutation,
     terminalErrorMessage,
-    terminalSurfaceProps: {
-      emptyStateMode: startSessionMutation.isPending ? ('starting' as const) : ('idle' as const),
-      entries: transcriptQuery.data?.entries ?? [],
-      errorMessage: terminalErrorMessage,
-      isInteractive: isActiveSessionStatus(selectedSession?.status),
-      onData: (text: string) => {
-        if (isActiveSessionStatus(selectedSession?.status)) {
-          sendInputMutation.mutate({ text });
-        }
-      },
-      onResize: handleTerminalResize,
-      sessionId: selectedSession?.id ?? null
-    },
+    terminalSurfaceProps,
     toggleNewSessionMenu,
     transcriptQuery
   };

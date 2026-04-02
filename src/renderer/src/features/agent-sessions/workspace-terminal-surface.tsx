@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Loader2, Terminal } from 'lucide-react';
 
 import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
@@ -14,7 +15,7 @@ interface WorkspaceTerminalSurfaceProps {
   sessionId: number | null;
 }
 
-export function WorkspaceTerminalSurface({
+export const WorkspaceTerminalSurface = memo(function WorkspaceTerminalSurface({
   emptyStateMode,
   entries,
   errorMessage,
@@ -65,4 +66,4 @@ export function WorkspaceTerminalSurface({
       </div>
     </div>
   );
-}
+});
