@@ -57,6 +57,13 @@
       "when": 1775131200000,
       "tag": "0007_worktree_base_ref",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1775145600000,
+      "tag": "0008_restore_single_active_session_guard",
+      "breakpoints": true
     }
   ]
 }
