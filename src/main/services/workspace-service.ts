@@ -28,7 +28,10 @@ import {
   resolveWorkspaceTargetPath
 } from './workspace-runtime';
 
-export function createWorkspaceService(db: AppDatabase) {
+export function createWorkspaceService(
+  db: AppDatabase,
+  publishWorkspaceInspectionChange?: (taskId: number) => void
+) {
   const workspaceRuntime = createWorkspaceRuntime(db);
   const { taskWorkspaceRepository } = workspaceRuntime;
 
@@ -176,6 +179,8 @@ export function createWorkspaceService(db: AppDatabase) {
         nextStatus,
         timestamp
       );
+
+      publishWorkspaceInspectionChange?.(input.taskId);
 
       return {
         commitMessage: message,

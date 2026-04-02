@@ -46,9 +46,9 @@ export function useWorkspaceChangesQuery(taskId: number | null) {
     enabled: taskId !== null,
     queryKey: taskId !== null ? queryKeys.workspaceChanges(taskId) : ['workspace', 'idle', 'changes'],
     queryFn: () => autocodeApi.workspaces.listChanges({ taskId: taskId! }),
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    staleTime: 0
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity
   });
 
   useEffect(() => {
@@ -96,10 +96,24 @@ export function useWorkspaceDiffQuery(
         status: activeChange?.status,
         taskId: taskId!
       } satisfies WorkspaceDiffInput),
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    staleTime: 0
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity
   });
+}
+
+export function useWorkspaceInspectionStream(taskId: number | null, enabled = true) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (taskId === null || !enabled) {
+      return;
+    }
+
+    return autocodeApi.workspaces.subscribeInspection(taskId, () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
+    });
+  }, [enabled, queryClient, taskId]);
 }
 
 export function useCommitWorkspaceMutation(taskId: number | null) {
@@ -122,11 +136,6 @@ export function useCommitWorkspaceMutation(taskId: number | null) {
     onError: async () => {
       if (taskId !== null) {
         await invalidateWorkspaceCollectionsForTask(queryClient, taskId);
-      }
-    },
-    onSettled: async () => {
-      if (taskId !== null) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
       }
     }
   });

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 
 import type { AgentProvider } from '@shared/domain/agent-session';
 
@@ -14,12 +13,10 @@ import {
   useTerminateAgentSessionMutation
 } from '../agent-sessions/agent-session-hooks';
 import {
-  ACTIVE_WORKSPACE_REFRESH_INTERVAL_MS,
   DEFAULT_TERMINAL_SIZE,
   formatWorkspaceInspectorError,
   getProviderDisplayName,
   isActiveSessionStatus,
-  refreshWorkspaceInspectionQueries,
   TERMINAL_TAB_ID,
   type WorkspaceCenterTransitionRequest
 } from './workspace-inspector-shared';
@@ -37,7 +34,6 @@ export function useWorkspaceTerminalSessionController({
   taskId,
   runWithCenterTransition
 }: UseWorkspaceTerminalSessionControllerInput) {
-  const queryClient = useQueryClient();
   const sessionsQuery = useAgentSessionsQuery(taskId);
   const sessions = sessionsQuery.data ?? [];
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
@@ -45,7 +41,6 @@ export function useWorkspaceTerminalSessionController({
   const newSessionMenuRef = useRef<HTMLDivElement | null>(null);
   const [terminalSize, setTerminalSize] = useState(DEFAULT_TERMINAL_SIZE);
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
-  const previousActiveSessionIdRef = useRef<number | null>(null);
   const activeSession = useMemo(
     () => sessions.find((session) => isActiveSessionStatus(session.status)) ?? null,
     [sessions]
@@ -73,8 +68,8 @@ export function useWorkspaceTerminalSessionController({
 
   useAgentSessionStream(
     taskId,
-    selectedSession?.id ?? null,
-    transcriptQuery.isSuccess && isActiveSessionStatus(selectedSession?.status)
+    activeSession?.id ?? null,
+    activeSession !== null
   );
 
   useEffect(() => {
@@ -82,19 +77,11 @@ export function useWorkspaceTerminalSessionController({
     setIsNewSessionMenuOpen(false);
     setTerminalSize(DEFAULT_TERMINAL_SIZE);
     lastReportedTerminalSizeRef.current = DEFAULT_TERMINAL_SIZE;
-    previousActiveSessionIdRef.current = null;
   }, [taskId]);
 
   useEffect(() => {
-    const previousActiveSessionId = previousActiveSessionIdRef.current;
-
-    if (!activeSession && previousActiveSessionId !== null) {
-      void refreshWorkspaceInspectionQueries(queryClient, taskId);
-    }
-
     if (!sessions.length) {
       setSelectedSessionId(null);
-      previousActiveSessionIdRef.current = null;
       return;
     }
 
@@ -106,25 +93,7 @@ export function useWorkspaceTerminalSessionController({
     ) {
       setSelectedSessionId(nextSelectedSession.id);
     }
-
-    previousActiveSessionIdRef.current = activeSession?.id ?? null;
-  }, [activeSession, queryClient, selectedSessionId, sessions, taskId]);
-
-  useEffect(() => {
-    if (!activeSession) {
-      return;
-    }
-
-    void refreshWorkspaceInspectionQueries(queryClient, taskId);
-
-    const interval = window.setInterval(() => {
-      void refreshWorkspaceInspectionQueries(queryClient, taskId);
-    }, ACTIVE_WORKSPACE_REFRESH_INTERVAL_MS);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [activeSession?.id, queryClient, taskId]);
+  }, [activeSession, selectedSessionId, sessions]);
 
   useEffect(() => {
     if (!isNewSessionMenuOpen) {

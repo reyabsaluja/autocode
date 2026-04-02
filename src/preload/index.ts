@@ -34,6 +34,7 @@ import {
 } from '../shared/contracts/tasks';
 import {
   workspaceChangesInputSchema,
+  workspaceInspectionEventResultSchema,
   workspaceChangesResultSchema,
   workspaceCommitInputSchema,
   workspaceCommitResultSchema,
@@ -190,7 +191,19 @@ const api: AutocodeApi = {
         input,
         inputSchema: workspaceFileWriteInputSchema,
         outputSchema: workspaceFileWriteResultSchema
-      })
+      }),
+    subscribeInspection: (taskId, callback) =>
+      subscribeValidatedIpc(
+        workspaceChannels.event,
+        workspaceInspectionEventResultSchema,
+        (event) => {
+          if (event.taskId !== taskId) {
+            return;
+          }
+
+          callback(event);
+        }
+      )
   }
 };
 

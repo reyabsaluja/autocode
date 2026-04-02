@@ -32,14 +32,16 @@ type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 
 export function createAgentSessionService(
   db: AppDatabase,
-  publishEvent: AgentSessionEventPublisher
+  publishEvent: AgentSessionEventPublisher,
+  publishWorkspaceInspectionChange?: (taskId: number) => void
 ) {
   const agentSessionRepository = createAgentSessionRepository(db);
   const workspaceRuntime = createWorkspaceRuntime(db);
   const sessionsRoot = resolveAutocodeSessionsRoot();
   const runtimeManager = createAgentSessionRuntimeManager({
     agentSessionRepository,
-    publishEvent
+    publishEvent,
+    publishWorkspaceInspectionChange
   });
 
   return {

@@ -45,6 +45,8 @@ export const autocodeApi: AutocodeApi = {
     getDiff: (input) => getAutocodeApi().workspaces.getDiff(input),
     commitAll: (input) => getAutocodeApi().workspaces.commitAll(input),
     readFile: (input) => getAutocodeApi().workspaces.readFile(input),
+    subscribeInspection: (taskId, callback) =>
+      getAutocodeApi().workspaces.subscribeInspection(taskId, callback),
     writeFile: (input) => getAutocodeApi().workspaces.writeFile(input)
   }
 };

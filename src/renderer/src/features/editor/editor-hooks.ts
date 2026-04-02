@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import type {
   WorkspaceFileReadInput,
@@ -24,15 +24,13 @@ export function useWorkspaceFileQuery(
         relativePath: relativePath!,
         taskId: taskId!
       } satisfies WorkspaceFileReadInput),
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    staleTime: 0
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity
   });
 }
 
 export function useWriteWorkspaceFileMutation(taskId: number | null, relativePath: string | null) {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (input: Omit<WorkspaceFileWriteInput, 'relativePath' | 'taskId'>) => {
       if (taskId === null || relativePath === null) {
@@ -44,11 +42,6 @@ export function useWriteWorkspaceFileMutation(taskId: number | null, relativePat
         relativePath,
         taskId
       });
-    },
-    onSettled: async () => {
-      if (taskId !== null) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workspace(taskId) });
-      }
     }
   });
 }

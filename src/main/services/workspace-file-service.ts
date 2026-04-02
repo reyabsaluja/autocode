@@ -15,7 +15,10 @@ import {
   resolveWorkspaceTargetPath
 } from './workspace-runtime';
 
-export function createWorkspaceFileService(db: AppDatabase) {
+export function createWorkspaceFileService(
+  db: AppDatabase,
+  publishWorkspaceInspectionChange?: (taskId: number) => void
+) {
   const workspaceRuntime = createWorkspaceRuntime(db);
 
   return {
@@ -47,6 +50,7 @@ export function createWorkspaceFileService(db: AppDatabase) {
       );
 
       await writeFile(targetPath, input.content, 'utf8');
+      publishWorkspaceInspectionChange?.(input.taskId);
 
       return {
         relativePath,

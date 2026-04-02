@@ -23,6 +23,7 @@ export const taskChannels = {
 
 export const workspaceChannels = {
   commitAll: 'workspaces:commitAll',
+  event: 'workspaces:event',
   getDiff: 'workspaces:getDiff',
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',

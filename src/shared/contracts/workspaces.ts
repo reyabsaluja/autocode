@@ -39,10 +39,16 @@ export const workspaceCollectionSyncSchema = z.object({
   taskWorkspace: taskWorkspaceSchema
 });
 
+export const workspaceInspectionEventSchema = z.object({
+  taskId: taskIdSchema,
+  type: z.literal('inspectionChanged')
+});
+
 export const workspaceChangesObservationSchema = workspaceCollectionSyncSchema.extend({
   didHealthChange: z.boolean()
 });
 
+export const workspaceInspectionEventResultSchema = workspaceInspectionEventSchema;
 export const workspaceDirectoryResultSchema = workspaceDirectorySnapshotSchema;
 export const workspaceChangesResultSchema = z.object({
   changes: z.array(workspaceChangeSchema),
@@ -60,6 +66,7 @@ export type WorkspaceChangesInput = z.infer<typeof workspaceChangesInputSchema>;
 export type WorkspaceDiffInput = z.infer<typeof workspaceDiffInputSchema>;
 export type WorkspaceCommitInput = z.infer<typeof workspaceCommitInputSchema>;
 export type WorkspaceCollectionSync = z.infer<typeof workspaceCollectionSyncSchema>;
+export type WorkspaceInspectionEvent = z.infer<typeof workspaceInspectionEventSchema>;
 export type WorkspaceChangesObservation = z.infer<typeof workspaceChangesObservationSchema>;
 export type WorkspaceDirectoryResult = z.infer<typeof workspaceDirectoryResultSchema>;
 export type WorkspaceChangesResult = z.infer<typeof workspaceChangesResultSchema>;

@@ -28,7 +28,8 @@ import type {
   WorkspaceDiffInput,
   WorkspaceDiffResult,
   WorkspaceDirectoryInput,
-  WorkspaceDirectoryResult
+  WorkspaceDirectoryResult,
+  WorkspaceInspectionEvent
 } from './workspaces';
 import type {
   WorkspaceFileReadInput,
@@ -73,5 +74,9 @@ export interface AutocodeApi {
     commitAll: (input: WorkspaceCommitInput) => Promise<WorkspaceCommitResult>;
     readFile: (input: WorkspaceFileReadInput) => Promise<WorkspaceFileReadResult>;
     writeFile: (input: WorkspaceFileWriteInput) => Promise<WorkspaceFileWriteResult>;
+    subscribeInspection: (
+      taskId: number,
+      callback: (event: WorkspaceInspectionEvent) => void
+    ) => () => void;
   };
 }

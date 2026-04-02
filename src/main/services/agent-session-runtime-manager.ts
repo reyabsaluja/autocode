@@ -47,16 +47,20 @@ interface StartAgentSessionRuntimeInput {
 type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 
 const ACTIVE_AGENT_SESSION_STATUSES = new Set(['starting', 'running']);
+const WORKSPACE_INSPECTION_REFRESH_THROTTLE_MS = 1_000;
 
 export function createAgentSessionRuntimeManager({
   agentSessionRepository,
-  publishEvent
+  publishEvent,
+  publishWorkspaceInspectionChange
 }: {
   agentSessionRepository: ReturnType<typeof createAgentSessionRepository>;
   publishEvent: AgentSessionEventPublisher;
+  publishWorkspaceInspectionChange?: (taskId: number) => void;
 }) {
   const runtimes = new Map<number, AgentSessionRuntime>();
   const sessionQueues = new Map<number, Promise<unknown>>();
+  const workspaceInspectionRefreshTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
   return {
     deleteSession,
@@ -231,6 +235,7 @@ export function createAgentSessionRuntimeManager({
         sessionId,
         type: 'entries'
       });
+      scheduleWorkspaceInspectionRefresh(sessionId);
     });
   }
 
@@ -374,6 +379,7 @@ export function createAgentSessionRuntimeManager({
     });
 
     runtimes.delete(sessionId);
+    flushWorkspaceInspectionRefresh(currentSession.taskId);
     return session;
   }
 
@@ -413,6 +419,7 @@ export function createAgentSessionRuntimeManager({
         sessionId,
         type: 'entries'
       });
+      scheduleWorkspaceInspectionRefresh(sessionId);
     } catch (error) {
       await failRuntimeSession(sessionId, error);
     }
@@ -468,5 +475,39 @@ export function createAgentSessionRuntimeManager({
         sessionQueues.delete(sessionId);
       }
     }
+  }
+
+  function scheduleWorkspaceInspectionRefresh(sessionId: number): void {
+    if (!publishWorkspaceInspectionChange) {
+      return;
+    }
+
+    const session = agentSessionRepository.findById(sessionId);
+
+    if (!session || workspaceInspectionRefreshTimers.has(session.taskId)) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      workspaceInspectionRefreshTimers.delete(session.taskId);
+      publishWorkspaceInspectionChange(session.taskId);
+    }, WORKSPACE_INSPECTION_REFRESH_THROTTLE_MS);
+
+    workspaceInspectionRefreshTimers.set(session.taskId, timeout);
+  }
+
+  function flushWorkspaceInspectionRefresh(taskId: number): void {
+    if (!publishWorkspaceInspectionChange) {
+      return;
+    }
+
+    const timeout = workspaceInspectionRefreshTimers.get(taskId);
+
+    if (timeout) {
+      clearTimeout(timeout);
+      workspaceInspectionRefreshTimers.delete(taskId);
+    }
+
+    publishWorkspaceInspectionChange(taskId);
   }
 }

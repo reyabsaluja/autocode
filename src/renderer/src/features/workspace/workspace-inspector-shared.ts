@@ -1,8 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
-
 import type { AgentProvider, AgentSessionStatus } from '@shared/domain/agent-session';
-
-import { queryKeys } from '../../lib/query-keys';
 
 export interface WorkspaceFileTab {
   mode: 'diff' | 'editor';
@@ -18,7 +14,6 @@ export interface WorkspaceCenterTransitionRequest {
 }
 
 export const TERMINAL_TAB_ID = '__terminal__';
-export const ACTIVE_WORKSPACE_REFRESH_INTERVAL_MS = 2_000;
 export const DEFAULT_TERMINAL_SIZE = {
   cols: 120,
   rows: 30
@@ -57,15 +52,4 @@ export function isActiveSessionStatus(
   status: AgentSessionStatus | undefined
 ): status is 'starting' | 'running' {
   return status === 'starting' || status === 'running';
-}
-
-export async function refreshWorkspaceInspectionQueries(
-  queryClient: ReturnType<typeof useQueryClient>,
-  taskId: number
-) {
-  await Promise.all([
-    queryClient.invalidateQueries({ queryKey: queryKeys.workspaceChanges(taskId) }),
-    queryClient.invalidateQueries({ queryKey: ['workspace', taskId, 'directory'] }),
-    queryClient.invalidateQueries({ queryKey: ['workspace', taskId, 'diff'] })
-  ]);
 }

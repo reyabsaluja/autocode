@@ -9,7 +9,7 @@ import { registerAgentSessionHandlers } from './ipc/register-agent-session-handl
 import { registerProjectHandlers } from './ipc/register-project-handlers';
 import { registerTaskHandlers } from './ipc/register-task-handlers';
 import { registerWorkspaceHandlers } from './ipc/register-workspace-handlers';
-import { agentSessionChannels } from '../shared/ipc/channels';
+import { agentSessionChannels, workspaceChannels } from '../shared/ipc/channels';
 import { createAgentSessionService } from './services/agent-session-service';
 import { createProjectService } from './services/project-service';
 import { createWorkspaceFileService } from './services/workspace-file-service';
@@ -55,16 +55,26 @@ function createMainWindow(): BrowserWindow {
 async function bootstrap(): Promise<void> {
   const { db } = getDatabaseContext();
   const projectService = createProjectService(db);
+  const publishWorkspaceInspectionChange = (taskId: number) => {
+    const event = {
+      taskId,
+      type: 'inspectionChanged' as const
+    };
+
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(workspaceChannels.event, event);
+    }
+  };
   const agentSessionService = createAgentSessionService(db, (event) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(agentSessionChannels.event, event);
     }
-  });
+  }, publishWorkspaceInspectionChange);
   const taskService = createTaskService(db, {
     deleteByTask: agentSessionService.deleteByTask
   });
-  const workspaceService = createWorkspaceService(db);
-  const workspaceFileService = createWorkspaceFileService(db);
+  const workspaceService = createWorkspaceService(db, publishWorkspaceInspectionChange);
+  const workspaceFileService = createWorkspaceFileService(db, publishWorkspaceInspectionChange);
 
   await taskService.reconcileProvisioningTaskWorkspaces();
   await agentSessionService.reconcileInterruptedSessions();

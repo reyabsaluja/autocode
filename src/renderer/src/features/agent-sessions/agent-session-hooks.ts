@@ -19,9 +19,9 @@ export function useAgentSessionsQuery(taskId: number | null) {
     enabled: taskId !== null,
     queryFn: () => autocodeApi.agentSessions.listByTask({ taskId: taskId! }),
     queryKey: taskId !== null ? queryKeys.agentSessions(taskId) : ['agent-sessions', 'idle'],
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    staleTime: 0
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity
   });
 }
 
@@ -157,7 +157,7 @@ export function useAgentSessionTranscriptTailQuery(sessionId: number | null, ena
       sessionId !== null
         ? queryKeys.agentSessionTranscript(sessionId)
         : ['agent-sessions', 'idle', 'transcript'],
-    refetchOnMount: 'always',
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });

@@ -13,7 +13,8 @@ import {
 import { queryKeys } from '../../lib/query-keys';
 import {
   useCommitWorkspaceMutation,
-  useWorkspaceChangesQuery
+  useWorkspaceChangesQuery,
+  useWorkspaceInspectionStream
 } from './workspace-hooks';
 
 interface UseWorkspaceFileEditorControllerInput {
@@ -26,6 +27,7 @@ export function useWorkspaceFileEditorController({
   taskId
 }: UseWorkspaceFileEditorControllerInput) {
   const queryClient = useQueryClient();
+  useWorkspaceInspectionStream(taskId);
   const changesQuery = useWorkspaceChangesQuery(taskId);
   const commitMutation = useCommitWorkspaceMutation(taskId);
   const { dialogProps, requestTransition } = useUnsavedChangesGuard(editorRef);
