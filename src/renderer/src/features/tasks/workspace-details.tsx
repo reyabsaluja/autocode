@@ -42,6 +42,9 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   const mergeTaskMutation = useMergeTaskIntoWorkspaceMutation(taskId);
   const currentTask = taskWorkspace?.task ?? null;
   const currentWorktree = taskWorkspace?.worktree ?? null;
+  const workspaceLabel = currentWorktree
+    ? formatWorkspaceBranchLabel(currentWorktree.branchName)
+    : currentTask?.title ?? null;
   const baseRef = currentWorktree?.baseRef ?? project?.defaultBranch ?? null;
   const baseTaskWorkspace = useMemo(
     () =>
@@ -188,7 +191,12 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   return (
     <section className="flex h-full flex-col animate-fade-in">
       <header className="flex h-[38px] shrink-0 items-center border-b border-white/[0.06] bg-[#141414] px-4">
-        <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">{task.title}</p>
+        <div className="min-w-0 flex items-center gap-2">
+          {worktree ? <GitBranch className="h-3.5 w-3.5 shrink-0 text-white/30" /> : null}
+          <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">
+            {workspaceLabel}
+          </p>
+        </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
           <button
@@ -223,9 +231,6 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
             Integrate
           </button>
           <HeaderBadge icon={<FolderGit2 className="h-3 w-3" />} value={project.name} />
-          {worktree ? (
-            <HeaderBadge icon={<GitBranch className="h-3 w-3" />} value={worktree.branchName} />
-          ) : null}
           {baseLabel ? (
             <HeaderBadge value={`Based on ${baseLabel}`} />
           ) : null}
@@ -304,4 +309,8 @@ function HeaderBadge({
       <span className="max-w-[140px] truncate">{value}</span>
     </span>
   );
+}
+
+function formatWorkspaceBranchLabel(branchName: string): string {
+  return branchName.replace(/^autocode\/task-\d+-/, 'autocode/');
 }

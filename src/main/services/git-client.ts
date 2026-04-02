@@ -62,24 +62,23 @@ export async function gitRefExists(gitRoot: string, ref: string): Promise<boolea
 }
 
 export async function listRegisteredWorktrees(gitRoot: string): Promise<Set<string>> {
-  const output = await execGit(['worktree', 'list', '--porcelain'], gitRoot);
-  const worktreePaths = new Set<string>();
+  const records = await listRegisteredWorktreeRecords(gitRoot);
+  return new Set(records.map((record) => record.path));
+}
 
-  for (const line of output.split('\n')) {
-    if (!line.startsWith('worktree ')) {
+export async function listRegisteredWorktreeBranchPaths(gitRoot: string): Promise<Map<string, string>> {
+  const records = await listRegisteredWorktreeRecords(gitRoot);
+  const branchPaths = new Map<string, string>();
+
+  for (const record of records) {
+    if (!record.branchName) {
       continue;
     }
 
-    const worktreePath = line.slice('worktree '.length);
-
-    try {
-      worktreePaths.add(await realpath(worktreePath));
-    } catch {
-      worktreePaths.add(path.resolve(worktreePath));
-    }
+    branchPaths.set(record.branchName, record.path);
   }
 
-  return worktreePaths;
+  return branchPaths;
 }
 
 export async function resolveGitBranchPublishStatus(
@@ -196,6 +195,54 @@ async function tryExecGit(args: string[], gitRoot: string): Promise<string | nul
     return await execGit(args, gitRoot);
   } catch {
     return null;
+  }
+}
+
+async function listRegisteredWorktreeRecords(
+  gitRoot: string
+): Promise<Array<{ branchName: string | null; path: string }>> {
+  const output = await execGit(['worktree', 'list', '--porcelain'], gitRoot);
+  const records: Array<{ branchName: string | null; path: string }> = [];
+  let currentPath: string | null = null;
+  let currentBranchName: string | null = null;
+
+  for (const line of output.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      if (currentPath) {
+        records.push({
+          branchName: currentBranchName,
+          path: currentPath
+        });
+      }
+
+      currentPath = await resolveRegisteredWorktreePath(line.slice('worktree '.length));
+      currentBranchName = null;
+      continue;
+    }
+
+    if (line.startsWith('branch ') && currentPath) {
+      currentBranchName = line
+        .slice('branch '.length)
+        .replace(/^refs\/heads\//, '')
+        .trim();
+    }
+  }
+
+  if (currentPath) {
+    records.push({
+      branchName: currentBranchName,
+      path: currentPath
+    });
+  }
+
+  return records;
+}
+
+async function resolveRegisteredWorktreePath(worktreePath: string): Promise<string> {
+  try {
+    return await realpath(worktreePath);
+  } catch {
+    return path.resolve(worktreePath);
   }
 }
 

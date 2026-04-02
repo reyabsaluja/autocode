@@ -5,7 +5,12 @@ import { rm } from 'node:fs/promises';
 import type { Project } from '../../shared/domain/project';
 import type { Task } from '../../shared/domain/task';
 import { resolveAutocodeWorktreesRoot } from '../database/paths';
-import { execGit, gitRefExists, listRegisteredWorktrees } from './git-client';
+import {
+  execGit,
+  gitRefExists,
+  listRegisteredWorktreeBranchPaths,
+  listRegisteredWorktrees
+} from './git-client';
 
 interface CreateTaskWorktreeInput {
   plannedWorktree?: TaskWorktreePlan;
@@ -91,8 +96,10 @@ async function ensureTaskWorktree(
   project: Project,
   worktreePlan: TaskWorktreePlan
 ): Promise<ProvisionedWorktree> {
-  const { branchName, worktreePath } = worktreePlan;
+  let branchName = worktreePlan.branchName;
+  const { worktreePath } = worktreePlan;
   const registeredWorktrees = await listRegisteredWorktrees(project.gitRoot);
+  const registeredBranchPaths = await listRegisteredWorktreeBranchPaths(project.gitRoot);
 
   mkdirSync(path.dirname(worktreePath), { recursive: true });
 
@@ -109,7 +116,15 @@ async function ensureTaskWorktree(
   }
 
   if (await gitRefExists(project.gitRoot, branchName)) {
-    await execGit(['worktree', 'add', worktreePath, branchName], project.gitRoot);
+    const registeredBranchPath = registeredBranchPaths.get(branchName);
+
+    if (registeredBranchPath && registeredBranchPath !== worktreePath) {
+      branchName = await resolveAvailableBranchName(project.gitRoot, branchName);
+      const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
+      await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
+    } else {
+      await execGit(['worktree', 'add', worktreePath, branchName], project.gitRoot);
+    }
   } else {
     const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
     await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
@@ -143,7 +158,20 @@ function resolveTaskWorktreePath(projectId: number, taskId: number, title: strin
 }
 
 function createTaskBranchName(taskId: number, title: string): string {
-  return `autocode/task-${taskId}-${slugify(title)}`;
+  void taskId;
+  return `autocode/${slugify(title)}`;
+}
+
+async function resolveAvailableBranchName(gitRoot: string, branchName: string): Promise<string> {
+  let suffix = 2;
+  let candidate = `${branchName}-${suffix}`;
+
+  while (await gitRefExists(gitRoot, candidate)) {
+    suffix += 1;
+    candidate = `${branchName}-${suffix}`;
+  }
+
+  return candidate;
 }
 
 function slugify(value: string): string {

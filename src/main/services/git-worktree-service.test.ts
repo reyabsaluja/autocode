@@ -39,12 +39,18 @@ describe('git worktree service cleanup', () => {
           repoPath: missingGitRoot,
           updatedAt: '2026-04-02T12:00:00.000Z'
         },
-        'autocode/task-1-demo',
+        'autocode/demo',
         worktreePath
       )
     ).resolves.toBeUndefined();
 
     expect(existsSync(path.join(worktreePath, 'notes.txt'))).toBe(false);
     expect(existsSync(worktreePath)).toBe(false);
+  });
+
+  test('plans clean branch names from the task title', () => {
+    const gitWorktreeService = createGitWorktreeService();
+
+    expect(gitWorktreeService.planTaskWorktree(1, 15, 'Task C').branchName).toBe('autocode/task-c');
   });
 });
