@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
   ArrowDown,
@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   FileCode2,
+  Plus,
   RotateCcw,
   Settings,
   Terminal,
@@ -56,37 +57,87 @@ export function WorkspaceCenterTabBar({
     () => providers.filter((entry) => entry.visible),
     [providers]
   );
+  const [isNewTabMenuOpen, setIsNewTabMenuOpen] = useState(false);
+
+  const handleNewTabSelect = useCallback((provider: AgentProvider) => {
+    setIsNewTabMenuOpen(false);
+    onRequestStartSession(provider);
+  }, [onRequestStartSession]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === 't') {
+        event.preventDefault();
+        setIsNewTabMenuOpen((open) => !open);
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
-    <div className="flex h-[42px] shrink-0 items-stretch gap-0 border-b border-white/[0.06] bg-[#141414]">
-      {sessions.map((session) => {
-        const providerIndex = getProviderSessionIndex(sessions, session);
-        const fallbackLabel = `${getProviderDisplayName(session.provider)} ${providerIndex}`;
-        const dynamicLabel = sessionLabels[session.id];
-        return (
-          <CenterTab
-            closeLabel={`Delete ${fallbackLabel}`}
-            icon={(
-              <SessionProviderIcon
-                provider={session.provider}
-                isActive={isActiveSessionStatus(session.status)}
-              />
-            )}
-            isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
-            key={session.id}
-            label={dynamicLabel ?? fallbackLabel}
-            onClick={() => {
-              onRequestSessionSelection(session.id);
-            }}
-            onClose={() => {
-              onDeleteSession(session.id);
-            }}
-          />
-        );
-      })}
+    <div className="shrink-0 bg-[#141414]">
+      <div className="flex h-[42px] items-stretch gap-0 border-b border-white/[0.06]">
+        {sessions.map((session) => {
+          const providerIndex = getProviderSessionIndex(sessions, session);
+          const fallbackLabel = `${getProviderDisplayName(session.provider)} ${providerIndex}`;
+          const dynamicLabel = sessionLabels[session.id];
+          return (
+            <CenterTab
+              closeLabel={`Delete ${fallbackLabel}`}
+              icon={(
+                <SessionProviderIcon
+                  provider={session.provider}
+                  isActive={isActiveSessionStatus(session.status)}
+                />
+              )}
+              isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
+              key={session.id}
+              label={dynamicLabel ?? fallbackLabel}
+              onClick={() => {
+                onRequestSessionSelection(session.id);
+              }}
+              onClose={() => {
+                onDeleteSession(session.id);
+              }}
+            />
+          );
+        })}
 
-      <div className="flex items-center gap-1.5 px-3">
-        <div className="h-4 w-px bg-white/[0.08]" />
+        {fileTabs.length > 0 ? (
+          <div className="flex items-center gap-0">
+            {sessions.length > 0 ? <div className="mx-1.5 h-4 w-px bg-white/[0.08]" /> : null}
+            {fileTabs.map((tab) => (
+              <CenterTab
+                closeLabel={`Close ${tab.path}`}
+                icon={<FileCode2 className="h-3.5 w-3.5" />}
+                isActive={activeCenterTab === tab.path}
+                key={tab.path}
+                label={basename(tab.path)}
+                onClick={() => {
+                  onRequestFileTabActivation(tab.path);
+                }}
+                onClose={() => {
+                  onCloseFileTab(tab.path);
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        <NewTabButton
+          disabled={startSessionPending}
+          isOpen={isNewTabMenuOpen}
+          onClose={() => setIsNewTabMenuOpen(false)}
+          onSelect={handleNewTabSelect}
+          onToggle={() => setIsNewTabMenuOpen((open) => !open)}
+          visibleProviders={visibleProviders}
+        />
+      </div>
+
+      <div className="flex h-[32px] items-center gap-1 border-b border-white/[0.06] px-2">
+        <ProviderSettingsButton />
 
         {visibleProviders.map((entry) => (
           <QuickLaunchButton
@@ -96,30 +147,7 @@ export function WorkspaceCenterTabBar({
             onClick={() => onRequestStartSession(entry.id)}
           />
         ))}
-
-        <ProviderSettingsButton />
       </div>
-
-      {fileTabs.length > 0 ? (
-        <div className="flex items-center gap-0">
-          <div className="mx-1.5 h-4 w-px bg-white/[0.08]" />
-          {fileTabs.map((tab) => (
-            <CenterTab
-              closeLabel={`Close ${tab.path}`}
-              icon={<FileCode2 className="h-3.5 w-3.5" />}
-              isActive={activeCenterTab === tab.path}
-              key={tab.path}
-              label={basename(tab.path)}
-              onClick={() => {
-                onRequestFileTabActivation(tab.path);
-              }}
-              onClose={() => {
-                onCloseFileTab(tab.path);
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -136,10 +164,10 @@ function QuickLaunchButton({
   return (
     <button
       className={clsx(
-        'flex h-7 min-h-7 max-h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-dashed px-2 font-geist text-[11px] font-medium leading-none transition',
+        'flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-2 font-geist text-[11px] font-medium leading-none transition',
         disabled
-          ? 'border-white/[0.06] text-white/15'
-          : 'border-white/[0.12] text-white/40 hover:border-white/[0.20] hover:bg-white/[0.06] hover:text-white/70'
+          ? 'text-white/15'
+          : 'text-white/40 hover:bg-white/[0.06] hover:text-white/70'
       )}
       disabled={disabled}
       onClick={onClick}
@@ -198,7 +226,7 @@ function ProviderSettingsPopover() {
   const resetToDefaults = useProviderPreferencesStore((state) => state.resetToDefaults);
 
   return (
-    <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-xl">
+    <div className="absolute left-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-xl">
       <div className="flex items-center justify-between border-b border-white/[0.08] px-3 py-2">
         <span className="font-geist text-[11px] font-semibold uppercase tracking-[0.08em] text-white/40">
           Providers
@@ -322,6 +350,85 @@ function CenterTab({
         >
           <X className="h-3 w-3" />
         </button>
+      ) : null}
+    </div>
+  );
+}
+
+function NewTabButton({
+  disabled,
+  isOpen,
+  onClose,
+  onSelect,
+  onToggle,
+  visibleProviders
+}: {
+  disabled: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (provider: AgentProvider) => void;
+  onToggle: () => void;
+  visibleProviders: Array<{ id: AgentProvider; visible: boolean }>;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, onClose]);
+
+  return (
+    <div className="relative flex items-center px-1" ref={containerRef}>
+      <button
+        className={clsx(
+          'grid h-6 w-6 place-items-center rounded transition',
+          isOpen
+            ? 'bg-white/[0.10] text-white/60'
+            : 'text-white/25 hover:bg-white/[0.06] hover:text-white/50'
+        )}
+        disabled={disabled}
+        onClick={onToggle}
+        title="New tab (⌘T)"
+        type="button"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+      {isOpen ? (
+        <div className="absolute left-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-2xl">
+          <div className="py-1">
+            {visibleProviders.map((entry) => (
+              <button
+                key={entry.id}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition hover:bg-white/[0.06]"
+                onClick={() => onSelect(entry.id)}
+                type="button"
+              >
+                <ProviderIcon provider={entry.id} />
+                <span className="font-geist text-[12px] font-medium text-white/70">
+                  {getProviderDisplayName(entry.id)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
     </div>
   );
