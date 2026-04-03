@@ -20,6 +20,7 @@ type WorkspaceInspectorComponent = typeof import('../workspace/workspace-inspect
 
 interface WorkspaceDetailsProps {
   isForkingTask: boolean;
+  isSidebarOpen: boolean;
   isLoadingTasks: boolean;
   onForkTaskWorkspace: () => Promise<unknown>;
   onRequestTaskSelection: (taskId: number) => void;
@@ -30,6 +31,7 @@ interface WorkspaceDetailsProps {
 
 export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetailsProps>(function WorkspaceDetails({
   isForkingTask,
+  isSidebarOpen,
   isLoadingTasks,
   onForkTaskWorkspace,
   onRequestTaskSelection,
@@ -200,7 +202,10 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   return (
     <section className="flex h-full flex-col animate-fade-in">
-      <header className="flex h-[38px] shrink-0 items-center border-b border-white/[0.06] bg-[#141414] px-4">
+      <header className={clsx(
+        'flex h-[38px] shrink-0 items-center border-b border-white/[0.06] bg-[#141414] pr-4',
+        isSidebarOpen ? 'pl-4' : 'pl-[116px]'
+      )}>
         <div className="min-w-0 flex items-center gap-1.5">
           {worktree ? <GitBranch className="h-3.5 w-3.5 shrink-0 text-white/30" /> : null}
           <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">
