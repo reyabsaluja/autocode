@@ -27,6 +27,7 @@ export const workspaceChannels = {
   getDiff: 'workspaces:getDiff',
   getPublishStatus: 'workspaces:getPublishStatus',
   integrateBase: 'workspaces:integrateBase',
+  listBranches: 'workspaces:listBranches',
   openPullRequest: 'workspaces:openPullRequest',
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',
@@ -34,5 +35,6 @@ export const workspaceChannels = {
   listDirectory: 'workspaces:listDirectory',
   mergeTask: 'workspaces:mergeTask',
   pushBranch: 'workspaces:pushBranch',
+  updateBaseRef: 'workspaces:updateBaseRef',
   writeFile: 'workspaces:writeFile'
 } as const;

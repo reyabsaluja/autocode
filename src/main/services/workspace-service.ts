@@ -28,6 +28,7 @@ import type { TaskStatus } from '../../shared/domain/task';
 import type { AppDatabase } from '../database/client';
 import {
   execGit,
+  listGitBranches,
   pushGitBranch,
   resolveGitBranchPublishStatus
 } from './git-client';
@@ -334,6 +335,17 @@ export function createWorkspaceService(
         timestamp: new Date().toISOString(),
         worktreePath: targetContext.worktreePath
       });
+    },
+
+    async listBranches(taskId: number): Promise<string[]> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(taskId);
+      return listGitBranches(context.project.gitRoot);
+    },
+
+    async updateBaseRef(taskId: number, baseRef: string): Promise<void> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(taskId);
+      taskWorkspaceRepository.updateWorktreeBaseRef(context.task.id, baseRef, new Date().toISOString());
+      publishWorkspaceInspectionChange?.(taskId);
     },
 
     async openPullRequest(input: WorkspaceOpenPullRequestInput): Promise<void> {

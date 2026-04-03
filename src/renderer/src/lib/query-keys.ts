@@ -16,6 +16,7 @@ export const queryKeys = {
   ) => ['workspace', taskId, 'diff', relativePath, change?.status ?? null, change?.previousPath ?? null] as const,
   workspaceDirectory: (taskId: number, relativePath: string) =>
     ['workspace', taskId, 'directory', relativePath] as const,
+  workspaceBranches: (taskId: number) => ['workspace', taskId, 'branches'] as const,
   workspaceFile: (taskId: number, relativePath: string) =>
     ['workspace', taskId, 'file', relativePath] as const
 };

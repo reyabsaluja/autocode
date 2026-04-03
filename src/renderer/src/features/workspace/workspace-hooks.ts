@@ -388,3 +388,28 @@ function compareTaskWorkspacesByUpdatedAt(left: TaskWorkspace, right: TaskWorksp
 function compareProjectsByUpdatedAt(left: Project, right: Project) {
   return right.updatedAt.localeCompare(left.updatedAt);
 }
+
+export function useWorkspaceBranchesQuery(taskId: number | null) {
+  return useQuery({
+    enabled: taskId !== null,
+    queryKey: taskId !== null ? queryKeys.workspaceBranches(taskId) : ['workspace', 'idle', 'branches'],
+    queryFn: () => autocodeApi.workspaces.listBranches({ taskId: taskId! }),
+    staleTime: 30_000
+  });
+}
+
+export function useUpdateBaseRefMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (baseRef: string) => {
+      if (taskId === null) throw new Error('No active task');
+      return autocodeApi.workspaces.updateBaseRef({ taskId, baseRef });
+    },
+    onSuccess: async () => {
+      if (taskId !== null) {
+        await invalidateWorkspaceCollectionsForTask(queryClient, taskId);
+      }
+    }
+  });
+}

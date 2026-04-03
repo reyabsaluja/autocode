@@ -31,6 +31,8 @@ import type {
   WorkspaceDirectoryResult,
   WorkspaceIntegrateBaseInput,
   WorkspaceIntegrationResult,
+  WorkspaceListBranchesInput,
+  WorkspaceListBranchesResult,
   WorkspaceMergeTaskInput,
   WorkspaceOpenPullRequestInput,
   WorkspaceOpenPullRequestResult,
@@ -40,6 +42,8 @@ import type {
   WorkspacePushResult,
   WorkspaceRecentCommitsInput,
   WorkspaceRecentCommitsResult,
+  WorkspaceUpdateBaseRefInput,
+  WorkspaceUpdateBaseRefResult,
   WorkspaceInspectionEvent
 } from './workspaces';
 import type {
@@ -89,7 +93,9 @@ export interface AutocodeApi {
       input: WorkspaceCreatePullRequestInput
     ) => Promise<WorkspaceCreatePullRequestResult>;
     integrateBase: (input: WorkspaceIntegrateBaseInput) => Promise<WorkspaceIntegrationResult>;
+    listBranches: (input: WorkspaceListBranchesInput) => Promise<WorkspaceListBranchesResult>;
     mergeTask: (input: WorkspaceMergeTaskInput) => Promise<WorkspaceIntegrationResult>;
+    updateBaseRef: (input: WorkspaceUpdateBaseRefInput) => Promise<WorkspaceUpdateBaseRefResult>;
     openPullRequest: (input: WorkspaceOpenPullRequestInput) => Promise<WorkspaceOpenPullRequestResult>;
     readFile: (input: WorkspaceFileReadInput) => Promise<WorkspaceFileReadResult>;
     writeFile: (input: WorkspaceFileWriteInput) => Promise<WorkspaceFileWriteResult>;

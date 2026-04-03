@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, FolderGit2, GitBranch, GitMerge, Loader2 } from 'lucide-react';
+import clsx from 'clsx';
+import { AlertTriangle, Check, ChevronDown, ChevronRight, FolderGit2, GitBranch, GitMerge, Loader2, Search } from 'lucide-react';
 
 import type { Project } from '@shared/domain/project';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
@@ -7,7 +8,12 @@ import type { TaskWorkspace } from '@shared/domain/task-workspace';
 import type { WorkspaceEditorHandle } from '../editor/workspace-editor-surface';
 import { UnsavedChangesDialog } from '../editor/unsaved-changes-dialog';
 import { useUnsavedChangesGuard } from '../editor/use-unsaved-changes-guard';
-import { useIntegrateBaseMutation, useMergeTaskIntoWorkspaceMutation } from '../workspace/workspace-hooks';
+import {
+  useIntegrateBaseMutation,
+  useMergeTaskIntoWorkspaceMutation,
+  useUpdateBaseRefMutation,
+  useWorkspaceBranchesQuery
+} from '../workspace/workspace-hooks';
 import { WorkspaceIntegrateDialog } from '../workspace/workspace-integrate-dialog';
 
 type WorkspaceInspectorComponent = typeof import('../workspace/workspace-inspector')['WorkspaceInspector'];
@@ -40,12 +46,15 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   const taskId = taskWorkspace?.task.id ?? null;
   const integrateBaseMutation = useIntegrateBaseMutation(taskId);
   const mergeTaskMutation = useMergeTaskIntoWorkspaceMutation(taskId);
+  const updateBaseRefMutation = useUpdateBaseRefMutation(taskId);
+  const branchesQuery = useWorkspaceBranchesQuery(taskId);
   const currentTask = taskWorkspace?.task ?? null;
   const currentWorktree = taskWorkspace?.worktree ?? null;
-  const workspaceLabel = currentWorktree
+  const currentBranchLabel = currentWorktree
     ? formatWorkspaceBranchLabel(currentWorktree.branchName)
-    : currentTask?.title ?? null;
+    : null;
   const baseRef = currentWorktree?.baseRef ?? project?.defaultBranch ?? null;
+  const [isBranchPickerOpen, setIsBranchPickerOpen] = useState(false);
   const baseTaskWorkspace = useMemo(
     () =>
       baseRef && currentTask
@@ -111,6 +120,7 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   useEffect(() => {
     setIsIntegrateDialogOpen(false);
+    setIsBranchPickerOpen(false);
     setIntegrationNotice(null);
     integrateBaseMutation.reset();
     mergeTaskMutation.reset();
@@ -191,11 +201,38 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   return (
     <section className="flex h-full flex-col animate-fade-in">
       <header className="flex h-[38px] shrink-0 items-center border-b border-white/[0.06] bg-[#141414] px-4">
-        <div className="min-w-0 flex items-center gap-2">
+        <div className="min-w-0 flex items-center gap-1.5">
           {worktree ? <GitBranch className="h-3.5 w-3.5 shrink-0 text-white/30" /> : null}
           <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">
-            {workspaceLabel}
+            {currentBranchLabel ?? task.title}
           </p>
+          {baseRef ? (
+            <>
+              <ChevronRight className="h-3 w-3 shrink-0 text-white/25" />
+              <div className="relative">
+                <button
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 font-geist text-[13px] text-white/50 transition hover:bg-white/[0.08] hover:text-white/80"
+                  onClick={() => setIsBranchPickerOpen((open) => !open)}
+                  type="button"
+                >
+                  {baseLabel ?? baseRef}
+                  <ChevronDown className="h-3 w-3 text-white/30" />
+                </button>
+                {isBranchPickerOpen ? (
+                  <BranchPicker
+                    branches={branchesQuery.data ?? []}
+                    currentBaseRef={baseRef}
+                    isLoading={branchesQuery.isLoading}
+                    onClose={() => setIsBranchPickerOpen(false)}
+                    onSelect={(branch) => {
+                      updateBaseRefMutation.mutate(branch);
+                      setIsBranchPickerOpen(false);
+                    }}
+                  />
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
@@ -231,9 +268,6 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
             Integrate
           </button>
           <HeaderBadge icon={<FolderGit2 className="h-3 w-3" />} value={project.name} />
-          {baseLabel ? (
-            <HeaderBadge value={`Based on ${baseLabel}`} />
-          ) : null}
         </div>
       </header>
 
@@ -313,4 +347,101 @@ function HeaderBadge({
 
 function formatWorkspaceBranchLabel(branchName: string): string {
   return branchName.replace(/^autocode\/(?:task-\d+-)?/, 'autocode/');
+}
+
+interface BranchPickerProps {
+  branches: string[];
+  currentBaseRef: string;
+  isLoading: boolean;
+  onClose: () => void;
+  onSelect: (branch: string) => void;
+}
+
+function BranchPicker({ branches, currentBaseRef, isLoading, onClose, onSelect }: BranchPickerProps) {
+  const [filter, setFilter] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [onClose]);
+
+  const filtered = useMemo(() => {
+    if (!filter) return branches;
+    const lower = filter.toLowerCase();
+    return branches.filter((b) => b.toLowerCase().includes(lower));
+  }, [branches, filter]);
+
+  return (
+    <div
+      ref={dropdownRef}
+      className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-2xl"
+    >
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2">
+        <Search className="h-3.5 w-3.5 shrink-0 text-white/30" />
+        <input
+          ref={inputRef}
+          className="flex-1 bg-transparent font-geist text-[13px] text-white/80 placeholder-white/30 outline-none"
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Switch base branch\u2026"
+          type="text"
+          value={filter}
+        />
+      </div>
+      <div className="max-h-[240px] overflow-auto py-1">
+        {isLoading ? (
+          <div className="flex items-center gap-2 px-3 py-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-white/30" />
+            <span className="font-geist text-[12px] text-white/30">Loading branches\u2026</span>
+          </div>
+        ) : filtered.length === 0 ? (
+          <p className="px-3 py-2 font-geist text-[12px] text-white/30">No branches found</p>
+        ) : (
+          filtered.map((branch) => {
+            const isActive = branch === currentBaseRef;
+
+            return (
+              <button
+                key={branch}
+                className={clsx(
+                  'flex w-full items-center gap-2 px-3 py-1.5 text-left transition',
+                  isActive ? 'bg-white/[0.04]' : 'hover:bg-white/[0.06]'
+                )}
+                onClick={() => onSelect(branch)}
+                type="button"
+              >
+                <span className="w-4 shrink-0">
+                  {isActive ? <Check className="h-3.5 w-3.5 text-white/60" /> : null}
+                </span>
+                <span className="min-w-0 truncate font-geist text-[13px] text-white/70">
+                  {branch}
+                </span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 }

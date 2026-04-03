@@ -71,6 +71,33 @@ export async function resolveCheckedOutGitBranch(gitRoot: string): Promise<strin
   return branchName;
 }
 
+export async function listGitBranches(gitRoot: string): Promise<string[]> {
+  const output = await execGit(['branch', '-a', '--format=%(refname:short)'], gitRoot);
+
+  if (!output) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const branches: string[] = [];
+
+  for (const raw of output.split('\n')) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+
+    const normalized = trimmed.replace(/^origin\//, '');
+    if (normalized === 'HEAD') continue;
+
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      branches.push(normalized);
+    }
+  }
+
+  branches.sort((a, b) => a.localeCompare(b));
+  return branches;
+}
+
 export async function listRegisteredWorktrees(gitRoot: string): Promise<Set<string>> {
   const records = await listRegisteredWorktreeRecords(gitRoot);
   return new Set(records.map((record) => record.path));

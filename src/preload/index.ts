@@ -44,7 +44,11 @@ import {
   workspaceDirectoryResultSchema,
   workspaceIntegrateBaseInputSchema,
   workspaceIntegrationResultSchema,
+  workspaceListBranchesInputSchema,
+  workspaceListBranchesResultSchema,
   workspaceMergeTaskInputSchema,
+  workspaceUpdateBaseRefInputSchema,
+  workspaceUpdateBaseRefResultSchema,
   workspaceOpenPullRequestInputSchema,
   workspaceOpenPullRequestResultSchema,
   workspacePublishStatusInputSchema,
@@ -213,6 +217,12 @@ const api: AutocodeApi = {
         inputSchema: workspaceIntegrateBaseInputSchema,
         outputSchema: workspaceIntegrationResultSchema
       }),
+    listBranches: (input) =>
+      invokeValidatedIpc(workspaceChannels.listBranches, {
+        input,
+        inputSchema: workspaceListBranchesInputSchema,
+        outputSchema: workspaceListBranchesResultSchema
+      }),
     mergeTask: (input) =>
       invokeValidatedIpc(workspaceChannels.mergeTask, {
         input,
@@ -230,6 +240,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: workspaceFileReadInputSchema,
         outputSchema: workspaceFileReadResultSchema
+      }),
+    updateBaseRef: (input) =>
+      invokeValidatedIpc(workspaceChannels.updateBaseRef, {
+        input,
+        inputSchema: workspaceUpdateBaseRefInputSchema,
+        outputSchema: workspaceUpdateBaseRefResultSchema
       }),
     writeFile: (input) =>
       invokeValidatedIpc(workspaceChannels.writeFile, {

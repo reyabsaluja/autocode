@@ -427,6 +427,13 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
       });
     },
 
+    updateWorktreeBaseRef(taskId: number, baseRef: string, timestamp: string): void {
+      db.update(worktreesTable)
+        .set({ baseRef, updatedAt: timestamp })
+        .where(eq(worktreesTable.taskId, taskId))
+        .run();
+    },
+
     recordWorkspaceHealth(input: WorkspaceHealthInput): WorkspaceHealthRecordResult {
       return recordWorkspaceHealth(input);
     }

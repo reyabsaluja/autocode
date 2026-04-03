@@ -19,6 +19,9 @@ import {
   type WorkspaceIntegrateBaseInput,
   workspaceIntegrateBaseInputSchema,
   workspaceIntegrationResultSchema,
+  type WorkspaceListBranchesInput,
+  workspaceListBranchesInputSchema,
+  workspaceListBranchesResultSchema,
   type WorkspaceMergeTaskInput,
   workspaceMergeTaskInputSchema,
   type WorkspaceOpenPullRequestInput,
@@ -32,7 +35,10 @@ import {
   workspacePushResultSchema,
   type WorkspaceRecentCommitsInput,
   workspaceRecentCommitsInputSchema,
-  workspaceRecentCommitsResultSchema
+  workspaceRecentCommitsResultSchema,
+  type WorkspaceUpdateBaseRefInput,
+  workspaceUpdateBaseRefInputSchema,
+  workspaceUpdateBaseRefResultSchema
 } from '../../shared/contracts/workspaces';
 import {
   type WorkspaceFileReadInput,
@@ -108,6 +114,20 @@ export function registerWorkspaceHandlers(
       workspaceService.createPullRequest(input),
     inputSchema: workspaceCreatePullRequestInputSchema,
     outputSchema: workspaceCreatePullRequestResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.listBranches, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceListBranchesInput) =>
+      workspaceService.listBranches(input.taskId),
+    inputSchema: workspaceListBranchesInputSchema,
+    outputSchema: workspaceListBranchesResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.updateBaseRef, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceUpdateBaseRefInput) =>
+      workspaceService.updateBaseRef(input.taskId, input.baseRef),
+    inputSchema: workspaceUpdateBaseRefInputSchema,
+    outputSchema: workspaceUpdateBaseRefResultSchema
   });
 
   handleValidatedIpc(workspaceChannels.integrateBase, {
