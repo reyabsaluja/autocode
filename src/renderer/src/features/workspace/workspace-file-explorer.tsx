@@ -1,6 +1,7 @@
 import clsx from 'clsx';
-import { ChevronDown, ChevronRight, File, Folder, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 
+import { FileTypeIcon } from '../../lib/file-type-icon';
 import { useWorkspaceExplorerDirectoryQuery } from './workspace-hooks';
 
 interface WorkspaceFileExplorerProps {
@@ -91,7 +92,7 @@ function WorkspaceFileTreeNode({
           'flex w-full items-center gap-1.5 py-[5px] pr-3 text-left font-geist text-[12px] transition',
           isSelected
             ? 'bg-white/[0.10] text-white'
-            : 'text-white/60 hover:bg-white/[0.06] hover:text-white/90'
+            : 'text-white/75 hover:bg-white/[0.06] hover:text-white/90'
         )}
         onMouseDown={(event) => {
           event.preventDefault();
@@ -113,11 +114,8 @@ function WorkspaceFileTreeNode({
             <ChevronRight className="h-3 w-3 shrink-0 text-white/30" />
           )
         ) : (
-          <File className="h-3 w-3 shrink-0 text-white/30" />
+          <FileTypeIcon filename={entry.name} />
         )}
-        {isDirectory ? (
-          <Folder className="h-3 w-3 shrink-0 text-amber-400/60" />
-        ) : null}
         <span className={clsx(isDirectory && 'font-medium')}>{entry.name}</span>
       </button>
 
