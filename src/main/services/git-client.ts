@@ -138,12 +138,32 @@ export async function pushGitBranch(
     throw new Error('This repository does not have a Git remote configured for push.');
   }
 
-  if (input.upstreamBranch) {
-    await execGit(['push'], gitRoot);
-    return;
+  await execGit(resolvePushGitBranchArgs(input), gitRoot);
+}
+
+export function resolvePushGitBranchArgs(
+  input: Pick<WorkspacePublishStatus, 'branchName' | 'remoteName' | 'upstreamBranch'>
+): string[] {
+  if (!input.remoteName) {
+    throw new Error('This repository does not have a Git remote configured for push.');
   }
 
-  await execGit(['push', '--set-upstream', input.remoteName, input.branchName], gitRoot);
+  if (input.upstreamBranch) {
+    const remoteBranchName = resolveUpstreamRemoteBranchName(
+      input.remoteName,
+      input.upstreamBranch,
+      input.branchName
+    );
+
+    return ['push', input.remoteName, `${input.branchName}:refs/heads/${remoteBranchName}`];
+  }
+
+  return [
+    'push',
+    '--set-upstream',
+    input.remoteName,
+    `${input.branchName}:refs/heads/${input.branchName}`
+  ];
 }
 
 async function resolveGitRoot(candidatePath: string): Promise<string> {
@@ -331,6 +351,27 @@ function resolvePublishState(
   }
 
   return 'up_to_date';
+}
+
+function resolveUpstreamRemoteBranchName(
+  remoteName: string,
+  upstreamBranch: string,
+  fallbackBranchName: string
+): string {
+  const remotePrefix = `${remoteName}/`;
+
+  if (upstreamBranch.startsWith(remotePrefix)) {
+    return upstreamBranch.slice(remotePrefix.length) || fallbackBranchName;
+  }
+
+  const separatorIndex = upstreamBranch.indexOf('/');
+
+  if (separatorIndex >= 0) {
+    const branchName = upstreamBranch.slice(separatorIndex + 1);
+    return branchName || fallbackBranchName;
+  }
+
+  return upstreamBranch || fallbackBranchName;
 }
 
 function parseGitCount(value: string | undefined): number {
