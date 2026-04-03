@@ -122,7 +122,8 @@ export function useWorkspaceSessionController({
 
   useEffect(() => {
     createTaskMutation.reset();
-  }, [createTaskMutation, effectiveProjectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mutation objects are intentionally excluded; including them causes a reset loop because useMutation returns new object references.
+  }, [effectiveProjectId]);
 
   useEffect(() => {
     if (selectedProjectId !== null && effectiveProjectId === null) {
