@@ -268,7 +268,7 @@ export function createWorkspaceService(
 
     async createPullRequest(input: WorkspaceCreatePullRequestInput): Promise<WorkspaceReviewStatus> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
-      const baseBranch = resolveWorkspaceBaseRef(
+      const baseBranch = resolveWorkspacePullRequestBaseBranch(
         context.worktree.baseRef,
         context.project.defaultBranch
       );
@@ -641,7 +641,7 @@ async function resolveWorkspaceReviewStatus(
 ): Promise<WorkspaceReviewStatus> {
   const publish = await resolveWorkspacePublishStatus(worktreePath, worktree, defaultBranch);
   const pullRequest = await inspectWorkspacePullRequestStatus(worktreePath, {
-    baseBranch: resolveWorkspaceBaseRef(worktree.baseRef, defaultBranch),
+    baseBranch: resolveWorkspacePullRequestBaseBranch(worktree.baseRef, defaultBranch),
     branchName: worktree.branchName,
     publishStatus: publish
   });
@@ -711,6 +711,23 @@ function buildPullRequestBody(title: string, description: string | null): string
 
 export function resolveWorkspaceBaseRef(baseRef: string | null, defaultBranch: string | null): string | null {
   return baseRef ?? defaultBranch ?? null;
+}
+
+export function resolveWorkspacePullRequestBaseBranch(
+  baseRef: string | null,
+  defaultBranch: string | null
+): string | null {
+  return normalizePullRequestBaseBranch(resolveWorkspaceBaseRef(baseRef, defaultBranch));
+}
+
+function normalizePullRequestBaseBranch(baseBranch: string | null): string | null {
+  if (!baseBranch) {
+    return null;
+  }
+
+  return baseBranch.startsWith('origin/')
+    ? baseBranch.slice('origin/'.length)
+    : baseBranch;
 }
 
 async function persistSuccessfulIntegration(
