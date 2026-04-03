@@ -162,7 +162,7 @@ function createTaskWorktreePlan(
   baseRef: string | null = null
 ): TaskWorktreePlan {
   return {
-    branchName: createTaskBranchName(taskId, title),
+    branchName: createTaskBranchName(title),
     baseRef,
     worktreePath: resolveTaskWorktreePath(projectId, taskId, title)
   };
@@ -172,11 +172,11 @@ function resolveTaskWorktreePath(projectId: number, taskId: number, title: strin
   const directory = path.join(resolveAutocodeWorktreesRoot(), `project-${projectId}`);
   mkdirSync(directory, { recursive: true });
 
-  return path.join(realpathSync(directory), `task-${taskId}-${slugify(title)}`);
+  return path.join(realpathSync(directory), `${slugify(title)}-${taskId}`);
 }
 
-function createTaskBranchName(taskId: number, title: string): string {
-  return `autocode/task-${taskId}-${slugify(title)}`;
+function createTaskBranchName(title: string): string {
+  return `autocode/${slugify(title)}`;
 }
 
 async function resolveAvailableBranchName(gitRoot: string, branchName: string): Promise<string> {

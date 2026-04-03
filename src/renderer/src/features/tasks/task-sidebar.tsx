@@ -155,7 +155,7 @@ export function TaskSidebar({
                     </div>
 
                     <div className="mt-4 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-slate-500">
-                      <span>{workspace.worktree?.branchName ?? 'Workspace pending'}</span>
+                      <span>{workspace.worktree ? formatBranchLabel(workspace.worktree.branchName) : 'Workspace pending'}</span>
                       <span>{formatShortDate(workspace.task.updatedAt)}</span>
                     </div>
                   </button>
@@ -204,6 +204,10 @@ function StatusBadge({ status }: { status: TaskWorkspace['task']['status'] }) {
       {status.replace('_', ' ')}
     </span>
   );
+}
+
+function formatBranchLabel(branchName: string): string {
+  return branchName.replace(/^autocode\/(?:task-\d+-)?/, 'autocode/');
 }
 
 function formatShortDate(value: string) {

@@ -313,7 +313,7 @@ export function WorkspaceSidebar({
                             <div className="mt-1 flex items-center gap-2 text-[11px] text-white/40">
                               <GitBranch className="h-3 w-3" />
                               <span className="truncate font-mono">
-                                {workspace.worktree?.branchName ?? 'pending'}
+                                {workspace.worktree ? formatBranchLabel(workspace.worktree.branchName) : 'pending'}
                               </span>
                               <span className="ml-auto shrink-0">{formatShortDate(workspace.task.updatedAt)}</span>
                             </div>
@@ -372,6 +372,10 @@ function SidebarMessage({ children }: { children: React.ReactNode }) {
   return (
     <p className="py-2 pl-4 pr-2 text-[12px] text-white/40">{children}</p>
   );
+}
+
+function formatBranchLabel(branchName: string): string {
+  return branchName.replace(/^autocode\/(?:task-\d+-)?/, 'autocode/');
 }
 
 function formatShortDate(value: string) {

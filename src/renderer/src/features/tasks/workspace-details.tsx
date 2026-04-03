@@ -312,5 +312,5 @@ function HeaderBadge({
 }
 
 function formatWorkspaceBranchLabel(branchName: string): string {
-  return branchName.replace(/^autocode\/task-\d+-/, 'autocode/');
+  return branchName.replace(/^autocode\/(?:task-\d+-)?/, 'autocode/');
 }
