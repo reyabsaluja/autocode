@@ -66,7 +66,7 @@ export function createAgentSessionService(
       const session = agentSessionRepository.findInternalById(input.sessionId);
 
       if (!session) {
-        throw new Error('Agent session could not be found.');
+        return { entries: [], lastEventSeq: 0 };
       }
 
       return readAgentSessionTranscriptTail(session.transcriptPath, input.maxEntries);

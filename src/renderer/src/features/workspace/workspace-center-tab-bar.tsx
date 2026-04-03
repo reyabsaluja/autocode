@@ -32,7 +32,6 @@ interface WorkspaceCenterTabBarProps {
   onRequestFileTabActivation: (path: string) => void;
   onRequestSessionSelection: (sessionId: number) => void;
   onRequestStartSession: (provider: AgentProvider) => void;
-  onRequestTerminalSelection: () => void;
   selectedSessionId: number | null;
   sessions: AgentSession[];
   startSessionPending: boolean;
@@ -46,7 +45,6 @@ export function WorkspaceCenterTabBar({
   onRequestFileTabActivation,
   onRequestSessionSelection,
   onRequestStartSession,
-  onRequestTerminalSelection,
   selectedSessionId,
   sessions,
   startSessionPending
@@ -59,38 +57,29 @@ export function WorkspaceCenterTabBar({
 
   return (
     <div className="flex h-[42px] shrink-0 items-stretch gap-0 border-b border-white/[0.06] bg-[#141414]">
-      {sessions.length === 0 ? (
-        <CenterTab
-          icon={<Terminal className="h-3.5 w-3.5" />}
-          isActive={activeCenterTab === TERMINAL_TAB_ID}
-          label="Terminal"
-          onClick={onRequestTerminalSelection}
-        />
-      ) : (
-        sessions.map((session) => {
-          const providerIndex = getProviderSessionIndex(sessions, session);
-          return (
-            <CenterTab
-              closeLabel={`Delete ${getProviderDisplayName(session.provider)} ${providerIndex}`}
-              icon={(
-                <SessionProviderIcon
-                  provider={session.provider}
-                  isActive={isActiveSessionStatus(session.status)}
-                />
-              )}
-              isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
-              key={session.id}
-              label={`${getProviderDisplayName(session.provider)} ${providerIndex}`}
-              onClick={() => {
-                onRequestSessionSelection(session.id);
-              }}
-              onClose={() => {
-                onDeleteSession(session.id);
-              }}
-            />
-          );
-        })
-      )}
+      {sessions.map((session) => {
+        const providerIndex = getProviderSessionIndex(sessions, session);
+        return (
+          <CenterTab
+            closeLabel={`Delete ${getProviderDisplayName(session.provider)} ${providerIndex}`}
+            icon={(
+              <SessionProviderIcon
+                provider={session.provider}
+                isActive={isActiveSessionStatus(session.status)}
+              />
+            )}
+            isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
+            key={session.id}
+            label={`${getProviderDisplayName(session.provider)} ${providerIndex}`}
+            onClick={() => {
+              onRequestSessionSelection(session.id);
+            }}
+            onClose={() => {
+              onDeleteSession(session.id);
+            }}
+          />
+        );
+      })}
 
       <div className="flex items-center gap-1.5 px-3">
         <div className="h-4 w-px bg-white/[0.08]" />

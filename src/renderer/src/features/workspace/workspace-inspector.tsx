@@ -60,7 +60,6 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
               onRequestFileTabActivation={fileController.requestFileTabActivation}
               onRequestSessionSelection={sessionController.requestSessionSelection}
               onRequestStartSession={sessionController.requestStartSession}
-              onRequestTerminalSelection={fileController.requestTerminalSelection}
               selectedSessionId={sessionController.selectedSessionId}
               sessions={sessionController.sessions}
               startSessionPending={sessionController.startSessionPending}

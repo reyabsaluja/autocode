@@ -13,6 +13,7 @@ import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
 
 const AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES = 500;
+const pendingDeleteSessionIds = new Set<number>();
 
 export function useAgentSessionsQuery(taskId: number | null) {
   return useQuery({
@@ -68,6 +69,8 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
         return;
       }
 
+      pendingDeleteSessionIds.add(sessionId);
+
       await queryClient.cancelQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
       queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
 
@@ -78,21 +81,30 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
         );
       }
     },
-    onError: async () => {
+    onError: async (_error, sessionId) => {
+      if (sessionId !== null) {
+        pendingDeleteSessionIds.delete(sessionId);
+      }
+
       if (taskId !== null) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions(taskId) });
       }
     },
     onSuccess: (_result, sessionId) => {
+      if (sessionId !== null) {
+        queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
+      }
+
       if (taskId !== null && sessionId !== null) {
         queryClient.setQueryData<AgentSession[]>(
           queryKeys.agentSessions(taskId),
           (current) => current?.filter((session) => session.id !== sessionId) ?? []
         );
       }
-
+    },
+    onSettled: (_result, _error, sessionId) => {
       if (sessionId !== null) {
-        queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
+        setTimeout(() => pendingDeleteSessionIds.delete(sessionId), 3000);
       }
     }
   });
@@ -169,7 +181,15 @@ function handleAgentSessionEvent(
   event: AgentSessionEvent
 ) {
   if (event.type === 'snapshot') {
+    if (pendingDeleteSessionIds.has(event.session.id)) {
+      return;
+    }
+
     setTaskAgentSession(queryClient, taskId, event.session);
+    return;
+  }
+
+  if (pendingDeleteSessionIds.has(event.sessionId)) {
     return;
   }
 
