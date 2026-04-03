@@ -78,7 +78,7 @@ export function WorkspaceInspectorSidebar({
 }: WorkspaceInspectorSidebarProps) {
   return (
     <aside className="relative z-10 flex min-h-0 w-full flex-col overflow-hidden border-l border-white/[0.06] bg-[#1c1c1c]">
-      <div className="flex items-center gap-1 border-b border-white/[0.06] bg-[#141414] px-3 py-1.5">
+      <div className="flex h-[42px] shrink-0 items-center gap-1 border-b border-white/[0.06] bg-[#141414] px-3">
         <SidebarTab
           icon={<Files className="h-3.5 w-3.5" />}
           isActive={activeSidebarTab === 'files'}
@@ -162,7 +162,7 @@ function SidebarTab({
   return (
     <button
       className={clsx(
-        'flex items-center gap-1.5 rounded-md px-2.5 py-1 font-geist text-[12px] font-medium transition',
+        'flex h-7 min-h-7 max-h-7 items-center gap-1.5 rounded-md px-2.5 font-geist text-[12px] font-medium leading-tight transition',
         isActive
           ? 'bg-white/[0.10] text-white'
           : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'

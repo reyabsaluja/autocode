@@ -65,7 +65,7 @@ export function WorkspaceCenterTabBar({
   );
 
   return (
-    <div className="flex items-center gap-1.5 border-b border-white/[0.06] bg-[#141414] px-3 py-1.5">
+    <div className="flex h-[42px] shrink-0 items-center gap-1.5 border-b border-white/[0.06] bg-[#141414] px-3">
       {sessions.length === 0 ? (
         <CenterTab
           icon={<Terminal className="h-3.5 w-3.5" />}
@@ -158,7 +158,7 @@ function QuickLaunchButton({
   return (
     <button
       className={clsx(
-        'flex h-7 items-center gap-1.5 rounded-md border border-dashed px-2 font-geist text-[11px] font-medium transition',
+        'flex h-7 min-h-7 max-h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-dashed px-2 font-geist text-[11px] font-medium leading-none transition',
         disabled
           ? 'border-white/[0.06] text-white/15'
           : 'border-white/[0.12] text-white/40 hover:border-white/[0.20] hover:bg-white/[0.06] hover:text-white/70'
@@ -310,19 +310,22 @@ function CenterTab({
   return (
     <div
       className={clsx(
-        'group flex min-w-0 items-center gap-1 rounded-md px-2 py-1 transition',
+        'group flex h-7 min-h-7 max-h-7 min-w-0 items-center gap-1 rounded-md px-2 transition',
         isActive
           ? 'bg-white/[0.10] text-white'
           : 'text-white/40 hover:bg-white/[0.06] hover:text-white/70'
       )}
     >
       <button
-        className="flex min-w-0 items-center gap-1.5"
+        className={clsx(
+          'flex items-center gap-1.5',
+          onClose ? 'min-w-0 flex-1 overflow-hidden' : null
+        )}
         onClick={onClick}
         type="button"
       >
         <span className="shrink-0">{icon}</span>
-        <span className="max-w-[140px] truncate font-geist text-[12px] font-medium">{label}</span>
+        <span className="max-w-[140px] truncate font-geist text-[12px] font-medium leading-tight">{label}</span>
       </button>
       {onClose ? (
         <button
