@@ -90,8 +90,11 @@ export async function readAgentSessionTranscriptTail(
   }
 }
 
-export function resolveAgentSessionTranscriptPath(rootDirectory: string, sessionId: number): string {
-  return path.join(rootDirectory, String(sessionId), 'transcript.ndjson');
+export function resolveAgentSessionTranscriptPath(
+  rootDirectory: string,
+  sessionPathKey: number | string
+): string {
+  return path.join(rootDirectory, String(sessionPathKey), 'transcript.ndjson');
 }
 
 function isMissingFileError(error: unknown): boolean {

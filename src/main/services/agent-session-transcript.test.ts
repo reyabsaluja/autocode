@@ -58,4 +58,10 @@ describe('agent session transcript persistence', () => {
     expect(tail.lastEventSeq).toBe(0);
     expect(tail.entries).toEqual([]);
   });
+
+  test('supports preallocated string path keys before a session id exists', () => {
+    expect(resolveAgentSessionTranscriptPath('/tmp/autocode-sessions', 'session-start-123')).toBe(
+      path.join('/tmp/autocode-sessions', 'session-start-123', 'transcript.ndjson')
+    );
+  });
 });

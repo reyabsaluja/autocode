@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 
 import type {
@@ -74,6 +75,7 @@ export function createAgentSessionService(
 
     async reconcileInterruptedSessions(): Promise<void> {
       await mkdir(sessionsRoot, { recursive: true });
+      repairInterruptedSessionTranscriptPaths(new Date().toISOString());
       await runtimeManager.reconcileInterruptedSessions();
     },
 
@@ -95,6 +97,7 @@ export function createAgentSessionService(
 
       const timestamp = new Date().toISOString();
       const command = getAgentProviderCommand(input.provider);
+      const transcriptPath = resolveAgentSessionTranscriptPath(sessionsRoot, randomUUID());
       let placeholderSession: AgentSession;
 
       try {
@@ -103,7 +106,8 @@ export function createAgentSessionService(
           input.provider,
           input.taskId,
           context.worktree.id,
-          command
+          command,
+          transcriptPath
         );
       } catch (error) {
         if (isSingleActiveSessionConstraintError(error)) {
@@ -119,10 +123,6 @@ export function createAgentSessionService(
           ? error
           : new Error('Autocode could not create the requested session.');
       }
-
-      const transcriptPath = resolveAgentSessionTranscriptPath(sessionsRoot, placeholderSession.id);
-
-      agentSessionRepository.setTranscriptPath(placeholderSession.id, transcriptPath, timestamp);
 
       try {
         await runtimeManager.prepareTranscript(transcriptPath);
@@ -219,16 +219,33 @@ export function createAgentSessionService(
     provider: AgentProvider,
     taskId: number,
     worktreeId: number,
-    command: string
+    command: string,
+    transcriptPath: string
   ): AgentSession {
     return agentSessionRepository.create({
       command,
       createdAt,
       provider,
       taskId,
-      transcriptPath: '',
+      transcriptPath,
       worktreeId
     });
+  }
+
+  function repairInterruptedSessionTranscriptPaths(timestamp: string): void {
+    for (const session of agentSessionRepository.listActiveSessions()) {
+      const internalSession = agentSessionRepository.findInternalById(session.id);
+
+      if (!internalSession || internalSession.transcriptPath.trim()) {
+        continue;
+      }
+
+      agentSessionRepository.setTranscriptPath(
+        session.id,
+        resolveAgentSessionTranscriptPath(sessionsRoot, session.id),
+        timestamp
+      );
+    }
   }
 
   function requireSession(sessionId: number): AgentSession {
