@@ -75,4 +75,82 @@ describe('task workspace creation service', () => {
 
     expect(workspace.worktree?.baseRef).toBe('main');
   });
+
+  test('falls back to a resolvable default branch when the requested base task branch no longer exists', async () => {
+    const rootDirectory = await mkdtemp(path.join(os.tmpdir(), 'autocode-task-workspace-fallback-'));
+    tempDirectories.push(rootDirectory);
+    process.env.AUTOCODE_DATA_DIR = rootDirectory;
+
+    const repoPath = path.join(rootDirectory, 'repo');
+    await mkdir(repoPath, { recursive: true });
+
+    await execGit(['init'], repoPath);
+    await execGit(['config', 'user.name', 'Autocode Tests'], repoPath);
+    await execGit(['config', 'user.email', 'autocode@example.com'], repoPath);
+    await execGit(['checkout', '-b', 'main'], repoPath);
+    await writeFile(path.join(repoPath, 'README.md'), 'initial\n');
+    await execGit(['add', 'README.md'], repoPath);
+    await execGit(['commit', '-m', 'Initial commit'], repoPath);
+
+    const sqlite = new Database(path.join(rootDirectory, 'test.sqlite'));
+    sqlite.pragma('foreign_keys = ON');
+
+    const db = drizzle(sqlite, { schema });
+
+    migrate(db, {
+      migrationsFolder: path.resolve(process.cwd(), 'src/main/database/migrations')
+    });
+
+    const timestamp = '2026-04-02T12:00:00.000Z';
+    const project = db
+      .insert(schema.projectsTable)
+      .values({
+        createdAt: timestamp,
+        defaultBranch: 'main',
+        gitRoot: repoPath,
+        name: 'repo',
+        repoPath,
+        updatedAt: timestamp
+      })
+      .returning()
+      .get();
+
+    const baseTask = db
+      .insert(schema.tasksTable)
+      .values({
+        createdAt: timestamp,
+        description: null,
+        lastError: null,
+        projectId: project.id,
+        status: 'ready',
+        statusBeforeFailure: null,
+        title: 'Parent Task',
+        updatedAt: timestamp
+      })
+      .returning()
+      .get();
+
+    db.insert(schema.worktreesTable)
+      .values({
+        baseRef: 'main',
+        branchName: 'autocode/task-1-parent-task',
+        createdAt: timestamp,
+        projectId: project.id,
+        status: 'ready',
+        taskId: baseTask.id,
+        updatedAt: timestamp,
+        worktreePath: path.join(rootDirectory, 'missing-parent-worktree')
+      })
+      .run();
+
+    const taskWorkspaceCreationService = createTaskWorkspaceCreationService(db);
+    const workspace = await taskWorkspaceCreationService.createTaskWorkspace({
+      baseTaskId: baseTask.id,
+      projectId: project.id,
+      title: 'Child Task'
+    });
+
+    expect(workspace.task.status).toBe('ready');
+    expect(workspace.worktree?.baseRef).toBe('main');
+  });
 });

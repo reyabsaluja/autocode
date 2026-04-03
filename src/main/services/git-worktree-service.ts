@@ -38,7 +38,7 @@ export function createGitWorktreeService() {
     },
 
     async resolveTaskBaseRef(project: Project, baseRef: string | null): Promise<string> {
-      return baseRef ?? resolveBaseRef(project.gitRoot, project.defaultBranch);
+      return resolveProvisioningBaseRef(project.gitRoot, baseRef, project.defaultBranch);
     },
 
     async createTaskWorktree({
@@ -94,6 +94,18 @@ async function resolveBaseRef(gitRoot: string, defaultBranch: string | null): Pr
   );
 }
 
+async function resolveProvisioningBaseRef(
+  gitRoot: string,
+  preferredBaseRef: string | null,
+  defaultBranch: string | null
+): Promise<string> {
+  if (preferredBaseRef && await gitRefExists(gitRoot, preferredBaseRef)) {
+    return preferredBaseRef;
+  }
+
+  return resolveBaseRef(gitRoot, defaultBranch);
+}
+
 async function ensureTaskWorktree(
   project: Project,
   worktreePlan: TaskWorktreePlan
@@ -105,7 +117,11 @@ async function ensureTaskWorktree(
   mkdirSync(path.dirname(worktreePath), { recursive: true });
 
   if (registeredWorktrees.has(worktreePath)) {
-    const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
+    const baseRef = await resolveProvisioningBaseRef(
+      project.gitRoot,
+      worktreePlan.baseRef,
+      project.defaultBranch
+    );
     const branchName = await resolveCheckedOutGitBranch(worktreePath);
 
     return {
@@ -124,7 +140,11 @@ async function ensureTaskWorktree(
     branchName = await resolveAvailableBranchName(project.gitRoot, branchName);
   }
 
-  const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
+  const baseRef = await resolveProvisioningBaseRef(
+    project.gitRoot,
+    worktreePlan.baseRef,
+    project.defaultBranch
+  );
   await execGit(['worktree', 'add', worktreePath, '-b', branchName, baseRef], project.gitRoot);
 
   return {
