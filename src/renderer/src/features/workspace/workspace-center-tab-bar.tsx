@@ -58,7 +58,7 @@ export function WorkspaceCenterTabBar({
   );
 
   return (
-    <div className="flex h-[42px] shrink-0 items-center gap-1.5 border-b border-white/[0.06] bg-[#141414] px-3">
+    <div className="flex h-[42px] shrink-0 items-stretch gap-0 border-b border-white/[0.06] bg-[#141414]">
       {sessions.length === 0 ? (
         <CenterTab
           icon={<Terminal className="h-3.5 w-3.5" />}
@@ -92,37 +92,41 @@ export function WorkspaceCenterTabBar({
         })
       )}
 
-      <div className="mx-0.5 h-4 w-px bg-white/[0.08]" />
+      <div className="flex items-center gap-1.5 px-3">
+        <div className="h-4 w-px bg-white/[0.08]" />
 
-      {visibleProviders.map((entry) => (
-        <QuickLaunchButton
-          key={entry.id}
-          disabled={startSessionPending}
-          provider={entry.id}
-          onClick={() => onRequestStartSession(entry.id)}
-        />
-      ))}
+        {visibleProviders.map((entry) => (
+          <QuickLaunchButton
+            key={entry.id}
+            disabled={startSessionPending}
+            provider={entry.id}
+            onClick={() => onRequestStartSession(entry.id)}
+          />
+        ))}
 
-      <ProviderSettingsButton />
+        <ProviderSettingsButton />
+      </div>
 
       {fileTabs.length > 0 ? (
-        <div className="mx-0.5 h-4 w-px bg-white/[0.08]" />
+        <div className="flex items-center gap-0">
+          <div className="mx-1.5 h-4 w-px bg-white/[0.08]" />
+          {fileTabs.map((tab) => (
+            <CenterTab
+              closeLabel={`Close ${tab.path}`}
+              icon={<FileCode2 className="h-3.5 w-3.5" />}
+              isActive={activeCenterTab === tab.path}
+              key={tab.path}
+              label={basename(tab.path)}
+              onClick={() => {
+                onRequestFileTabActivation(tab.path);
+              }}
+              onClose={() => {
+                onCloseFileTab(tab.path);
+              }}
+            />
+          ))}
+        </div>
       ) : null}
-      {fileTabs.map((tab) => (
-        <CenterTab
-          closeLabel={`Close ${tab.path}`}
-          icon={<FileCode2 className="h-3.5 w-3.5" />}
-          isActive={activeCenterTab === tab.path}
-          key={tab.path}
-          label={basename(tab.path)}
-          onClick={() => {
-            onRequestFileTabActivation(tab.path);
-          }}
-          onClose={() => {
-            onCloseFileTab(tab.path);
-          }}
-        />
-      ))}
     </div>
   );
 }
@@ -291,7 +295,7 @@ function CenterTab({
   return (
     <div
       className={clsx(
-        'group flex h-7 min-h-7 max-h-7 min-w-0 items-center gap-1 rounded-md px-2 transition',
+        'group flex min-w-0 items-center gap-1 px-3 transition',
         isActive
           ? 'bg-white/[0.10] text-white'
           : 'text-white/40 hover:bg-white/[0.06] hover:text-white/70'
@@ -312,7 +316,7 @@ function CenterTab({
         <button
           aria-label={closeLabel ?? `Close ${label}`}
           className={clsx(
-            'ml-0.5 rounded-sm p-0.5 transition',
+            'ml-0.5 rounded-sm p-0.5 opacity-0 transition group-hover:opacity-100',
             isActive
               ? 'text-white/40 hover:bg-white/[0.10] hover:text-white/70'
               : 'text-white/20 hover:bg-white/[0.06] hover:text-white/50'
