@@ -1,0 +1,104 @@
+import type {
+  DeleteAgentSessionInput,
+  DeleteAgentSessionResult,
+  ListAgentSessionsByTaskInput,
+  ListAgentSessionsByTaskResult,
+  ReadAgentSessionTranscriptTailInput,
+  ReadAgentSessionTranscriptTailResult,
+  ResizeAgentSessionInput,
+  SendAgentSessionInput,
+  StartAgentSessionInput,
+  StartAgentSessionResult,
+  TerminateAgentSessionInput,
+  TerminateAgentSessionResult
+} from './agent-sessions';
+import type { AddProjectInput, ListProjectsResult } from './projects';
+import type {
+  CreateTaskInput,
+  DeleteTaskInput,
+  DeleteTaskResult,
+  ListTasksByProjectInput,
+  TaskWorkspaceList
+} from './tasks';
+import type {
+  WorkspaceChangesInput,
+  WorkspaceChangesResult,
+  WorkspaceCommitInput,
+  WorkspaceCommitResult,
+  WorkspaceCreatePullRequestInput,
+  WorkspaceCreatePullRequestResult,
+  WorkspaceDiffInput,
+  WorkspaceDiffResult,
+  WorkspaceDirectoryInput,
+  WorkspaceDirectoryResult,
+  WorkspaceIntegrateBaseInput,
+  WorkspaceIntegrationResult,
+  WorkspaceMergeTaskInput,
+  WorkspaceOpenPullRequestInput,
+  WorkspaceOpenPullRequestResult,
+  WorkspacePublishStatusInput,
+  WorkspacePublishStatusResult,
+  WorkspacePushInput,
+  WorkspacePushResult,
+  WorkspaceRecentCommitsInput,
+  WorkspaceRecentCommitsResult,
+  WorkspaceInspectionEvent
+} from './workspaces';
+import type {
+  WorkspaceFileReadInput,
+  WorkspaceFileReadResult,
+  WorkspaceFileWriteInput,
+  WorkspaceFileWriteResult
+} from './workspace-files';
+import type { AgentSessionEvent } from '../domain/agent-session';
+import type { Project } from '../domain/project';
+import type { TaskWorkspace } from '../domain/task-workspace';
+
+export interface AutocodeApi {
+  agentSessions: {
+    delete: (input: DeleteAgentSessionInput) => Promise<DeleteAgentSessionResult>;
+    listByTask: (input: ListAgentSessionsByTaskInput) => Promise<ListAgentSessionsByTaskResult>;
+    readTranscriptTail: (
+      input: ReadAgentSessionTranscriptTailInput
+    ) => Promise<ReadAgentSessionTranscriptTailResult>;
+    resize: (input: ResizeAgentSessionInput) => Promise<void>;
+    sendInput: (input: SendAgentSessionInput) => Promise<void>;
+    start: (input: StartAgentSessionInput) => Promise<StartAgentSessionResult>;
+    subscribe: (
+      taskId: number,
+      callback: (event: AgentSessionEvent) => void
+    ) => () => void;
+    terminate: (input: TerminateAgentSessionInput) => Promise<TerminateAgentSessionResult>;
+  };
+  projects: {
+    list: () => Promise<ListProjectsResult>;
+    pickPath: () => Promise<string | null>;
+    add: (input: AddProjectInput) => Promise<Project>;
+  };
+  tasks: {
+    listByProject: (input: ListTasksByProjectInput) => Promise<TaskWorkspaceList>;
+    create: (input: CreateTaskInput) => Promise<TaskWorkspace>;
+    delete: (input: DeleteTaskInput) => Promise<DeleteTaskResult>;
+  };
+  workspaces: {
+    listDirectory: (input: WorkspaceDirectoryInput) => Promise<WorkspaceDirectoryResult>;
+    listChanges: (input: WorkspaceChangesInput) => Promise<WorkspaceChangesResult>;
+    listRecentCommits: (input: WorkspaceRecentCommitsInput) => Promise<WorkspaceRecentCommitsResult>;
+    getDiff: (input: WorkspaceDiffInput) => Promise<WorkspaceDiffResult>;
+    getPublishStatus: (input: WorkspacePublishStatusInput) => Promise<WorkspacePublishStatusResult>;
+    commitAll: (input: WorkspaceCommitInput) => Promise<WorkspaceCommitResult>;
+    pushBranch: (input: WorkspacePushInput) => Promise<WorkspacePushResult>;
+    createPullRequest: (
+      input: WorkspaceCreatePullRequestInput
+    ) => Promise<WorkspaceCreatePullRequestResult>;
+    integrateBase: (input: WorkspaceIntegrateBaseInput) => Promise<WorkspaceIntegrationResult>;
+    mergeTask: (input: WorkspaceMergeTaskInput) => Promise<WorkspaceIntegrationResult>;
+    openPullRequest: (input: WorkspaceOpenPullRequestInput) => Promise<WorkspaceOpenPullRequestResult>;
+    readFile: (input: WorkspaceFileReadInput) => Promise<WorkspaceFileReadResult>;
+    writeFile: (input: WorkspaceFileWriteInput) => Promise<WorkspaceFileWriteResult>;
+    subscribeInspection: (
+      taskId: number,
+      callback: (event: WorkspaceInspectionEvent) => void
+    ) => () => void;
+  };
+}
