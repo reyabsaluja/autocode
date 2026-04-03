@@ -111,7 +111,6 @@ export function createAgentSessionRuntimeManager({
     reconcileInterruptedSessions,
     resizeRuntime,
     startRuntime,
-    terminateSession,
     writeToRuntime
   };
 
@@ -411,19 +410,6 @@ export function createAgentSessionRuntimeManager({
       lastError: message,
       status: 'failed',
       systemMessage: message
-    });
-  }
-
-  async function terminateSession(
-    sessionId: number,
-    systemMessage = 'Session terminated by user.'
-  ): Promise<AgentSession> {
-    return finalizeSession(sessionId, {
-      exitCode: null,
-      killRuntime: true,
-      lastError: null,
-      status: 'terminated',
-      systemMessage
     });
   }
 

@@ -98,23 +98,6 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
   });
 }
 
-export function useTerminateAgentSessionMutation(sessionId: number | null) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => {
-      if (sessionId === null) {
-        throw new Error('Select an active session before terminating it.');
-      }
-
-      return autocodeApi.agentSessions.terminate({ sessionId });
-    },
-    onSuccess: (session) => {
-      setAgentSessionInAllTaskLists(queryClient, session);
-    }
-  });
-}
-
 export function useAgentSessionInputMutation(sessionId: number | null) {
   return useMutation({
     mutationFn: (input: Omit<SendAgentSessionInput, 'sessionId'>) => {

@@ -8,9 +8,7 @@ import type {
   ResizeAgentSessionInput,
   SendAgentSessionInput,
   StartAgentSessionInput,
-  StartAgentSessionResult,
-  TerminateAgentSessionInput,
-  TerminateAgentSessionResult
+  StartAgentSessionResult
 } from './agent-sessions';
 import type { AddProjectInput, ListProjectsResult } from './projects';
 import type {
@@ -68,7 +66,6 @@ export interface AutocodeApi {
       taskId: number,
       callback: (event: AgentSessionEvent) => void
     ) => () => void;
-    terminate: (input: TerminateAgentSessionInput) => Promise<TerminateAgentSessionResult>;
   };
   projects: {
     list: () => Promise<ListProjectsResult>;

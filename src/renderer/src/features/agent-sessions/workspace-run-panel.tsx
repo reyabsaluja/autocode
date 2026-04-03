@@ -5,7 +5,6 @@ import {
   ChevronUp,
   Loader2,
   Play,
-  Square,
   Terminal
 } from 'lucide-react';
 
@@ -17,8 +16,7 @@ import {
   useAgentSessionStream,
   useAgentSessionTranscriptTailQuery,
   useAgentSessionsQuery,
-  useStartAgentSessionMutation,
-  useTerminateAgentSessionMutation
+  useStartAgentSessionMutation
 } from './agent-session-hooks';
 import { AgentSessionTerminal } from './agent-session-terminal';
 
@@ -44,7 +42,6 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
   const previousActiveSessionIdRef = useRef<number | null>(null);
   const startSessionMutation = useStartAgentSessionMutation(taskId);
-  const terminateSessionMutation = useTerminateAgentSessionMutation(activeSession?.id ?? null);
   const sendInputMutation = useAgentSessionInputMutation(selectedSessionId);
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSessionId);
   const selectedSession = useMemo(
@@ -116,7 +113,6 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
   const statusLabel = selectedSession ? formatSessionStatus(selectedSession.status) : 'No run selected';
   const errorMessage =
     formatError(startSessionMutation.error) ??
-    formatError(terminateSessionMutation.error) ??
     formatError(transcriptQuery.error) ??
     formatError(sessionsQuery.error);
 
@@ -181,35 +177,19 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
             <SessionStatusBadge status={selectedSession?.status ?? null} />
 
             <div className="ml-auto flex items-center gap-2">
-              {activeSession ? (
-                <button
-                  className="inline-flex items-center gap-1.5 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 font-geist text-[12px] font-medium text-rose-200 transition hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={terminateSessionMutation.isPending}
-                  onClick={() => { void terminateSessionMutation.mutateAsync(); }}
-                  type="button"
-                >
-                  {terminateSessionMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Square className="h-3.5 w-3.5" />
-                  )}
-                  Terminate
-                </button>
-              ) : (
-                <button
-                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-geist text-[12px] font-medium text-emerald-100 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={startSessionMutation.isPending}
-                  onClick={() => { void handleStartSession(); }}
-                  type="button"
-                >
-                  {startSessionMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Play className="h-3.5 w-3.5" />
-                  )}
-                  Start Codex Run
-                </button>
-              )}
+              <button
+                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-geist text-[12px] font-medium text-emerald-100 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={startSessionMutation.isPending || activeSession !== null}
+                onClick={() => { void handleStartSession(); }}
+                type="button"
+              >
+                {startSessionMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+                Start Codex Run
+              </button>
             </div>
           </div>
 

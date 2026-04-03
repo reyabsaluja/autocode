@@ -10,8 +10,7 @@ import {
   useAgentSessionStream,
   useAgentSessionTranscriptTailQuery,
   useAgentSessionsQuery,
-  useStartAgentSessionMutation,
-  useTerminateAgentSessionMutation
+  useStartAgentSessionMutation
 } from '../agent-sessions/agent-session-hooks';
 import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 import { useCreateTaskWorkspaceMutation } from '../tasks/task-hooks';
@@ -67,10 +66,8 @@ export function useWorkspaceTerminalSessionController({
     () => sessions.find((session) => session.id === selectedSessionId) ?? null,
     [selectedSessionId, sessions]
   );
-  const selectedSessionIsActive = selectedSession !== null && isActiveSessionStatus(selectedSession.status);
   const startSessionMutation = useStartAgentSessionMutation(taskId);
   const deleteSessionMutation = useDeleteAgentSessionMutation(taskId);
-  const terminateSessionMutation = useTerminateAgentSessionMutation(selectedSession?.id ?? null);
   const sendInputMutation = useAgentSessionInputMutation(selectedSession?.id ?? null);
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSession?.id ?? null);
   const transcriptQuery = useAgentSessionTranscriptTailQuery(
@@ -81,7 +78,6 @@ export function useWorkspaceTerminalSessionController({
     isolatedLaunchError ??
     formatWorkspaceInspectorError(startSessionMutation.error) ??
     formatWorkspaceInspectorError(deleteSessionMutation.error) ??
-    formatWorkspaceInspectorError(terminateSessionMutation.error) ??
     formatWorkspaceInspectorError(transcriptQuery.error) ??
     formatWorkspaceInspectorError(sessionsQuery.error);
 
@@ -275,13 +271,11 @@ export function useWorkspaceTerminalSessionController({
     resizeSessionMutation,
     selectedSession,
     selectedSessionId,
-    selectedSessionIsActive,
     sendInputMutation,
     sessions,
     sessionsQuery,
     startSessionMutation,
     startSessionPending: startSessionMutation.isPending || isLaunchingIsolatedSession,
-    terminateSessionMutation,
     terminalErrorMessage,
     terminalSurfaceProps,
     transcriptQuery

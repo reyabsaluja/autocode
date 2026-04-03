@@ -8,8 +8,7 @@ import type {
   ReadAgentSessionTranscriptTailResult,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
-  StartAgentSessionInput,
-  TerminateAgentSessionInput
+  StartAgentSessionInput
 } from '../../shared/contracts/agent-sessions';
 import type { AgentProvider, AgentSession, AgentSessionEvent } from '../../shared/domain/agent-session';
 import type { AppDatabase } from '../database/client';
@@ -207,10 +206,6 @@ export function createAgentSessionService(
       runtimeManager.publishSnapshot(session);
 
       return session;
-    },
-
-    async terminate(input: TerminateAgentSessionInput): Promise<AgentSession> {
-      return runtimeManager.terminateSession(input.sessionId);
     }
   };
 

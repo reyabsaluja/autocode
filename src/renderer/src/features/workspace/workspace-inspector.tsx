@@ -61,14 +61,9 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
               onRequestSessionSelection={sessionController.requestSessionSelection}
               onRequestStartSession={sessionController.requestStartSession}
               onRequestTerminalSelection={fileController.requestTerminalSelection}
-              onTerminateSession={() => {
-                void sessionController.terminateSessionMutation.mutateAsync();
-              }}
               selectedSessionId={sessionController.selectedSessionId}
-              selectedSessionIsActive={sessionController.selectedSessionIsActive}
               sessions={sessionController.sessions}
               startSessionPending={sessionController.startSessionPending}
-              terminateSessionPending={sessionController.terminateSessionMutation.isPending}
             />
 
             <div className="relative z-0 min-h-0 min-w-0 flex-1 overflow-hidden isolate">

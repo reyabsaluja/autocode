@@ -9,7 +9,6 @@ import {
   FileCode2,
   RotateCcw,
   Settings,
-  Square,
   Terminal,
   X
 } from 'lucide-react';
@@ -34,12 +33,9 @@ interface WorkspaceCenterTabBarProps {
   onRequestSessionSelection: (sessionId: number) => void;
   onRequestStartSession: (provider: AgentProvider) => void;
   onRequestTerminalSelection: () => void;
-  onTerminateSession: () => void;
   selectedSessionId: number | null;
-  selectedSessionIsActive: boolean;
   sessions: AgentSession[];
   startSessionPending: boolean;
-  terminateSessionPending: boolean;
 }
 
 export function WorkspaceCenterTabBar({
@@ -51,12 +47,9 @@ export function WorkspaceCenterTabBar({
   onRequestSessionSelection,
   onRequestStartSession,
   onRequestTerminalSelection,
-  onTerminateSession,
   selectedSessionId,
-  selectedSessionIsActive,
   sessions,
-  startSessionPending,
-  terminateSessionPending
+  startSessionPending
 }: WorkspaceCenterTabBarProps) {
   const providers = useProviderPreferencesStore((state) => state.providers);
   const visibleProviders = useMemo(
@@ -98,18 +91,6 @@ export function WorkspaceCenterTabBar({
           );
         })
       )}
-
-      {selectedSessionIsActive ? (
-        <button
-          className="grid h-7 w-7 place-items-center rounded-md bg-rose-500/[0.10] text-rose-300 transition hover:bg-rose-500/[0.18] hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={terminateSessionPending}
-          onClick={onTerminateSession}
-          title="Terminate session"
-          type="button"
-        >
-          <Square className="h-3 w-3" />
-        </button>
-      ) : null}
 
       <div className="mx-0.5 h-4 w-px bg-white/[0.08]" />
 

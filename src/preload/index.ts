@@ -14,9 +14,7 @@ import {
   sendAgentSessionInputSchema,
   sendAgentSessionResultSchema,
   startAgentSessionInputSchema,
-  startAgentSessionResultSchema,
-  terminateAgentSessionInputSchema,
-  terminateAgentSessionResultSchema
+  startAgentSessionResultSchema
 } from '../shared/contracts/agent-sessions';
 import {
   addProjectInputSchema,
@@ -122,13 +120,7 @@ const api: AutocodeApi = {
 
           callback(event);
         }
-      ),
-    terminate: (input) =>
-      invokeValidatedIpc(agentSessionChannels.terminate, {
-        input,
-        inputSchema: terminateAgentSessionInputSchema,
-        outputSchema: terminateAgentSessionResultSchema
-      })
+      )
   },
   projects: {
     list: () =>
