@@ -61,6 +61,16 @@ export async function gitRefExists(gitRoot: string, ref: string): Promise<boolea
   }
 }
 
+export async function resolveCheckedOutGitBranch(gitRoot: string): Promise<string> {
+  const branchName = await execGit(['branch', '--show-current'], gitRoot);
+
+  if (!branchName) {
+    throw new Error('Git worktree is not currently attached to a local branch.');
+  }
+
+  return branchName;
+}
+
 export async function listRegisteredWorktrees(gitRoot: string): Promise<Set<string>> {
   const records = await listRegisteredWorktreeRecords(gitRoot);
   return new Set(records.map((record) => record.path));
@@ -167,7 +177,7 @@ async function listGitRemotes(gitRoot: string): Promise<string[]> {
 async function resolveDefaultBranch(gitRoot: string): Promise<string | null> {
   const branchCandidates = [
     await tryExecGit(['symbolic-ref', 'refs/remotes/origin/HEAD', '--short'], gitRoot),
-    await tryExecGit(['branch', '--show-current'], gitRoot)
+    await tryResolveCheckedOutGitBranch(gitRoot)
   ]
     .filter((value): value is string => Boolean(value))
     .map((value) => value.replace(/^origin\//, ''));
@@ -178,6 +188,14 @@ async function resolveDefaultBranch(gitRoot: string): Promise<string | null> {
 async function tryExecGit(args: string[], gitRoot: string): Promise<string | null> {
   try {
     return await execGit(args, gitRoot);
+  } catch {
+    return null;
+  }
+}
+
+async function tryResolveCheckedOutGitBranch(gitRoot: string): Promise<string | null> {
+  try {
+    return await resolveCheckedOutGitBranch(gitRoot);
   } catch {
     return null;
   }

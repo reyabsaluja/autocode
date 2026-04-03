@@ -5,7 +5,7 @@ import { rm } from 'node:fs/promises';
 import type { Project } from '../../shared/domain/project';
 import type { Task } from '../../shared/domain/task';
 import { resolveAutocodeWorktreesRoot } from '../database/paths';
-import { execGit, gitRefExists, listRegisteredWorktrees } from './git-client';
+import { execGit, gitRefExists, listRegisteredWorktrees, resolveCheckedOutGitBranch } from './git-client';
 
 interface CreateTaskWorktreeInput {
   plannedWorktree?: TaskWorktreePlan;
@@ -104,6 +104,7 @@ async function ensureTaskWorktree(
 
   if (registeredWorktrees.has(worktreePath)) {
     const baseRef = worktreePlan.baseRef ?? (await resolveBaseRef(project.gitRoot, project.defaultBranch));
+    const branchName = await resolveCheckedOutGitBranch(worktreePath);
 
     return {
       baseRef,
