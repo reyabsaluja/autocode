@@ -23,6 +23,13 @@ import {
   isActiveSessionStatus,
   TERMINAL_TAB_ID
 } from './workspace-inspector-shared';
+
+function formatPresetLabel(name: string): string {
+  const t = name.trim();
+  if (!t) return t;
+  return t.toLowerCase();
+}
+import { ClaudePresetIcon, CodexPresetIcon } from '../../lib/provider-preset-icons';
 import { useProviderPreferencesStore } from '../../stores/provider-preferences-store';
 import { useSessionLabelStore } from '../../stores/session-label-store';
 
@@ -136,7 +143,7 @@ export function WorkspaceCenterTabBar({
         />
       </div>
 
-      <div className="flex h-[32px] items-center gap-1 border-b border-white/[0.06] px-2">
+      <div className="flex h-[32px] items-center gap-0.5 border-b border-white/[0.06] px-2">
         <ProviderSettingsButton />
 
         {visibleProviders.map((entry) => (
@@ -166,16 +173,18 @@ function QuickLaunchButton({
       className={clsx(
         'flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-2 font-geist text-[11px] font-medium leading-none transition',
         disabled
-          ? 'text-white/15'
-          : 'text-white/40 hover:bg-white/[0.06] hover:text-white/70'
+          ? 'cursor-not-allowed text-white/25'
+          : 'text-white hover:bg-white/[0.08]'
       )}
       disabled={disabled}
       onClick={onClick}
-      title={`New ${getProviderDisplayName(provider)} session`}
+      title={`New ${formatPresetLabel(getProviderDisplayName(provider))} session`}
       type="button"
     >
-      <ProviderIcon provider={provider} />
-      {getProviderDisplayName(provider)}
+      {provider !== 'terminal' ? (
+        <PresetMark className="h-3.5 w-3.5 shrink-0" provider={provider} />
+      ) : null}
+      {formatPresetLabel(getProviderDisplayName(provider))}
     </button>
   );
 }
@@ -200,13 +209,13 @@ function ProviderSettingsButton() {
   }, [isOpen]);
 
   return (
-    <div className="relative" ref={popoverRef}>
+    <div className="relative flex h-6 shrink-0 items-center" ref={popoverRef}>
       <button
         className={clsx(
-          'grid h-7 w-7 place-items-center rounded-md transition',
+          'grid h-6 w-6 shrink-0 place-items-center rounded transition',
           isOpen
-            ? 'bg-white/[0.10] text-white/60'
-            : 'text-white/25 hover:bg-white/[0.06] hover:text-white/50'
+            ? 'bg-white/[0.10] text-white'
+            : 'text-white hover:bg-white/[0.08]'
         )}
         onClick={() => setIsOpen((current) => !current)}
         title="Provider settings"
@@ -396,7 +405,7 @@ function NewTabButton({
   }, [isOpen, onClose]);
 
   return (
-    <div className="relative flex items-center px-1" ref={containerRef}>
+    <div className="relative flex items-center px-[9px]" ref={containerRef}>
       <button
         className={clsx(
           'grid h-6 w-6 place-items-center rounded transition',
@@ -409,7 +418,7 @@ function NewTabButton({
         title="New tab (⌘T)"
         type="button"
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus className="h-3.5 w-3.5 rounded-sm" />
       </button>
       {isOpen ? (
         <div className="absolute left-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-2xl">
@@ -421,9 +430,11 @@ function NewTabButton({
                 onClick={() => onSelect(entry.id)}
                 type="button"
               >
-                <ProviderIcon provider={entry.id} />
+                {entry.id !== 'terminal' ? (
+                  <PresetMark className="h-3.5 w-3.5 shrink-0" provider={entry.id} />
+                ) : null}
                 <span className="font-geist text-[12px] font-medium text-white/70">
-                  {getProviderDisplayName(entry.id)}
+                  {formatPresetLabel(getProviderDisplayName(entry.id))}
                 </span>
               </button>
             ))}
@@ -432,6 +443,17 @@ function NewTabButton({
       ) : null}
     </div>
   );
+}
+
+function PresetMark({ className, provider }: { className?: string; provider: AgentProvider }) {
+  switch (provider) {
+    case 'claude-code':
+      return <ClaudePresetIcon className={className} />;
+    case 'codex':
+      return <CodexPresetIcon className={className} />;
+    case 'terminal':
+      return null;
+  }
 }
 
 function ProviderIcon({ provider }: { provider: AgentProvider }) {

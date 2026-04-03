@@ -207,21 +207,21 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
         isSidebarOpen ? 'pl-4' : 'pl-[116px]'
       )}>
         <div className="min-w-0 flex items-center gap-1.5">
-          {worktree ? <GitBranch className="h-3.5 w-3.5 shrink-0 text-white/30" /> : null}
+          {worktree ? <GitBranch className="h-3.5 w-3.5 shrink-0 text-white" /> : null}
           <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">
             {currentBranchLabel ?? task.title}
           </p>
           {baseRef ? (
             <>
-              <ChevronRight className="h-3 w-3 shrink-0 text-white/25" />
+              <ChevronRight className="h-3 w-3 shrink-0 text-white ml-1" />
               <div className="relative">
                 <button
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 font-geist text-[13px] text-white/50 transition hover:bg-white/[0.08] hover:text-white/80"
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 font-geist text-[13px] text-white transition hover:bg-white/[0.08] hover:text-white/80"
                   onClick={() => setIsBranchPickerOpen((open) => !open)}
                   type="button"
                 >
                   {baseLabel ?? baseRef}
-                  <ChevronDown className="h-3 w-3 text-white/30" />
+                  <ChevronDown className="h-3 w-3 text-white" />
                 </button>
                 {isBranchPickerOpen ? (
                   <BranchPicker

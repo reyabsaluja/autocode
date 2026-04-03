@@ -28,6 +28,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
+    publicDir: path.resolve(__dirname, 'src/renderer/public'),
     resolve: {
       alias: {
         '@renderer': path.resolve(__dirname, 'src/renderer/src'),
