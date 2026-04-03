@@ -186,4 +186,49 @@ describe('git worktree service cleanup', () => {
     expect(recoveredProvision.created).toBe(false);
     expect(recoveredProvision.branchName).toBe('autocode/task-15-task-c-2');
   });
+
+  test('fails with an actionable error when the repository has no commits yet', async () => {
+    const rootDirectory = await mkdtemp(path.join(os.tmpdir(), 'autocode-worktree-unborn-head-'));
+    tempDirectories.push(rootDirectory);
+
+    const repoPath = path.join(rootDirectory, 'repo');
+    const worktreePath = path.join(rootDirectory, 'task-worktree');
+    await mkdir(repoPath, { recursive: true });
+
+    await execGit(['init', '-b', 'main'], repoPath);
+
+    const gitWorktreeService = createGitWorktreeService();
+
+    await expect(
+      gitWorktreeService.createTaskWorktree({
+        plannedWorktree: {
+          baseRef: null,
+          branchName: 'autocode/task-15-task-c',
+          worktreePath
+        },
+        project: {
+          createdAt: '2026-04-02T12:00:00.000Z',
+          defaultBranch: 'main',
+          gitRoot: repoPath,
+          id: 1,
+          name: 'demo',
+          repoPath,
+          updatedAt: '2026-04-02T12:00:00.000Z'
+        },
+        task: {
+          createdAt: '2026-04-02T12:00:00.000Z',
+          description: null,
+          id: 15,
+          lastError: null,
+          projectId: 1,
+          status: 'draft',
+          statusBeforeFailure: null,
+          title: 'Task C',
+          updatedAt: '2026-04-02T12:00:00.000Z'
+        }
+      })
+    ).rejects.toThrow(
+      'This repository does not have any commits yet. Create an initial commit before creating a task workspace.'
+    );
+  });
 });

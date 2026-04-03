@@ -84,12 +84,14 @@ async function resolveBaseRef(gitRoot: string, defaultBranch: string | null): Pr
   ].filter((candidate): candidate is string => Boolean(candidate));
 
   for (const candidate of candidates) {
-    if (candidate === 'HEAD' || (await gitRefExists(gitRoot, candidate))) {
+    if (await gitRefExists(gitRoot, candidate)) {
       return candidate;
     }
   }
 
-  return 'HEAD';
+  throw new Error(
+    'This repository does not have any commits yet. Create an initial commit before creating a task workspace.'
+  );
 }
 
 async function ensureTaskWorktree(
