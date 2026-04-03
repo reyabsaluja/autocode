@@ -417,7 +417,7 @@ export function createAgentSessionRuntimeManager({
     const session = agentSessionRepository.findInternalById(sessionId);
 
     if (!session) {
-      throw new Error('Agent session could not be found.');
+      return;
     }
 
     if (ACTIVE_AGENT_SESSION_STATUSES.has(session.status)) {

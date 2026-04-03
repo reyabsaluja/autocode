@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 
 import type { AgentProvider, AgentSession, AgentSessionStatus } from '../../shared/domain/agent-session';
 import type { AppDatabase } from '../database/client';
@@ -83,23 +83,6 @@ export function createAgentSessionRepository(db: AppDatabase) {
           .where(eq(agentSessionsTable.id, sessionId))
           .get() ?? null
       );
-    },
-
-    findActiveByTaskId(taskId: number): AgentSession | null {
-      const session =
-        db
-          .select()
-          .from(agentSessionsTable)
-          .where(
-            and(
-              eq(agentSessionsTable.taskId, taskId),
-              inArray(agentSessionsTable.status, ['starting', 'running'])
-            )
-          )
-          .orderBy(desc(agentSessionsTable.createdAt), desc(agentSessionsTable.id))
-          .get() ?? null;
-
-      return session ? toAgentSession(session) : null;
     },
 
     listActiveSessions(): AgentSession[] {
