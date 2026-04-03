@@ -11,6 +11,7 @@ import type { AgentSession, AgentSessionEvent, AgentSessionTranscriptEntry } fro
 
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
+import { appendStdinForLabel, clearStdinBuffer, useSessionLabelStore } from '../../stores/session-label-store';
 
 const AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES = 500;
 const pendingDeleteSessionIds = new Set<number>();
@@ -93,6 +94,8 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
     onSuccess: (_result, sessionId) => {
       if (sessionId !== null) {
         queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
+        useSessionLabelStore.getState().removeLabel(sessionId);
+        clearStdinBuffer(sessionId);
       }
 
       if (taskId !== null && sessionId !== null) {
@@ -143,11 +146,22 @@ export function useAgentSessionResizeMutation(sessionId: number | null) {
 export function useAgentSessionTranscriptTailQuery(sessionId: number | null, enabled = true) {
   return useQuery({
     enabled: sessionId !== null && enabled,
-    queryFn: () =>
-      autocodeApi.agentSessions.readTranscriptTail({
+    queryFn: async () => {
+      const result = await autocodeApi.agentSessions.readTranscriptTail({
         maxEntries: AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES,
         sessionId: sessionId!
-      }),
+      });
+
+      if (sessionId !== null && !useSessionLabelStore.getState().labels[sessionId]) {
+        for (const entry of result.entries) {
+          if (entry.stream === 'stdin') {
+            appendStdinForLabel(sessionId, entry.text);
+          }
+        }
+      }
+
+      return result;
+    },
     queryKey:
       sessionId !== null
         ? queryKeys.agentSessionTranscript(sessionId)
@@ -191,6 +205,12 @@ function handleAgentSessionEvent(
 
   if (pendingDeleteSessionIds.has(event.sessionId)) {
     return;
+  }
+
+  for (const entry of event.entries) {
+    if (entry.stream === 'stdin') {
+      appendStdinForLabel(event.sessionId, entry.text);
+    }
   }
 
   queryClient.setQueryData<ReadAgentSessionTranscriptTailResult>(

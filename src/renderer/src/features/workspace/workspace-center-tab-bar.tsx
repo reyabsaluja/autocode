@@ -23,6 +23,7 @@ import {
   TERMINAL_TAB_ID
 } from './workspace-inspector-shared';
 import { useProviderPreferencesStore } from '../../stores/provider-preferences-store';
+import { useSessionLabelStore } from '../../stores/session-label-store';
 
 interface WorkspaceCenterTabBarProps {
   activeCenterTab: string;
@@ -50,6 +51,7 @@ export function WorkspaceCenterTabBar({
   startSessionPending
 }: WorkspaceCenterTabBarProps) {
   const providers = useProviderPreferencesStore((state) => state.providers);
+  const sessionLabels = useSessionLabelStore((state) => state.labels);
   const visibleProviders = useMemo(
     () => providers.filter((entry) => entry.visible),
     [providers]
@@ -59,9 +61,11 @@ export function WorkspaceCenterTabBar({
     <div className="flex h-[42px] shrink-0 items-stretch gap-0 border-b border-white/[0.06] bg-[#141414]">
       {sessions.map((session) => {
         const providerIndex = getProviderSessionIndex(sessions, session);
+        const fallbackLabel = `${getProviderDisplayName(session.provider)} ${providerIndex}`;
+        const dynamicLabel = sessionLabels[session.id];
         return (
           <CenterTab
-            closeLabel={`Delete ${getProviderDisplayName(session.provider)} ${providerIndex}`}
+            closeLabel={`Delete ${fallbackLabel}`}
             icon={(
               <SessionProviderIcon
                 provider={session.provider}
@@ -70,7 +74,7 @@ export function WorkspaceCenterTabBar({
             )}
             isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
             key={session.id}
-            label={`${getProviderDisplayName(session.provider)} ${providerIndex}`}
+            label={dynamicLabel ?? fallbackLabel}
             onClick={() => {
               onRequestSessionSelection(session.id);
             }}

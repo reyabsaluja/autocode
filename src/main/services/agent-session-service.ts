@@ -176,7 +176,7 @@ export function createAgentSessionService(
 
       if (initialInput) {
         try {
-          await runtimeManager.writeToRuntime(runningSession.id, initialInput);
+          await runtimeManager.writeToRuntime(runningSession.id, initialInput, 'system');
         } catch (error) {
           await runtimeManager.failRuntimeSession(runningSession.id, error);
           throw error instanceof Error

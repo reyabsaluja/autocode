@@ -371,7 +371,11 @@ export function createAgentSessionRuntimeManager({
     }
   }
 
-  async function writeToRuntime(sessionId: number, text: string): Promise<void> {
+  async function writeToRuntime(
+    sessionId: number,
+    text: string,
+    stream: AgentSessionTranscriptStream = 'stdin'
+  ): Promise<void> {
     const runtime = requireRuntime(sessionId);
 
     await enqueueSessionWork(sessionId, async () => {
@@ -384,7 +388,7 @@ export function createAgentSessionRuntimeManager({
       const entry = await appendTranscriptEntry(
         sessionId,
         internalSession.transcriptPath,
-        'stdin',
+        stream,
         text,
         new Date().toISOString()
       );
