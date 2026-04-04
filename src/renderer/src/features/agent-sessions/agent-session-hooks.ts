@@ -152,7 +152,7 @@ export function useAgentSessionTranscriptTailQuery(sessionId: number | null, ena
         sessionId: sessionId!
       });
 
-      if (sessionId !== null && !useSessionLabelStore.getState().labels[sessionId]) {
+      if (sessionId !== null) {
         for (const entry of result.entries) {
           if (entry.stream === 'stdin') {
             appendStdinForLabel(sessionId, entry.text);

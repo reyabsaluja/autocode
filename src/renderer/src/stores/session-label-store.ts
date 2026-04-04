@@ -12,14 +12,14 @@ export const useSessionLabelStore = create<SessionLabelState>()((set) => ({
   labels: {},
   setLabel: (sessionId, label) =>
     set((state) => {
-      if (state.labels[sessionId]) return state;
-
       const trimmed = label.trim();
       if (!trimmed) return state;
 
       const truncated = trimmed.length > MAX_LABEL_LENGTH
         ? `${trimmed.slice(0, MAX_LABEL_LENGTH)}\u2026`
         : trimmed;
+
+      if (state.labels[sessionId] === truncated) return state;
 
       return { labels: { ...state.labels, [sessionId]: truncated } };
     }),
@@ -33,29 +33,32 @@ export const useSessionLabelStore = create<SessionLabelState>()((set) => ({
 
 const stdinBuffers = new Map<number, string>();
 
-// Matches ANSI escape sequences (CSI, OSC, SS3, etc.) and standalone control chars
 const ANSI_ESCAPE_RE = /\x1b(?:\[[0-9;?]*[A-Za-z]|\][^\x07\x1b]*(?:\x07|\x1b\\)?|[()][0-2AB]|[NO].?|[=>])/g;
-const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/g;
-
-function stripTerminalNoise(text: string): string {
-  return text.replace(ANSI_ESCAPE_RE, '').replace(CONTROL_CHAR_RE, '');
-}
 
 export function appendStdinForLabel(sessionId: number, text: string): void {
-  const store = useSessionLabelStore.getState();
-  if (store.labels[sessionId]) return;
+  const cleaned = text.replace(ANSI_ESCAPE_RE, '');
+  let buffer = stdinBuffers.get(sessionId) ?? '';
 
-  const buffer = (stdinBuffers.get(sessionId) ?? '') + text;
-  const newlineIndex = buffer.search(/[\r\n]/);
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i]!;
 
-  if (newlineIndex >= 0) {
-    const firstLine = stripTerminalNoise(buffer.slice(0, newlineIndex)).trim();
-    stdinBuffers.delete(sessionId);
-    if (firstLine) {
-      store.setLabel(sessionId, firstLine);
+    if (char === '\r' || char === '\n') {
+      const commandLine = buffer.trim();
+      buffer = '';
+      if (commandLine) {
+        useSessionLabelStore.getState().setLabel(sessionId, commandLine);
+      }
+    } else if (char === '\x7f' || char === '\x08') {
+      buffer = buffer.slice(0, -1);
+    } else if (char.charCodeAt(0) >= 0x20) {
+      buffer += char;
     }
-  } else {
+  }
+
+  if (buffer) {
     stdinBuffers.set(sessionId, buffer);
+  } else {
+    stdinBuffers.delete(sessionId);
   }
 }
 
