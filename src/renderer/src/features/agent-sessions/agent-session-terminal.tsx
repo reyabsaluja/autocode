@@ -164,9 +164,7 @@ export const AgentSessionTerminal = memo(function AgentSessionTerminal({
       return;
     }
 
-    const nextEntries = filterTerminalRenderableEntries(entries)
-      .filter((entry) => entry.seq > lastRenderedSeqRef.current)
-      .sort((left, right) => left.seq - right.seq);
+    const nextEntries = collectPendingRenderableEntries(entries, lastRenderedSeqRef.current);
 
     try {
       for (const entry of nextEntries) {
@@ -192,3 +190,28 @@ export const AgentSessionTerminal = memo(function AgentSessionTerminal({
 
   return <div className="h-full min-h-[180px] w-full" ref={containerRef} />;
 });
+
+function collectPendingRenderableEntries(
+  entries: AgentSessionTranscriptEntry[],
+  lastRenderedSeq: number
+): AgentSessionTranscriptEntry[] {
+  const pending: AgentSessionTranscriptEntry[] = [];
+  let lastSeenSeq = lastRenderedSeq;
+
+  for (const entry of entries) {
+    if (entry.stream === 'stdin' || entry.seq <= lastRenderedSeq) {
+      continue;
+    }
+
+    if (entry.seq < lastSeenSeq) {
+      return filterTerminalRenderableEntries(entries)
+        .filter((candidate) => candidate.seq > lastRenderedSeq)
+        .sort((left, right) => left.seq - right.seq);
+    }
+
+    pending.push(entry);
+    lastSeenSeq = entry.seq;
+  }
+
+  return pending;
+}

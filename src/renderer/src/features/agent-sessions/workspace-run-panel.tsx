@@ -29,6 +29,11 @@ const DEFAULT_TERMINAL_SIZE = {
   rows: 30
 };
 
+const SESSION_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short'
+});
+
 export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
   const sessionsQuery = useAgentSessionsQuery(taskId);
   const sessions = sessionsQuery.data ?? [];
@@ -266,10 +271,7 @@ function formatSessionStatus(status: AgentSessionStatus): string {
 }
 
 function formatSessionTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value));
+  return SESSION_TIME_FORMATTER.format(new Date(value));
 }
 
 function isActiveSessionStatus(status: AgentSessionStatus | undefined): status is 'starting' | 'running' {

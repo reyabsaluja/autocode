@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import clsx from 'clsx';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 
@@ -20,6 +21,10 @@ export function WorkspaceFileExplorer({
   taskId
 }: WorkspaceFileExplorerProps) {
   const rootDirectoryQuery = useWorkspaceExplorerDirectoryQuery(taskId, '');
+  const expandedDirectorySet = useMemo(
+    () => new Set(expandedDirectories),
+    [expandedDirectories]
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -41,7 +46,7 @@ export function WorkspaceFileExplorer({
               <WorkspaceFileTreeNode
                 key={entry.relativePath}
                 depth={0}
-                expandedDirectories={expandedDirectories}
+                expandedDirectorySet={expandedDirectorySet}
                 entry={entry}
                 onSelectPath={onSelectPath}
                 onToggleDirectory={onToggleDirectory}
@@ -58,7 +63,7 @@ export function WorkspaceFileExplorer({
 
 interface WorkspaceFileTreeNodeProps {
   depth: number;
-  expandedDirectories: string[];
+  expandedDirectorySet: ReadonlySet<string>;
   entry: {
     kind: 'directory' | 'file';
     name: string;
@@ -72,7 +77,7 @@ interface WorkspaceFileTreeNodeProps {
 
 function WorkspaceFileTreeNode({
   depth,
-  expandedDirectories,
+  expandedDirectorySet,
   entry,
   onSelectPath,
   onToggleDirectory,
@@ -80,7 +85,7 @@ function WorkspaceFileTreeNode({
   taskId
 }: WorkspaceFileTreeNodeProps) {
   const isDirectory = entry.kind === 'directory';
-  const isExpanded = isDirectory && expandedDirectories.includes(entry.relativePath);
+  const isExpanded = isDirectory && expandedDirectorySet.has(entry.relativePath);
   const childrenQuery = useWorkspaceExplorerDirectoryQuery(taskId, entry.relativePath, isExpanded);
   const isSelected = entry.relativePath === selectedPath;
   const paddingLeft = 8 + depth * 14;
@@ -92,7 +97,7 @@ function WorkspaceFileTreeNode({
           'flex w-full items-center gap-1.5 py-[5px] pr-3 text-left font-geist text-[12px] transition',
           isSelected
             ? 'bg-white/[0.10] text-white'
-            : 'text-white/75 hover:bg-white/[0.06] hover:text-white/90'
+            : 'text-white hover:bg-white/[0.06]'
         )}
         onMouseDown={(event) => {
           event.preventDefault();
@@ -109,9 +114,9 @@ function WorkspaceFileTreeNode({
       >
         {isDirectory ? (
           isExpanded ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-white/30" />
+            <ChevronDown className="h-4 w-4 shrink-0 text-white/75" />
           ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-white/30" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/75" />
           )
         ) : (
           <FileTypeIcon filename={entry.name} />
@@ -140,7 +145,7 @@ function WorkspaceFileTreeNode({
                 <WorkspaceFileTreeNode
                   key={childEntry.relativePath}
                   depth={depth + 1}
-                  expandedDirectories={expandedDirectories}
+                  expandedDirectorySet={expandedDirectorySet}
                   entry={childEntry}
                   onSelectPath={onSelectPath}
                   onToggleDirectory={onToggleDirectory}

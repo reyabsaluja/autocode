@@ -19,7 +19,6 @@ import type { WorkspaceFileTab } from './workspace-inspector-shared';
 import {
   basename,
   getProviderDisplayName,
-  getProviderSessionIndex,
   isActiveSessionStatus,
   TERMINAL_TAB_ID
 } from './workspace-inspector-shared';
@@ -64,6 +63,19 @@ export function WorkspaceCenterTabBar({
     () => providers.filter((entry) => entry.visible),
     [providers]
   );
+  const providerSessionIndexById = useMemo(() => {
+    const nextProviderIndex = new Map<AgentProvider, number>();
+    const indexById = new Map<number, number>();
+
+    for (let index = sessions.length - 1; index >= 0; index -= 1) {
+      const session = sessions[index]!;
+      const nextIndex = (nextProviderIndex.get(session.provider) ?? 0) + 1;
+      nextProviderIndex.set(session.provider, nextIndex);
+      indexById.set(session.id, nextIndex);
+    }
+
+    return indexById;
+  }, [sessions]);
   const [isNewTabMenuOpen, setIsNewTabMenuOpen] = useState(false);
 
   const handleNewTabSelect = useCallback((provider: AgentProvider) => {
@@ -87,7 +99,7 @@ export function WorkspaceCenterTabBar({
     <div className="shrink-0 bg-[#141414]">
       <div className="flex h-[42px] items-stretch gap-0 border-b border-white/[0.06]">
         {sessions.map((session) => {
-          const providerIndex = getProviderSessionIndex(sessions, session);
+          const providerIndex = providerSessionIndexById.get(session.id) ?? 1;
           const fallbackLabel = `${getProviderDisplayName(session.provider)} ${providerIndex}`;
           const dynamicLabel = sessionLabels[session.id];
           return (

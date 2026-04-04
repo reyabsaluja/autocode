@@ -6,7 +6,7 @@ import { tags as t } from '@lezer/highlight';
 /**
  * Custom CodeMirror theme built from the Autocode design tokens.
  *
- * Background uses surface-1, gutter/line-number colors follow the
+ * Background #101010 (editor canvas), gutter/line-number colors follow the
  * text-faint → text-muted hierarchy, selection and search use the
  * accent teal, and the cursor is the accent color.
  */
@@ -14,7 +14,7 @@ import { tags as t } from '@lezer/highlight';
 const editorChrome = EditorView.theme(
   {
     '&': {
-      backgroundColor: '#0c0d10',
+      backgroundColor: '#101010',
       color: '#e4e4e7'
     },
     '.cm-content': {
@@ -33,7 +33,7 @@ const editorChrome = EditorView.theme(
       backgroundColor: 'rgba(255, 255, 255, 0.025)'
     },
     '.cm-gutters': {
-      backgroundColor: '#0c0d10',
+      backgroundColor: '#101010',
       color: '#52525b',
       border: 'none'
     },

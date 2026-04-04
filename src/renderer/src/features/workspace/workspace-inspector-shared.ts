@@ -39,15 +39,6 @@ export function getProviderDisplayName(provider: AgentProvider): string {
   }
 }
 
-export function getProviderSessionIndex(
-  sessions: Array<{ id: number; provider: AgentProvider }>,
-  session: { id: number; provider: AgentProvider }
-): number {
-  const sameSessions = sessions.filter((entry) => entry.provider === session.provider);
-  const reverseIndex = [...sameSessions].reverse().findIndex((entry) => entry.id === session.id);
-  return reverseIndex + 1;
-}
-
 export function isActiveSessionStatus(
   status: AgentSessionStatus | undefined
 ): status is 'starting' | 'running' {

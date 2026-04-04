@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useDeferredValue, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { AlertTriangle, Check, ChevronDown, ChevronRight, FolderGit2, GitBranch, GitMerge, Loader2, Search } from 'lucide-react';
 
@@ -364,6 +364,7 @@ interface BranchPickerProps {
 
 function BranchPicker({ branches, currentBaseRef, isLoading, onClose, onSelect }: BranchPickerProps) {
   const [filter, setFilter] = useState('');
+  const deferredFilter = useDeferredValue(filter);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -393,10 +394,10 @@ function BranchPicker({ branches, currentBaseRef, isLoading, onClose, onSelect }
   }, [onClose]);
 
   const filtered = useMemo(() => {
-    if (!filter) return branches;
-    const lower = filter.toLowerCase();
+    if (!deferredFilter) return branches;
+    const lower = deferredFilter.toLowerCase();
     return branches.filter((b) => b.toLowerCase().includes(lower));
-  }, [branches, filter]);
+  }, [branches, deferredFilter]);
 
   return (
     <div

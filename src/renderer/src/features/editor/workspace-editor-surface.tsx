@@ -168,7 +168,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
     const editorTitle = activeFilePath ? basename(activeFilePath) : 'Editor';
 
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-surface-0">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-[#101010]">
         <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#141414] px-4 py-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <FileCode className="h-3.5 w-3.5 shrink-0 text-white/30" />

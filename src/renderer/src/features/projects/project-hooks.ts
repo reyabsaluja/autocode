@@ -5,6 +5,7 @@ import type { Project } from '@shared/domain/project';
 
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
+import { upsertProject } from '../../lib/task-workspace-cache';
 
 export function useProjectsQuery() {
   return useQuery({
@@ -20,8 +21,7 @@ export function useAddProjectMutation() {
     mutationFn: (input: AddProjectInput) => autocodeApi.projects.add(input),
     onSuccess: (project) => {
       queryClient.setQueryData<Project[]>(queryKeys.projects, (current) => {
-        const next = current ? current.filter((entry) => entry.id !== project.id) : [];
-        return [project, ...next].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+        return current ? upsertProject(current, project) : [project];
       });
     }
   });

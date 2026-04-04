@@ -5,6 +5,7 @@ import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
+import { upsertTaskWorkspace } from '../../lib/task-workspace-cache';
 
 export function useTaskWorkspacesQuery(projectId: number | null) {
   return useQuery({
@@ -34,10 +35,7 @@ export function useCreateTaskWorkspaceMutation(projectId: number | null) {
       }
 
       queryClient.setQueryData<TaskWorkspace[]>(queryKeys.taskWorkspaces(projectId), (current) => {
-        const next = current ? current.filter((entry) => entry.task.id !== workspace.task.id) : [];
-        return [workspace, ...next].sort((left, right) =>
-          right.task.updatedAt.localeCompare(left.task.updatedAt)
-        );
+        return current ? upsertTaskWorkspace(current, workspace) : [workspace];
       });
 
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects });

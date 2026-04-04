@@ -3,6 +3,11 @@ import { useState } from 'react';
 import type { Project } from '@shared/domain/project';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
+const TASK_SIDEBAR_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric'
+});
+
 interface TaskSidebarProps {
   createErrorMessage: string | null;
   isCreatingTask: boolean;
@@ -211,8 +216,5 @@ function formatBranchLabel(branchName: string): string {
 }
 
 function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric'
-  }).format(new Date(value));
+  return TASK_SIDEBAR_DATE_FORMATTER.format(new Date(value));
 }

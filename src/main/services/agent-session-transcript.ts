@@ -42,6 +42,7 @@ export async function readAgentSessionTranscriptTail(
   try {
     const file = await open(transcriptPath, 'r');
     const entries: AgentSessionTranscriptEntry[] = [];
+    let nextTailIndex = 0;
     let lastEventSeq = 0;
 
     try {
@@ -64,15 +65,22 @@ export async function readAgentSessionTranscriptTail(
         );
 
         lastEventSeq = entry.seq;
-        entries.push(entry);
-
-        if (entries.length > maxEntries) {
-          entries.shift();
+        if (entries.length < maxEntries) {
+          entries.push(entry);
+        } else if (maxEntries > 0) {
+          entries[nextTailIndex] = entry;
+          nextTailIndex = (nextTailIndex + 1) % maxEntries;
         }
       }
 
       return {
-        entries,
+        entries:
+          entries.length === maxEntries && nextTailIndex > 0
+            ? [
+                ...entries.slice(nextTailIndex),
+                ...entries.slice(0, nextTailIndex)
+              ]
+            : entries,
         lastEventSeq
       };
     } finally {

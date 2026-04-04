@@ -16,6 +16,11 @@ import {
 import type { Project } from '@shared/domain/project';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
+const SIDEBAR_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric'
+});
+
 interface WorkspaceSidebarProps {
   createErrorMessage: string | null;
   isAddingProject: boolean;
@@ -301,15 +306,12 @@ export function WorkspaceSidebar({
                             onClick={() => onSelectTask(workspace.task.id)}
                             type="button"
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <p className={clsx(
-                                'truncate font-geist text-[13px] font-medium',
-                                isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'
-                              )}>
-                                {workspace.task.title}
-                              </p>
-                              <StatusDot status={workspace.task.status} />
-                            </div>
+                            <p className={clsx(
+                              'truncate font-geist text-[13px] font-medium',
+                              isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'
+                            )}>
+                              {workspace.task.title}
+                            </p>
                             <div className="mt-1 flex items-center gap-2 text-[11px] text-white/40">
                               <GitBranch className="h-3 w-3" />
                               <span className="truncate font-mono">
@@ -320,7 +322,8 @@ export function WorkspaceSidebar({
                           </button>
                           <button
                             className={clsx(
-                              'grid h-5 w-5 shrink-0 place-items-center rounded-md transition',
+                              'grid h-5 w-5 shrink-0 place-items-center rounded-md transition-opacity',
+                              'opacity-0 group-hover:opacity-100',
                               isDeletingTask
                                 ? 'cursor-not-allowed text-white/20'
                                 : 'text-white/30 hover:bg-white/[0.10] hover:text-rose-200'
@@ -330,7 +333,7 @@ export function WorkspaceSidebar({
                             title={`Delete ${workspace.task.title}`}
                             type="button"
                           >
-                            <Trash2 className="h-2.5 w-2.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       );
@@ -349,25 +352,6 @@ export function WorkspaceSidebar({
   );
 }
 
-function StatusDot({ status }: { status: TaskWorkspace['task']['status'] }) {
-  const colors: Record<TaskWorkspace['task']['status'], string> = {
-    archived: 'bg-white/40',
-    completed: 'bg-emerald-300',
-    draft: 'bg-amber-300',
-    failed: 'bg-rose-300',
-    in_progress: 'bg-sky-200',
-    needs_review: 'bg-violet-300',
-    ready: 'bg-white'
-  };
-
-  return (
-    <span
-      className={clsx('h-1.5 w-1.5 shrink-0 rounded-full', colors[status])}
-      title={status.replace('_', ' ')}
-    />
-  );
-}
-
 function SidebarMessage({ children }: { children: React.ReactNode }) {
   return (
     <p className="py-2 pl-4 pr-2 text-[12px] text-white/40">{children}</p>
@@ -379,8 +363,5 @@ function formatBranchLabel(branchName: string): string {
 }
 
 function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric'
-  }).format(new Date(value));
+  return SIDEBAR_DATE_FORMATTER.format(new Date(value));
 }
