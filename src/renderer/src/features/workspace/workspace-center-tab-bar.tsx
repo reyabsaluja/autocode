@@ -473,26 +473,13 @@ function CodexGlyph() {
   );
 }
 
-function CodexSessionGlyph({ isActive }: { isActive: boolean }) {
-  return (
-    <span
-      className={clsx(
-        'inline-flex h-2.5 w-2.5 rounded-full transition',
-        isActive
-          ? 'bg-white shadow-[0_0_6px_rgba(255,255,255,0.25)]'
-          : 'bg-white/20'
-      )}
-    />
-  );
-}
-
-function SessionProviderIcon({ provider, isActive }: { provider: AgentProvider; isActive: boolean }) {
+function SessionProviderIcon({ provider }: { provider: AgentProvider; isActive: boolean }) {
   switch (provider) {
     case 'codex':
-      return <CodexSessionGlyph isActive={isActive} />;
+      return <CodexPresetIcon className="h-3.5 w-3.5" />;
     case 'claude-code':
-      return <Bot className={clsx('h-3.5 w-3.5', isActive ? 'text-amber-300' : '')} />;
+      return <ClaudePresetIcon className="h-3.5 w-3.5" />;
     case 'terminal':
-      return <Terminal className={clsx('h-3.5 w-3.5', isActive ? 'text-emerald-300' : '')} />;
+      return null;
   }
 }

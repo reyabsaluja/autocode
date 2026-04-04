@@ -1,11 +1,11 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
-import { oneDark } from '@codemirror/theme-one-dark';
 import clsx from 'clsx';
 import { AlertTriangle, FileCode, Loader2, Minus, Plus, Save, Undo2 } from 'lucide-react';
 
 import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 
+import { autocodeEditorTheme } from '../../lib/editor-theme';
 import { WorkspaceDiffViewer } from '../workspace/workspace-diff-viewer';
 import { useWorkspaceDiffQuery } from '../workspace/workspace-hooks';
 import { useWorkspaceLanguageSupport } from './editor-language';
@@ -304,7 +304,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
                   setSaveNotice(null);
                   writeFileMutation.reset();
                 }}
-                theme={oneDark}
+                theme={autocodeEditorTheme}
                 value={bufferContent}
               />
             </div>
