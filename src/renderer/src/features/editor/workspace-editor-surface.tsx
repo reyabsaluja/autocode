@@ -1,5 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
-import CodeMirror from '@uiw/react-codemirror';
+import { Suspense, forwardRef, lazy, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { AlertTriangle, FileCode, Loader2, Minus, Plus, Save, Undo2 } from 'lucide-react';
 
@@ -14,6 +13,8 @@ import {
   resolveLatestWorkspaceFileContent,
   resolveWorkspaceEditorSyncState
 } from './workspace-editor-sync';
+
+const LazyCodeMirror = lazy(() => import('@uiw/react-codemirror'));
 
 export interface WorkspaceEditorHandle {
   discardUnsavedChanges: () => void;
@@ -291,22 +292,31 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
             />
           ) : (
             <div className="h-full">
-              <CodeMirror
-                basicSetup={{
-                  foldGutter: false,
-                  highlightActiveLineGutter: true
-                }}
-                className="h-full text-[13px]"
-                extensions={languageExtensions}
-                height="100%"
-                onChange={(value) => {
-                  setBufferContent(value);
-                  setSaveNotice(null);
-                  writeFileMutation.reset();
-                }}
-                theme={autocodeEditorTheme}
-                value={bufferContent}
-              />
+              <Suspense
+                fallback={
+                  <EditorMessage>
+                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                    Loading editor...
+                  </EditorMessage>
+                }
+              >
+                <LazyCodeMirror
+                  basicSetup={{
+                    foldGutter: false,
+                    highlightActiveLineGutter: true
+                  }}
+                  className="h-full text-[13px]"
+                  extensions={languageExtensions}
+                  height="100%"
+                  onChange={(value) => {
+                    setBufferContent(value);
+                    setSaveNotice(null);
+                    writeFileMutation.reset();
+                  }}
+                  theme={autocodeEditorTheme}
+                  value={bufferContent}
+                />
+              </Suspense>
             </div>
           )}
         </div>

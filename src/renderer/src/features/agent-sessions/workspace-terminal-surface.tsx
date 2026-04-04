@@ -1,9 +1,14 @@
-import { memo } from 'react';
+import { Suspense, lazy, memo } from 'react';
 import { Loader2, Terminal } from 'lucide-react';
 
 import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 
-import { AgentSessionTerminal } from './agent-session-terminal';
+const LazyAgentSessionTerminal = lazy(async () => {
+  const module = await import('./agent-session-terminal');
+  return {
+    default: module.AgentSessionTerminal
+  };
+});
 
 interface WorkspaceTerminalSurfaceProps {
   emptyStateMode: 'idle' | 'selectSession' | 'starting';
@@ -34,14 +39,27 @@ export const WorkspaceTerminalSurface = memo(function WorkspaceTerminalSurface({
 
       <div className="min-h-0 flex-1 overflow-hidden bg-[#101010]">
         {sessionId !== null ? (
-          <AgentSessionTerminal
-            entries={entries}
-            isInteractive={isInteractive}
-            isVisible
-            onData={onData}
-            onResize={onResize}
-            sessionId={sessionId}
-          />
+          <Suspense
+            fallback={
+              <div className="grid h-full place-items-center px-6 text-center">
+                <div className="max-w-md">
+                  <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-white/18" />
+                  <p className="font-geist text-[14px] font-medium text-white/72">
+                    Loading terminal
+                  </p>
+                </div>
+              </div>
+            }
+          >
+            <LazyAgentSessionTerminal
+              entries={entries}
+              isInteractive={isInteractive}
+              isVisible
+              onData={onData}
+              onResize={onResize}
+              sessionId={sessionId}
+            />
+          </Suspense>
         ) : (
           <div className="grid h-full place-items-center px-6 text-center">
             <div className="max-w-md">
