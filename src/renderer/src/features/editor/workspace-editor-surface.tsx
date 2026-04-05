@@ -16,6 +16,11 @@ import {
 
 const LazyCodeMirror = lazy(() => import('@uiw/react-codemirror'));
 
+const CODEMIRROR_BASIC_SETUP = {
+  foldGutter: false,
+  highlightActiveLineGutter: true
+} as const;
+
 export interface WorkspaceEditorHandle {
   discardUnsavedChanges: () => void;
   getActiveFilePath: () => string | null;
@@ -301,10 +306,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
                 }
               >
                 <LazyCodeMirror
-                  basicSetup={{
-                    foldGutter: false,
-                    highlightActiveLineGutter: true
-                  }}
+                  basicSetup={CODEMIRROR_BASIC_SETUP}
                   className="h-full text-[13px]"
                   extensions={languageExtensions}
                   height="100%"

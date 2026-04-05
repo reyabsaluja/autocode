@@ -8,11 +8,19 @@ import { parseIpcPayload } from '../../shared/ipc/validation';
 
 const TRANSCRIPT_TAIL_READ_CHUNK_SIZE = 64 * 1024;
 
+const ensuredDirectories = new Set<string>();
+
 export async function appendAgentSessionTranscriptEntry(
   transcriptPath: string,
   entry: AgentSessionTranscriptEntry
 ): Promise<void> {
-  await mkdir(path.dirname(transcriptPath), { recursive: true });
+  const dir = path.dirname(transcriptPath);
+
+  if (!ensuredDirectories.has(dir)) {
+    await mkdir(dir, { recursive: true });
+    ensuredDirectories.add(dir);
+  }
+
   await appendFile(transcriptPath, `${JSON.stringify(entry)}\n`, 'utf8');
 }
 

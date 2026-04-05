@@ -193,19 +193,19 @@ function LoadingState() {
   );
 }
 
-function StatusBadge({ status }: { status: TaskWorkspace['task']['status'] }) {
-  const styles: Record<TaskWorkspace['task']['status'], string> = {
-    archived: 'border-slate-200 bg-slate-100 text-slate-600',
-    completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    draft: 'border-amber-200 bg-amber-50 text-amber-700',
-    failed: 'border-rose-200 bg-rose-50 text-rose-700',
-    in_progress: 'border-sky-200 bg-sky-50 text-sky-700',
-    needs_review: 'border-violet-200 bg-violet-50 text-violet-700',
-    ready: 'border-teal-200 bg-teal-50 text-teal-700'
-  };
+const STATUS_BADGE_STYLES: Record<TaskWorkspace['task']['status'], string> = {
+  archived: 'border-slate-200 bg-slate-100 text-slate-600',
+  completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  draft: 'border-amber-200 bg-amber-50 text-amber-700',
+  failed: 'border-rose-200 bg-rose-50 text-rose-700',
+  in_progress: 'border-sky-200 bg-sky-50 text-sky-700',
+  needs_review: 'border-violet-200 bg-violet-50 text-violet-700',
+  ready: 'border-teal-200 bg-teal-50 text-teal-700'
+};
 
+function StatusBadge({ status }: { status: TaskWorkspace['task']['status'] }) {
   return (
-    <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase ${styles[status]}`}>
+    <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase ${STATUS_BADGE_STYLES[status]}`}>
       {status.replace('_', ' ')}
     </span>
   );

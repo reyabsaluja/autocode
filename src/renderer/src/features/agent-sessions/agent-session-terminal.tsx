@@ -20,6 +20,13 @@ interface AgentSessionTerminalProps {
 const TERMINAL_FONT_FAMILY =
   '"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace';
 
+const TERMINAL_THEME = {
+  background: '#101010',
+  cursor: '#f4f4f5',
+  foreground: '#f4f4f5',
+  selectionBackground: 'rgba(255, 255, 255, 0.18)'
+} as const;
+
 export const AgentSessionTerminal = memo(function AgentSessionTerminal({
   entries,
   isInteractive,
@@ -56,6 +63,7 @@ export const AgentSessionTerminal = memo(function AgentSessionTerminal({
     let fitAddon: FitAddon | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let dataDisposable: { dispose: () => void } | null = null;
+    let resizeRafId = 0;
 
     const reportTerminalError = (error: unknown, message: string) => {
       console.error('[AgentSessionTerminal] Failed to initialize terminal', error);
@@ -71,12 +79,7 @@ export const AgentSessionTerminal = memo(function AgentSessionTerminal({
         fontFamily: TERMINAL_FONT_FAMILY,
         fontSize: 12,
         lineHeight: 1.35,
-        theme: {
-          background: '#101010',
-          cursor: '#f4f4f5',
-          foreground: '#f4f4f5',
-          selectionBackground: 'rgba(255, 255, 255, 0.18)'
-        }
+        theme: TERMINAL_THEME
       });
       fitAddon = new FitAddon();
       terminal.loadAddon(fitAddon);
@@ -87,11 +90,14 @@ export const AgentSessionTerminal = memo(function AgentSessionTerminal({
         onResizeRef.current(terminal!.cols, terminal!.rows);
       };
       resizeObserver = new ResizeObserver(() => {
-        try {
-          resizeTerminal();
-        } catch (error) {
-          reportTerminalError(error, 'Autocode could not restore this terminal view.');
-        }
+        cancelAnimationFrame(resizeRafId);
+        resizeRafId = requestAnimationFrame(() => {
+          try {
+            resizeTerminal();
+          } catch (error) {
+            reportTerminalError(error, 'Autocode could not restore this terminal view.');
+          }
+        });
       });
       dataDisposable = terminal.onData((value) => {
         onDataRef.current(value);
@@ -116,6 +122,7 @@ export const AgentSessionTerminal = memo(function AgentSessionTerminal({
     }
 
     return () => {
+      cancelAnimationFrame(resizeRafId);
       dataDisposable?.dispose();
       resizeObserver?.disconnect();
       terminal?.dispose();

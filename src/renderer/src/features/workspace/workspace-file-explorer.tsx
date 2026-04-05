@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import clsx from 'clsx';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 
@@ -185,7 +185,7 @@ function WorkspaceDirectoryTreeNode({
   );
 }
 
-function WorkspaceFileLeafNode({
+const WorkspaceFileLeafNode = memo(function WorkspaceFileLeafNode({
   depth,
   entry,
   onSelectPath,
@@ -212,7 +212,7 @@ function WorkspaceFileLeafNode({
       />
     </li>
   );
-}
+});
 
 function WorkspaceTreeButton({
   depth,

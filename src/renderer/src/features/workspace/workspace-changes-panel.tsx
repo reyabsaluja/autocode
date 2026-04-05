@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { ChevronDown, ChevronRight, GitCommitHorizontal, Loader2, Plus } from 'lucide-react';
 
@@ -66,7 +66,7 @@ export function WorkspaceChangesPanel({
   const [isAgainstMainOpen, setIsAgainstMainOpen] = useState(true);
   const [isCommitsOpen, setIsCommitsOpen] = useState(true);
 
-  const unstaged = changes.filter((c) => !c.isStaged);
+  const unstaged = useMemo(() => changes.filter((c) => !c.isStaged), [changes]);
   const allChanges = changes;
   const hasCommitDraft = commitMessage.trim().length > 0;
   const isReviewMode = changes.length === 0 && !hasCommitDraft;
@@ -369,16 +369,16 @@ function ChangeFileList({
   );
 }
 
-function ChangeStatusIndicator({ status }: { status: WorkspaceChange['status'] }) {
-  const config: Record<WorkspaceChange['status'], { color: string; letter: string }> = {
-    added: { color: 'text-emerald-400', letter: 'A' },
-    deleted: { color: 'text-rose-400', letter: 'D' },
-    modified: { color: 'text-sky-400', letter: 'M' },
-    renamed: { color: 'text-violet-400', letter: 'R' },
-    untracked: { color: 'text-amber-400', letter: 'U' }
-  };
+const CHANGE_STATUS_CONFIG: Record<WorkspaceChange['status'], { color: string; letter: string }> = {
+  added: { color: 'text-emerald-400', letter: 'A' },
+  deleted: { color: 'text-rose-400', letter: 'D' },
+  modified: { color: 'text-sky-400', letter: 'M' },
+  renamed: { color: 'text-violet-400', letter: 'R' },
+  untracked: { color: 'text-amber-400', letter: 'U' }
+};
 
-  const { color, letter } = config[status];
+function ChangeStatusIndicator({ status }: { status: WorkspaceChange['status'] }) {
+  const { color, letter } = CHANGE_STATUS_CONFIG[status];
 
   return (
     <span className={clsx('shrink-0 font-mono text-[11px] font-bold', color)}>

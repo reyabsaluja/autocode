@@ -345,10 +345,6 @@ export function useWorkspaceFileEditorController({
     commits,
     commitsLoadErrorMessage: formatWorkspaceInspectorError(recentCommitsQuery.error),
     isLoadingCommits: recentCommitsQuery.isLoading,
-    fileTabLabels: fileTabs.map((tab) => ({
-      path: tab.path,
-      label: basename(tab.path)
-    })),
     fileTabs,
     expandedDirectories,
     handleCommit,

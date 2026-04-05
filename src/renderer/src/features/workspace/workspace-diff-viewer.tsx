@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import clsx from 'clsx';
 import { Loader2 } from 'lucide-react';
 
@@ -14,6 +15,11 @@ export function WorkspaceDiffViewer({
   isLoading,
   selectedPath
 }: WorkspaceDiffViewerProps) {
+  const diffLines = useMemo(
+    () => diffText?.split('\n') ?? [],
+    [diffText]
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-2">
@@ -45,9 +51,9 @@ export function WorkspaceDiffViewer({
 
         {!isLoading && !errorMessage && diffText ? (
           <pre className="whitespace-pre-wrap break-words px-4 py-4 font-mono text-[12px] leading-[1.7] text-white/60">
-            {diffText.split('\n').map((line, index) => (
+            {diffLines.map((line, index) => (
               <span
-                key={index}
+                key={`${index}:${line.slice(0, 8)}`}
                 className={clsx(
                   'block px-1',
                   line.startsWith('+') && !line.startsWith('+++') && 'bg-emerald-500/[0.06] text-emerald-300',
