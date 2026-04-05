@@ -47,6 +47,8 @@ import {
   workspaceListBranchesInputSchema,
   workspaceListBranchesResultSchema,
   workspaceMergeTaskInputSchema,
+  workspaceOpenInEditorInputSchema,
+  workspaceOpenInEditorResultSchema,
   workspaceUpdateBaseRefInputSchema,
   workspaceUpdateBaseRefResultSchema,
   workspaceOpenPullRequestInputSchema,
@@ -228,6 +230,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: workspaceMergeTaskInputSchema,
         outputSchema: workspaceIntegrationResultSchema
+      }),
+    openInEditor: (input) =>
+      invokeValidatedIpc(workspaceChannels.openInEditor, {
+        input,
+        inputSchema: workspaceOpenInEditorInputSchema,
+        outputSchema: workspaceOpenInEditorResultSchema
       }),
     openPullRequest: (input) =>
       invokeValidatedIpc(workspaceChannels.openPullRequest, {

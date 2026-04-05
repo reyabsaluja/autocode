@@ -15,6 +15,14 @@ import {
   useWorkspaceBranchesQuery
 } from '../workspace/workspace-hooks';
 import { WorkspaceIntegrateDialog } from '../workspace/workspace-integrate-dialog';
+import {
+  EXTERNAL_EDITORS,
+  EXTERNAL_EDITOR_ICON_SRC,
+  EXTERNAL_EDITOR_LABELS,
+  type ExternalEditor
+} from '../../lib/editor-icon-assets';
+import { autocodeApi } from '../../lib/autocode-api';
+import { useOpenInEditorStore } from '../../stores/open-in-editor-store';
 
 type WorkspaceInspectorComponent = typeof import('../workspace/workspace-inspector')['WorkspaceInspector'];
 
@@ -203,10 +211,10 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   return (
     <section className="flex h-full flex-col animate-fade-in">
       <header className={clsx(
-        'flex h-[38px] shrink-0 items-center border-b border-white/[0.06] bg-[#141414] pr-4',
-        isSidebarOpen ? 'pl-4' : 'pl-[116px]'
+        'grid h-[38px] shrink-0 grid-cols-[minmax(0,1fr)_300px] border-b border-white/[0.06] bg-[#141414]',
+        isSidebarOpen ? '' : 'pl-[100px]'
       )}>
-        <div className="min-w-0 flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 pl-4 pr-2">
           {worktree ? <GitBranch className="h-3.5 w-3.5 shrink-0 text-white" /> : null}
           <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">
             {currentBranchLabel ?? task.title}
@@ -238,42 +246,43 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
               </div>
             </>
           ) : null}
-        </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
-          <button
-            aria-label="Create an isolated task branch"
-            className="inline-flex h-7 w-7 items-center justify-center rounded bg-white/[0.08] text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isForkingTask}
-            onClick={() => { void onForkTaskWorkspace(); }}
-            title="Create a new isolated task workspace from this task's current branch"
-            type="button"
-          >
-            {isForkingTask ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <GitBranch className="h-3.5 w-3.5" />
-            )}
-          </button>
-          <button
-            className="inline-flex h-7 items-center gap-1.5 rounded bg-white/[0.08] px-2.5 font-geist text-[12px] font-medium text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!canIntegrate || integrateBaseMutation.isPending || mergeTaskMutation.isPending}
-            onClick={() => {
-              setIntegrationNotice(null);
-              setIsIntegrateDialogOpen(true);
-            }}
-            title={canIntegrate ? 'Integrate base or task changes into this workspace' : 'No branches are available to integrate into this task'}
-            type="button"
-          >
-            {integrateBaseMutation.isPending || mergeTaskMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <GitMerge className="h-3.5 w-3.5" />
-            )}
-            Integrate
-          </button>
-          <HeaderBadge icon={<FolderGit2 className="h-3 w-3" />} value={project.name} />
+          <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
+            <button
+              aria-label="Create an isolated task branch"
+              className="inline-flex h-7 w-7 items-center justify-center rounded bg-white/[0.08] text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isForkingTask}
+              onClick={() => { void onForkTaskWorkspace(); }}
+              title="Create a new isolated task workspace from this task's current branch"
+              type="button"
+            >
+              {isForkingTask ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <GitBranch className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <button
+              className="inline-flex h-7 items-center gap-1.5 rounded bg-white/[0.08] px-2.5 font-geist text-[12px] font-medium text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!canIntegrate || integrateBaseMutation.isPending || mergeTaskMutation.isPending}
+              onClick={() => {
+                setIntegrationNotice(null);
+                setIsIntegrateDialogOpen(true);
+              }}
+              title={canIntegrate ? 'Integrate base or task changes into this workspace' : 'No branches are available to integrate into this task'}
+              type="button"
+            >
+              {integrateBaseMutation.isPending || mergeTaskMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <GitMerge className="h-3.5 w-3.5" />
+              )}
+              Integrate
+            </button>
+            <OpenInEditorButton worktreePath={worktree?.worktreePath ?? null} />
+          </div>
         </div>
+        <div />
       </header>
 
       {integrationNotice ? (
@@ -335,18 +344,103 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   );
 });
 
-function HeaderBadge({
-  icon,
-  value
-}: {
-  icon?: React.ReactNode;
-  value: string;
-}) {
+function OpenInEditorButton({ worktreePath }: { worktreePath: string | null }) {
+  const preferredEditor = useOpenInEditorStore((state) => state.preferredEditor);
+  const setPreferredEditor = useOpenInEditorStore((state) => state.setPreferredEditor);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
+
+  function handleOpen(editor: ExternalEditor) {
+    setPreferredEditor(editor);
+    setIsOpen(false);
+
+    if (worktreePath) {
+      void autocodeApi.workspaces.openInEditor({ editor, worktreePath });
+    }
+  }
+
   return (
-    <span className="flex items-center gap-1 rounded bg-white/[0.06] px-1.5 py-0.5 font-geist text-[11px] text-white/45">
-      {icon ? <span className="text-white/30">{icon}</span> : null}
-      <span className="max-w-[140px] truncate">{value}</span>
-    </span>
+    <div className="relative" ref={containerRef}>
+      <button
+        className="inline-flex h-7 items-center gap-1.5 rounded bg-white/[0.08] pl-2 pr-1.5 font-geist text-[12px] font-medium text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={!worktreePath}
+        onClick={() => handleOpen(preferredEditor)}
+        title={`Open in ${EXTERNAL_EDITOR_LABELS[preferredEditor]}`}
+        type="button"
+      >
+        <img
+          alt=""
+          className="h-3.5 w-3.5 shrink-0 object-contain"
+          draggable={false}
+          src={EXTERNAL_EDITOR_ICON_SRC[preferredEditor]}
+        />
+        Open
+        <button
+          className="ml-0.5 grid h-5 w-5 shrink-0 place-items-center rounded transition hover:bg-white/[0.10]"
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsOpen((open) => !open);
+          }}
+          type="button"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </button>
+
+      {isOpen ? (
+        <div className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-2xl">
+          <div className="py-1">
+            {EXTERNAL_EDITORS.map((editor) => (
+              <button
+                key={editor}
+                className={clsx(
+                  'flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition hover:bg-white/[0.06]',
+                  editor === preferredEditor ? 'bg-white/[0.04]' : ''
+                )}
+                onClick={() => handleOpen(editor)}
+                type="button"
+              >
+                <img
+                  alt=""
+                  className="h-3.5 w-3.5 shrink-0 object-contain"
+                  draggable={false}
+                  src={EXTERNAL_EDITOR_ICON_SRC[editor]}
+                />
+                <span className="font-geist text-[12px] font-medium text-white/70">
+                  {EXTERNAL_EDITOR_LABELS[editor]}
+                </span>
+                {editor === preferredEditor ? (
+                  <Check className="ml-auto h-3 w-3 text-white/50" />
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

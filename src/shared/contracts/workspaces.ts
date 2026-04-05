@@ -78,6 +78,13 @@ export const workspaceMergeTaskInputSchema = z.object({
   taskId: taskIdSchema
 });
 
+export const workspaceOpenInEditorInputSchema = z.object({
+  editor: z.enum(['cursor', 'finder', 'vscode']),
+  worktreePath: z.string().trim().min(1)
+});
+
+export const workspaceOpenInEditorResultSchema = z.void();
+
 export const workspaceCollectionSyncSchema = z.object({
   project: projectSchema,
   taskWorkspace: taskWorkspaceSchema
@@ -140,3 +147,4 @@ export type WorkspaceListBranchesResult = z.infer<typeof workspaceListBranchesRe
 export type WorkspaceUpdateBaseRefInput = z.infer<typeof workspaceUpdateBaseRefInputSchema>;
 export type WorkspaceUpdateBaseRefResult = z.infer<typeof workspaceUpdateBaseRefResultSchema>;
 export type WorkspaceIntegrationResult = z.infer<typeof workspaceIntegrationResultSchema>;
+export type WorkspaceOpenInEditorInput = z.infer<typeof workspaceOpenInEditorInputSchema>;

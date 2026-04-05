@@ -28,6 +28,7 @@ export const workspaceChannels = {
   getPublishStatus: 'workspaces:getPublishStatus',
   integrateBase: 'workspaces:integrateBase',
   listBranches: 'workspaces:listBranches',
+  openInEditor: 'workspaces:openInEditor',
   openPullRequest: 'workspaces:openPullRequest',
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',

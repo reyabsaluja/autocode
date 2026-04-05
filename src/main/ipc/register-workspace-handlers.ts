@@ -1,4 +1,6 @@
+import { spawn } from 'node:child_process';
 import type { IpcMainInvokeEvent } from 'electron';
+import { shell } from 'electron';
 
 import {
   type WorkspaceChangesInput,
@@ -36,6 +38,9 @@ import {
   type WorkspaceRecentCommitsInput,
   workspaceRecentCommitsInputSchema,
   workspaceRecentCommitsResultSchema,
+  type WorkspaceOpenInEditorInput,
+  workspaceOpenInEditorInputSchema,
+  workspaceOpenInEditorResultSchema,
   type WorkspaceUpdateBaseRefInput,
   workspaceUpdateBaseRefInputSchema,
   workspaceUpdateBaseRefResultSchema
@@ -163,5 +168,25 @@ export function registerWorkspaceHandlers(
       workspaceFileService.writeFile(input),
     inputSchema: workspaceFileWriteInputSchema,
     outputSchema: workspaceFileWriteResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.openInEditor, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceOpenInEditorInput) => {
+      const { editor, worktreePath } = input;
+
+      switch (editor) {
+        case 'finder':
+          await shell.openPath(worktreePath);
+          break;
+        case 'vscode':
+          spawn('code', [worktreePath], { detached: true, stdio: 'ignore' }).unref();
+          break;
+        case 'cursor':
+          spawn('cursor', [worktreePath], { detached: true, stdio: 'ignore' }).unref();
+          break;
+      }
+    },
+    inputSchema: workspaceOpenInEditorInputSchema,
+    outputSchema: workspaceOpenInEditorResultSchema
   });
 }

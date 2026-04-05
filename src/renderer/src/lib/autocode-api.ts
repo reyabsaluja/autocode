@@ -50,6 +50,7 @@ export const autocodeApi: AutocodeApi = {
     integrateBase: (input) => getAutocodeApi().workspaces.integrateBase(input),
     listBranches: (input) => getAutocodeApi().workspaces.listBranches(input),
     mergeTask: (input) => getAutocodeApi().workspaces.mergeTask(input),
+    openInEditor: (input) => getAutocodeApi().workspaces.openInEditor(input),
     updateBaseRef: (input) => getAutocodeApi().workspaces.updateBaseRef(input),
     openPullRequest: (input) => getAutocodeApi().workspaces.openPullRequest(input),
     readFile: (input) => getAutocodeApi().workspaces.readFile(input),
