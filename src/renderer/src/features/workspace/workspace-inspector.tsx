@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
@@ -35,6 +35,15 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
     taskWorkspace,
     runWithCenterTransition: fileController.runWithCenterTransition
   });
+
+  const handleSelectChange = useCallback((path: string) => {
+    fileController.requestFileSelection(path, 'changes', 'diff');
+    fileController.setActiveSidebarTab('changes');
+  }, [fileController.requestFileSelection, fileController.setActiveSidebarTab]);
+
+  const handleSelectFile = useCallback((path: string) => {
+    fileController.requestFileSelection(path, 'files', 'editor');
+  }, [fileController.requestFileSelection]);
 
   useImperativeHandle(
     ref,
@@ -106,13 +115,8 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
             onOpenPullRequest={fileController.handleOpenPullRequest}
             onPush={fileController.handlePush}
             onRefresh={fileController.handleRefresh}
-            onSelectChange={(path) => {
-              fileController.requestFileSelection(path, 'changes', 'diff');
-              fileController.setActiveSidebarTab('changes');
-            }}
-            onSelectFile={(path) => {
-              fileController.requestFileSelection(path, 'files', 'editor');
-            }}
+            onSelectChange={handleSelectChange}
+            onSelectFile={handleSelectFile}
             onSelectSidebarTab={fileController.setActiveSidebarTab}
             onToggleDirectory={fileController.toggleDirectory}
             reviewStatus={fileController.reviewStatus}

@@ -165,12 +165,13 @@ export function createAgentSessionRuntimeManager({
   async function reconcileInterruptedSessions(): Promise<void> {
     tmuxAvailable = await runtimeDependencies.checkTmuxAvailability();
     const timestamp = new Date().toISOString();
+    const activeSessions = agentSessionRepository.listActiveSessions();
 
-    for (const session of agentSessionRepository.listActiveSessions()) {
+    await Promise.allSettled(activeSessions.map(async (session) => {
       const internalSession = agentSessionRepository.findInternalById(session.id);
 
       if (!internalSession) {
-        continue;
+        return;
       }
 
       if (tmuxAvailable) {
@@ -191,7 +192,7 @@ export function createAgentSessionRuntimeManager({
               sessionId: session.id,
               transcriptPath: internalSession.transcriptPath
             });
-            continue;
+            return;
           } catch {
             // Reconnection failed — fall through to terminate
           }
@@ -229,7 +230,7 @@ export function createAgentSessionRuntimeManager({
         session: nextSession,
         type: 'snapshot'
       });
-    }
+    }));
   }
 
   async function startRuntime(input: StartAgentSessionRuntimeInput): Promise<{ pid: number }> {

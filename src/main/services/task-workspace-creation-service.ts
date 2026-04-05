@@ -39,20 +39,22 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
     async reconcileProvisioningTaskWorkspaces(): Promise<void> {
       const recoverableTaskWorkspaces = taskWorkspaceRepository.listRecoverableTaskWorkspaces();
 
-      for (const recoverableTaskWorkspace of recoverableTaskWorkspaces) {
-        try {
-          await reconcileRecoverableTaskWorkspace(
-            recoverableTaskWorkspace,
-            gitWorktreeService,
-            taskWorkspaceRepository
-          );
-        } catch (error) {
-          console.error(
-            `Failed to reconcile task workspace ${recoverableTaskWorkspace.task.id}`,
-            error
-          );
-        }
-      }
+      await Promise.allSettled(
+        recoverableTaskWorkspaces.map(async (recoverableTaskWorkspace) => {
+          try {
+            await reconcileRecoverableTaskWorkspace(
+              recoverableTaskWorkspace,
+              gitWorktreeService,
+              taskWorkspaceRepository
+            );
+          } catch (error) {
+            console.error(
+              `Failed to reconcile task workspace ${recoverableTaskWorkspace.task.id}`,
+              error
+            );
+          }
+        })
+      );
     },
 
     async reconcileProvisioningTaskWorkspace(taskId: number): Promise<TaskWorkspace | null> {

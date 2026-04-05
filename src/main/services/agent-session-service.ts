@@ -50,10 +50,7 @@ export function createAgentSessionService(
 
     async deleteByTask(taskId: number): Promise<void> {
       const sessions = agentSessionRepository.listByTask(taskId);
-
-      for (const session of sessions) {
-        await runtimeManager.deleteSession(session.id);
-      }
+      await Promise.all(sessions.map((session) => runtimeManager.deleteSession(session.id)));
     },
 
     listByTask(input: ListAgentSessionsByTaskInput): AgentSession[] {

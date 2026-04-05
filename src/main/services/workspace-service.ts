@@ -61,20 +61,25 @@ export function createWorkspaceService(
       const relativePath = normalizeRelativePath(input.relativePath ?? '');
       const entries = await readDirectoryEntries(context.worktreePath, relativePath);
 
-      const directoryEntries: WorkspaceDirectoryEntry[] = entries
-        .filter((entry) => entry.name !== '.git')
-        .map((entry) => ({
-          kind: entry.isDirectory() ? ('directory' as const) : ('file' as const),
+      const directoryEntries: WorkspaceDirectoryEntry[] = [];
+
+      for (const entry of entries) {
+        if (entry.name === '.git') continue;
+
+        directoryEntries.push({
+          kind: entry.isDirectory() ? 'directory' : 'file',
           name: entry.name,
           relativePath: joinRelativePath(relativePath, entry.name)
-        }))
-        .sort((left, right) => {
-          if (left.kind !== right.kind) {
-            return left.kind === 'directory' ? -1 : 1;
-          }
-
-          return left.name.localeCompare(right.name);
         });
+      }
+
+      directoryEntries.sort((left, right) => {
+        if (left.kind !== right.kind) {
+          return left.kind === 'directory' ? -1 : 1;
+        }
+
+        return left.name.localeCompare(right.name);
+      });
 
       return {
         entries: directoryEntries,
@@ -609,18 +614,21 @@ async function listRecentCommits(
       return [];
     }
 
-    return output
-      .trim()
-      .split('\n')
-      .map((line) => {
-        const [sha, message, relativeTime] = line.split('\0');
-        return {
+    const commits: WorkspaceCommitLogEntry[] = [];
+
+    for (const line of output.trim().split('\n')) {
+      const [sha, message, relativeTime] = line.split('\0');
+
+      if (sha) {
+        commits.push({
           message: message ?? '',
           relativeTime: relativeTime ?? '',
-          sha: sha ?? ''
-        };
-      })
-      .filter((entry) => entry.sha.length > 0);
+          sha
+        });
+      }
+    }
+
+    return commits;
   } catch {
     return [];
   }

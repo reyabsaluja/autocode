@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
   ChevronDown,
@@ -115,6 +115,13 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
 
   const selectedTranscriptEntries = transcriptQuery.data?.entries ?? [];
   const isSelectedSessionInteractive = isActiveSessionStatus(selectedSession?.status);
+  const isSelectedSessionInteractiveRef = useRef(isSelectedSessionInteractive);
+  isSelectedSessionInteractiveRef.current = isSelectedSessionInteractive;
+  const handleTerminalData = useCallback((text: string) => {
+    if (isSelectedSessionInteractiveRef.current) {
+      sendInputMutation.mutate({ text });
+    }
+  }, [sendInputMutation]);
   const statusLabel = selectedSession ? formatSessionStatus(selectedSession.status) : 'No run selected';
   const errorMessage =
     formatError(startSessionMutation.error) ??
@@ -217,11 +224,7 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
                   entries={selectedTranscriptEntries}
                   isInteractive={isSelectedSessionInteractive}
                   isVisible={isOpen}
-                  onData={(text) => {
-                    if (isSelectedSessionInteractive) {
-                      sendInputMutation.mutate({ text });
-                    }
-                  }}
+                  onData={handleTerminalData}
                   onResize={handleResize}
                   sessionId={selectedSession.id}
                 />

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { existsSync, mkdirSync, realpathSync } from 'node:fs';
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 
 import type { Project } from '../../shared/domain/project';
 import type { Task } from '../../shared/domain/task';
@@ -114,7 +114,7 @@ async function ensureTaskWorktree(
   const { worktreePath } = worktreePlan;
   const registeredWorktrees = await listRegisteredWorktrees(project.gitRoot);
 
-  mkdirSync(path.dirname(worktreePath), { recursive: true });
+  await mkdir(path.dirname(worktreePath), { recursive: true });
 
   if (registeredWorktrees.has(worktreePath)) {
     const baseRef = await resolveProvisioningBaseRef(

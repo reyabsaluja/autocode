@@ -77,23 +77,23 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
     [baseRef, currentTask, taskWorkspaces]
   );
   const baseLabel = baseTaskWorkspace?.task.title ?? baseRef;
-  const integrationCandidates = useMemo(
-    () =>
-      currentTask
-        ? taskWorkspaces
-            .filter(
-              (workspace) =>
-                workspace.task.id !== currentTask.id &&
-                workspace.worktree !== null
-            )
-            .map((workspace) => ({
-              branchName: workspace.worktree!.branchName,
-              taskId: workspace.task.id,
-              title: workspace.task.title
-            }))
-        : [],
-    [currentTask, taskWorkspaces]
-  );
+  const integrationCandidates = useMemo(() => {
+    if (!currentTask) return [];
+
+    const candidates: Array<{ branchName: string; taskId: number; title: string }> = [];
+
+    for (const workspace of taskWorkspaces) {
+      if (workspace.task.id !== currentTask.id && workspace.worktree !== null) {
+        candidates.push({
+          branchName: workspace.worktree.branchName,
+          taskId: workspace.task.id,
+          title: workspace.task.title
+        });
+      }
+    }
+
+    return candidates;
+  }, [currentTask, taskWorkspaces]);
   const canIntegrate = Boolean(baseLabel) || integrationCandidates.length > 0;
   const integrationErrorMessage =
     (integrateBaseMutation.error instanceof Error ? integrateBaseMutation.error.message : null) ??

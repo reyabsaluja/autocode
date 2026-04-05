@@ -113,13 +113,20 @@ async function resolveExecutableForProvider(provider: AgentProvider): Promise<st
   }
 }
 
+let cachedAgentProcessEnv: Record<string, string> | null = null;
+
 function buildAgentProcessEnv(): Record<string, string> {
+  if (cachedAgentProcessEnv) {
+    return cachedAgentProcessEnv;
+  }
+
   const env = Object.fromEntries(
     Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
   );
   const pathEntries = getCliSearchPaths(process.env.PATH);
 
   env.PATH = pathEntries.join(path.delimiter);
+  cachedAgentProcessEnv = env;
   return env;
 }
 
