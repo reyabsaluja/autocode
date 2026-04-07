@@ -164,8 +164,8 @@ function SidebarTab({
       className={clsx(
         'flex h-7 min-h-7 max-h-7 items-center gap-1.5 rounded-md px-2.5 font-geist text-[12px] font-medium leading-tight transition',
         isActive
-          ? 'bg-white/[0.10] text-white'
-          : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+          ? 'bg-white/[0.08] text-white/90'
+          : 'text-white/40 hover:bg-white/[0.05] hover:text-white/70'
       )}
       onMouseDown={(event) => {
         event.preventDefault();

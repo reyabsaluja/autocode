@@ -128,16 +128,16 @@ function WorkspaceDirectoryTreeNode({
   const isExpanded = expandedDirectorySet.has(entry.relativePath);
   const childrenQuery = useWorkspaceExplorerDirectoryQuery(taskId, entry.relativePath, isExpanded);
   const isSelected = entry.relativePath === selectedPath;
-  const paddingLeft = 8 + depth * 14;
+  const paddingLeft = 10 + depth * 16;
 
   return (
     <li>
       <WorkspaceTreeButton
         depth={depth}
         icon={isExpanded ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-white/75" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/40" />
         ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-white/75" />
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/40" />
         )}
         isSelected={isSelected}
         label={entry.name}
@@ -232,17 +232,19 @@ function WorkspaceTreeButton({
   return (
     <button
       className={clsx(
-        'flex w-full items-center gap-1.5 py-[5px] pr-3 text-left font-geist text-[12px] transition',
+        'flex w-full items-center gap-2 py-[5px] pr-3 text-left font-geist text-[13px] leading-tight transition',
         isSelected
-          ? 'bg-white/[0.10] text-white'
-          : 'text-white hover:bg-white/[0.06]'
+          ? 'bg-white/[0.08] text-white'
+          : labelClassName
+            ? 'text-white/80 hover:bg-white/[0.05] hover:text-white/90'
+            : 'text-white/60 hover:bg-white/[0.05] hover:text-white/80'
       )}
       onMouseDown={onMouseDown}
-      style={{ paddingLeft: 8 + depth * 14 }}
+      style={{ paddingLeft: 10 + depth * 16 }}
       type="button"
     >
       {icon}
-      <span className={labelClassName}>{label}</span>
+      <span className={clsx(labelClassName, !labelClassName && 'font-normal')}>{label}</span>
     </button>
   );
 }

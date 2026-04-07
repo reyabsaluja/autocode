@@ -339,8 +339,8 @@ function ChangeFileList({
               className={clsx(
                 'group flex w-full items-center gap-2 py-[5px] pl-6 pr-2 text-left font-geist transition',
                 isSelected
-                  ? 'bg-white/[0.10] text-white'
-                  : 'text-white/60 hover:bg-white/[0.06] hover:text-white/90'
+                  ? 'bg-white/[0.08] text-white'
+                  : 'text-white/60 hover:bg-white/[0.05] hover:text-white/80'
               )}
               onMouseDown={(event) => {
                 event.preventDefault();
@@ -349,9 +349,9 @@ function ChangeFileList({
               type="button"
             >
               <ChangeStatusIndicator status={change.status} />
-              <span className="min-w-0 truncate text-[12px]">{fileName}</span>
+              <span className="min-w-0 truncate text-[13px]">{fileName}</span>
               {dirPath ? (
-                <span className="min-w-0 truncate text-[10px] text-white/20">{dirPath}</span>
+                <span className="min-w-0 truncate text-[11px] text-white/25">{dirPath}</span>
               ) : null}
               <span className="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px]">
                 {change.linesAdded != null && change.linesAdded > 0 ? (
