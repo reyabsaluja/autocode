@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Suspense, lazy, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { Files, GitCompare, RefreshCw } from 'lucide-react';
 
@@ -8,8 +8,14 @@ import type {
   WorkspaceReviewStatus
 } from '@shared/domain/workspace-inspection';
 
-import { WorkspaceChangesPanel } from './workspace-changes-panel';
 import { WorkspaceFileExplorer } from './workspace-file-explorer';
+
+const LazyWorkspaceChangesPanel = lazy(async () => {
+  const module = await import('./workspace-changes-panel');
+  return {
+    default: module.WorkspaceChangesPanel
+  };
+});
 
 interface WorkspaceInspectorSidebarProps {
   activeSidebarTab: 'changes' | 'files';
@@ -116,32 +122,45 @@ export function WorkspaceInspectorSidebar({
             taskId={taskId}
           />
         ) : (
-          <WorkspaceChangesPanel
-            changes={changes}
-            commitErrorMessage={commitErrorMessage}
-            commitMessage={commitMessage}
-            commitNotice={commitNotice}
-            commits={commits}
-            commitsLoadErrorMessage={commitsLoadErrorMessage}
-            isCommitting={isCommitting}
-            isLoading={isLoadingChanges}
-            isLoadingCommits={isLoadingCommits}
-            isLoadingPublishStatus={isLoadingPublishStatus}
-            isCreatingPullRequest={isCreatingPullRequest}
-            isOpeningPullRequest={isOpeningPullRequest}
-            isPushing={isPushing}
-            loadErrorMessage={changesLoadErrorMessage}
-            onCommit={onCommit}
-            onCreatePullRequest={onCreatePullRequest}
-            onCommitMessageChange={onCommitMessageChange}
-            onOpenPullRequest={onOpenPullRequest}
-            onPush={onPush}
-            onRefresh={onRefresh}
-            onSelectChange={onSelectChange}
-            reviewStatus={reviewStatus}
-            publishStatusErrorMessage={publishStatusErrorMessage}
-            selectedPath={selectedPath}
-          />
+          <Suspense
+            fallback={
+              <div className="grid h-full place-items-center px-6 text-center">
+                <div className="max-w-md">
+                  <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin text-white/18" />
+                  <p className="font-geist text-[14px] font-medium text-white/72">
+                    Loading changes
+                  </p>
+                </div>
+              </div>
+            }
+          >
+            <LazyWorkspaceChangesPanel
+              changes={changes}
+              commitErrorMessage={commitErrorMessage}
+              commitMessage={commitMessage}
+              commitNotice={commitNotice}
+              commits={commits}
+              commitsLoadErrorMessage={commitsLoadErrorMessage}
+              isCommitting={isCommitting}
+              isLoading={isLoadingChanges}
+              isLoadingCommits={isLoadingCommits}
+              isLoadingPublishStatus={isLoadingPublishStatus}
+              isCreatingPullRequest={isCreatingPullRequest}
+              isOpeningPullRequest={isOpeningPullRequest}
+              isPushing={isPushing}
+              loadErrorMessage={changesLoadErrorMessage}
+              onCommit={onCommit}
+              onCreatePullRequest={onCreatePullRequest}
+              onCommitMessageChange={onCommitMessageChange}
+              onOpenPullRequest={onOpenPullRequest}
+              onPush={onPush}
+              onRefresh={onRefresh}
+              onSelectChange={onSelectChange}
+              reviewStatus={reviewStatus}
+              publishStatusErrorMessage={publishStatusErrorMessage}
+              selectedPath={selectedPath}
+            />
+          </Suspense>
         )}
       </div>
     </aside>

@@ -46,15 +46,19 @@ export async function invalidateTaskWorkspaceCollectionsForTask(
 function findProjectIdForTask(queryClient: QueryClient, taskId: number): number | null {
   const taskLists = queryClient.getQueriesData<TaskWorkspace[]>({ queryKey: ['tasks'] });
 
-  for (const [, taskWorkspaces] of taskLists) {
+  for (let listIndex = 0; listIndex < taskLists.length; listIndex += 1) {
+    const [, taskWorkspaces] = taskLists[listIndex]!;
+
     if (!taskWorkspaces) {
       continue;
     }
 
-    const matchingWorkspace = taskWorkspaces.find((workspace) => workspace.task.id === taskId);
+    for (let workspaceIndex = 0; workspaceIndex < taskWorkspaces.length; workspaceIndex += 1) {
+      const workspace = taskWorkspaces[workspaceIndex]!;
 
-    if (matchingWorkspace) {
-      return matchingWorkspace.task.projectId;
+      if (workspace.task.id === taskId) {
+        return workspace.task.projectId;
+      }
     }
   }
 
@@ -62,11 +66,27 @@ function findProjectIdForTask(queryClient: QueryClient, taskId: number): number 
 }
 
 function compareTaskWorkspacesByUpdatedAt(left: TaskWorkspace, right: TaskWorkspace) {
-  return right.task.updatedAt.localeCompare(left.task.updatedAt);
+  if (right.task.updatedAt > left.task.updatedAt) {
+    return 1;
+  }
+
+  if (right.task.updatedAt < left.task.updatedAt) {
+    return -1;
+  }
+
+  return right.task.id - left.task.id;
 }
 
 function compareProjectsByUpdatedAt(left: Project, right: Project) {
-  return right.updatedAt.localeCompare(left.updatedAt);
+  if (right.updatedAt > left.updatedAt) {
+    return 1;
+  }
+
+  if (right.updatedAt < left.updatedAt) {
+    return -1;
+  }
+
+  return right.id - left.id;
 }
 
 export function upsertTaskWorkspace(
@@ -100,13 +120,28 @@ function upsertSortedEntry<T>(
   compareEntries: (left: T, right: T) => number
 ): T[] {
   const next = current.slice();
-  const existingIndex = next.findIndex(isSameEntry);
+  let existingIndex = -1;
+
+  for (let index = 0; index < next.length; index += 1) {
+    if (isSameEntry(next[index]!)) {
+      existingIndex = index;
+      break;
+    }
+  }
 
   if (existingIndex !== -1) {
     next.splice(existingIndex, 1);
   }
 
-  const insertAt = next.findIndex((entry) => compareEntries(nextEntry, entry) < 0);
-  next.splice(insertAt === -1 ? next.length : insertAt, 0, nextEntry);
+  let insertAt = next.length;
+
+  for (let index = 0; index < next.length; index += 1) {
+    if (compareEntries(nextEntry, next[index]!) < 0) {
+      insertAt = index;
+      break;
+    }
+  }
+
+  next.splice(insertAt, 0, nextEntry);
   return next;
 }

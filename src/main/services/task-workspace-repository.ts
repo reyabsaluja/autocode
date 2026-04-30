@@ -175,7 +175,14 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
         .orderBy(desc(tasksTable.updatedAt), desc(tasksTable.id))
         .all();
 
-      return rows.map((row) => createTaskWorkspace(row.task, row.worktree?.id ? row.worktree : null));
+      const taskWorkspaces = new Array<TaskWorkspace>(rows.length);
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index]!;
+        taskWorkspaces[index] = createTaskWorkspace(row.task, row.worktree?.id ? row.worktree : null);
+      }
+
+      return taskWorkspaces;
     },
 
     listRecoverableTaskWorkspaces(): RecoverableTaskWorkspaceContext[] {
@@ -192,11 +199,18 @@ export function createTaskWorkspaceRepository(db: AppDatabase) {
         .orderBy(desc(tasksTable.updatedAt), desc(tasksTable.id))
         .all();
 
-      return rows.map((row) => ({
-        project: row.project,
-        task: toTask(row.task),
-        worktree: row.worktree?.id ? row.worktree : null
-      }));
+      const taskWorkspaces = new Array<RecoverableTaskWorkspaceContext>(rows.length);
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index]!;
+        taskWorkspaces[index] = {
+          project: row.project,
+          task: toTask(row.task),
+          worktree: row.worktree?.id ? row.worktree : null
+        };
+      }
+
+      return taskWorkspaces;
     },
 
     findRecoverableTaskWorkspaceByTaskId(taskId: number): RecoverableTaskWorkspaceContext | null {

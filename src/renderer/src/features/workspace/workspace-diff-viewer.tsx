@@ -16,7 +16,17 @@ export function WorkspaceDiffViewer({
   selectedPath
 }: WorkspaceDiffViewerProps) {
   const diffLines = useMemo(
-    () => diffText?.split('\n') ?? [],
+    () => {
+      if (!diffText) {
+        return [];
+      }
+
+      return diffText.split('\n').map((line, index) => ({
+        className: resolveDiffLineClassName(line),
+        key: `${index}:${line.slice(0, 8)}`,
+        text: line
+      }));
+    },
     [diffText]
   );
 
@@ -51,17 +61,9 @@ export function WorkspaceDiffViewer({
 
         {!isLoading && !errorMessage && diffText ? (
           <pre className="whitespace-pre-wrap break-words px-4 py-4 font-mono text-[12px] leading-[1.7] text-white/60">
-            {diffLines.map((line, index) => (
-              <span
-                key={`${index}:${line.slice(0, 8)}`}
-                className={clsx(
-                  'block px-1',
-                  line.startsWith('+') && !line.startsWith('+++') && 'bg-emerald-500/[0.06] text-emerald-300',
-                  line.startsWith('-') && !line.startsWith('---') && 'bg-rose-500/[0.06] text-rose-300',
-                  line.startsWith('@@') && 'text-sky-400/70'
-                )}
-              >
-                {line}
+            {diffLines.map((line) => (
+              <span key={line.key} className={line.className}>
+                {line.text}
               </span>
             ))}
           </pre>
@@ -79,5 +81,14 @@ function DiffMessage({ children, tone = 'subtle' }: { children: React.ReactNode;
     )}>
       {children}
     </p>
+  );
+}
+
+function resolveDiffLineClassName(line: string): string {
+  return clsx(
+    'block px-1',
+    line.startsWith('+') && !line.startsWith('+++') && 'bg-emerald-500/[0.06] text-emerald-300',
+    line.startsWith('-') && !line.startsWith('---') && 'bg-rose-500/[0.06] text-rose-300',
+    line.startsWith('@@') && 'text-sky-400/70'
   );
 }

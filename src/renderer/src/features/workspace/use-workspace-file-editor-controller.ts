@@ -50,14 +50,34 @@ export function useWorkspaceFileEditorController({
   const changes = changesQuery.data?.changes ?? [];
   const commits = recentCommitsQuery.data ?? [];
   const reviewStatus = publishStatusQuery.data ?? null;
+  const fileTabByPath = useMemo(() => {
+    const nextFileTabByPath = new Map<string, WorkspaceFileTab>();
+
+    for (let index = 0; index < fileTabs.length; index += 1) {
+      const tab = fileTabs[index]!;
+      nextFileTabByPath.set(tab.path, tab);
+    }
+
+    return nextFileTabByPath;
+  }, [fileTabs]);
+  const changeByPath = useMemo(() => {
+    const nextChangeByPath = new Map<string, (typeof changes)[number]>();
+
+    for (let index = 0; index < changes.length; index += 1) {
+      const change = changes[index]!;
+      nextChangeByPath.set(change.relativePath, change);
+    }
+
+    return nextChangeByPath;
+  }, [changes]);
   const activeFileTab = useMemo(
-    () => fileTabs.find((tab) => tab.path === activeCenterTab) ?? null,
-    [activeCenterTab, fileTabs]
+    () => fileTabByPath.get(activeCenterTab) ?? null,
+    [activeCenterTab, fileTabByPath]
   );
   const selectedPath = activeFileTab?.path ?? null;
   const activeChange = useMemo(
-    () => changes.find((change) => change.relativePath === selectedPath) ?? null,
-    [changes, selectedPath]
+    () => (selectedPath ? changeByPath.get(selectedPath) ?? null : null),
+    [changeByPath, selectedPath]
   );
 
   useEffect(() => {
@@ -87,7 +107,7 @@ export function useWorkspaceFileEditorController({
       return;
     }
 
-    if (changes.some((change) => change.relativePath === activeFileTab.path)) {
+    if (changeByPath.has(activeFileTab.path)) {
       return;
     }
 
@@ -98,7 +118,7 @@ export function useWorkspaceFileEditorController({
     }
 
     requestFileSelection(nextPath, 'changes', 'diff');
-  }, [activeFileTab, changes, editorRef]);
+  }, [activeFileTab, changeByPath, changes, editorRef]);
 
   const handleRefresh = async () => {
     setCommitNotice(null);
@@ -159,11 +179,19 @@ export function useWorkspaceFileEditorController({
   };
 
   const toggleDirectory = (directoryPath: string) => {
-    setExpandedDirectories((current) =>
-      current.includes(directoryPath)
-        ? current.filter((entry) => entry !== directoryPath)
-        : [...current, directoryPath]
-    );
+    setExpandedDirectories((current) => {
+      for (let index = 0; index < current.length; index += 1) {
+        if (current[index] !== directoryPath) {
+          continue;
+        }
+
+        const next = current.slice();
+        next.splice(index, 1);
+        return next;
+      }
+
+      return [...current, directoryPath];
+    });
   };
 
   function requestFileSelection(
@@ -198,18 +226,25 @@ export function useWorkspaceFileEditorController({
     nextCenterMode: 'diff' | 'editor'
   ) {
     setFileTabs((current) => {
-      const existingTab = current.find((tab) => tab.path === path);
+      const existingTabIndex = current.findIndex((tab) => tab.path === path);
 
-      if (existingTab) {
-        return current.map((tab) =>
-          tab.path === path
-            ? {
-                ...tab,
-                mode: nextCenterMode,
-                selectionMode: nextSelectionMode
-              }
-            : tab
-        );
+      if (existingTabIndex !== -1) {
+        const existingTab = current[existingTabIndex]!;
+
+        if (
+          existingTab.mode === nextCenterMode &&
+          existingTab.selectionMode === nextSelectionMode
+        ) {
+          return current;
+        }
+
+        const nextTabs = current.slice();
+        nextTabs[existingTabIndex] = {
+          ...existingTab,
+          mode: nextCenterMode,
+          selectionMode: nextSelectionMode
+        };
+        return nextTabs;
       }
 
       return [
@@ -288,7 +323,8 @@ export function useWorkspaceFileEditorController({
         return current;
       }
 
-      const nextTabs = current.filter((tab) => tab.path !== path);
+      const nextTabs = current.slice();
+      nextTabs.splice(tabIndex, 1);
 
       if (activeCenterTab === path) {
         const fallbackTab = nextTabs[tabIndex - 1] ?? nextTabs[tabIndex] ?? null;
@@ -304,16 +340,26 @@ export function useWorkspaceFileEditorController({
       return;
     }
 
-    setFileTabs((current) =>
-      current.map((tab) =>
-        tab.path === activeFileTab.path
-          ? {
-              ...tab,
-              mode: nextMode
-            }
-          : tab
-      )
-    );
+    setFileTabs((current) => {
+      const activeTabIndex = current.findIndex((tab) => tab.path === activeFileTab.path);
+
+      if (activeTabIndex === -1) {
+        return current;
+      }
+
+      const activeTab = current[activeTabIndex]!;
+
+      if (activeTab.mode === nextMode) {
+        return current;
+      }
+
+      const nextTabs = current.slice();
+      nextTabs[activeTabIndex] = {
+        ...activeTab,
+        mode: nextMode
+      };
+      return nextTabs;
+    });
   }
 
   function runWithCenterTransition(input: WorkspaceCenterTransitionRequest) {

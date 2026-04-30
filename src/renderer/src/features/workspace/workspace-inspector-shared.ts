@@ -24,8 +24,8 @@ export function formatWorkspaceInspectorError(error: unknown): string | null {
 }
 
 export function basename(value: string): string {
-  const parts = value.split('/');
-  return parts.at(-1) ?? value;
+  const lastSlashIndex = value.lastIndexOf('/');
+  return lastSlashIndex === -1 ? value : value.slice(lastSlashIndex + 1);
 }
 
 export function getProviderDisplayName(provider: AgentProvider): string {

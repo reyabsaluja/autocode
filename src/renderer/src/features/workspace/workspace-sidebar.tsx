@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import clsx from 'clsx';
 import {
   ChevronDown,
@@ -132,26 +132,14 @@ export function WorkspaceSidebar({
           ) : null}
 
           <div className="space-y-0.5">
-            {projects.map((entry) => {
-              const isSelected = entry.id === selectedProjectId;
-
-              return (
-                <button
-                  key={entry.id}
-                  className={clsx(
-                    'flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition',
-                    isSelected
-                      ? 'bg-white/[0.16] text-white'
-                      : 'text-white/70 hover:bg-white/[0.10] hover:text-white'
-                  )}
-                  onClick={() => onSelectProject(entry.id)}
-                  type="button"
-                >
-                  <FolderGit2 className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate font-geist text-[13px] font-medium">{entry.name}</span>
-                </button>
-              );
-            })}
+            {projects.map((entry) => (
+              <WorkspaceProjectListItem
+                entry={entry}
+                isSelected={entry.id === selectedProjectId}
+                key={entry.id}
+                onSelectProject={onSelectProject}
+              />
+            ))}
           </div>
 
           <div className="mt-2 space-y-2 rounded-card border border-dashed border-white/[0.15] p-2">
@@ -288,56 +276,16 @@ export function WorkspaceSidebar({
                 ) : null}
 
                 {!isLoadingTasks
-                  ? taskWorkspaces.map((workspace) => {
-                      const isSelected = workspace.task.id === selectedTaskId;
-
-                      return (
-                        <div
-                          key={workspace.task.id}
-                          className={clsx(
-                            'group flex items-start gap-1 py-2 pl-4 pr-2 transition',
-                            isSelected
-                              ? 'bg-white/[0.12]'
-                              : 'hover:bg-white/[0.08]'
-                          )}
-                        >
-                          <button
-                            className="min-w-0 flex-1 text-left"
-                            onClick={() => onSelectTask(workspace.task.id)}
-                            type="button"
-                          >
-                            <p className={clsx(
-                              'truncate font-geist text-[13px] font-medium',
-                              isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'
-                            )}>
-                              {workspace.task.title}
-                            </p>
-                            <div className="mt-1 flex items-center gap-2 text-[11px] text-white/40">
-                              <GitBranch className="h-3 w-3" />
-                              <span className="truncate font-mono">
-                                {workspace.worktree ? formatBranchLabel(workspace.worktree.branchName) : 'pending'}
-                              </span>
-                              <span className="ml-auto shrink-0">{formatShortDate(workspace.task.updatedAt)}</span>
-                            </div>
-                          </button>
-                          <button
-                            className={clsx(
-                              'grid h-5 w-5 shrink-0 place-items-center rounded-md transition-opacity',
-                              'opacity-0 group-hover:opacity-100',
-                              isDeletingTask
-                                ? 'cursor-not-allowed text-white/20'
-                                : 'text-white/30 hover:bg-white/[0.10] hover:text-rose-200'
-                            )}
-                            disabled={isDeletingTask}
-                            onClick={() => onDeleteTask(workspace)}
-                            title={`Delete ${workspace.task.title}`}
-                            type="button"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      );
-                    })
+                  ? taskWorkspaces.map((workspace) => (
+                      <WorkspaceTaskListItem
+                        isDeletingTask={isDeletingTask}
+                        isSelected={workspace.task.id === selectedTaskId}
+                        key={workspace.task.id}
+                        onDeleteTask={onDeleteTask}
+                        onSelectTask={onSelectTask}
+                        workspace={workspace}
+                      />
+                    ))
                   : null}
               </div>
             ) : null}
@@ -357,6 +305,92 @@ function SidebarMessage({ children }: { children: React.ReactNode }) {
     <p className="py-2 pl-4 pr-2 text-[12px] text-white/40">{children}</p>
   );
 }
+
+const WorkspaceProjectListItem = memo(function WorkspaceProjectListItem({
+  entry,
+  isSelected,
+  onSelectProject
+}: {
+  entry: Project;
+  isSelected: boolean;
+  onSelectProject: (projectId: number | null) => void;
+}) {
+  return (
+    <button
+      className={clsx(
+        'flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition',
+        isSelected
+          ? 'bg-white/[0.16] text-white'
+          : 'text-white/70 hover:bg-white/[0.10] hover:text-white'
+      )}
+      onClick={() => onSelectProject(entry.id)}
+      type="button"
+    >
+      <FolderGit2 className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate font-geist text-[13px] font-medium">{entry.name}</span>
+    </button>
+  );
+});
+
+const WorkspaceTaskListItem = memo(function WorkspaceTaskListItem({
+  isDeletingTask,
+  isSelected,
+  onDeleteTask,
+  onSelectTask,
+  workspace
+}: {
+  isDeletingTask: boolean;
+  isSelected: boolean;
+  onDeleteTask: (workspace: TaskWorkspace) => void;
+  onSelectTask: (taskId: number | null) => void;
+  workspace: TaskWorkspace;
+}) {
+  return (
+    <div
+      className={clsx(
+        'group flex items-start gap-1 py-2 pl-4 pr-2 transition',
+        isSelected
+          ? 'bg-white/[0.12]'
+          : 'hover:bg-white/[0.08]'
+      )}
+    >
+      <button
+        className="min-w-0 flex-1 text-left"
+        onClick={() => onSelectTask(workspace.task.id)}
+        type="button"
+      >
+        <p className={clsx(
+          'truncate font-geist text-[13px] font-medium',
+          isSelected ? 'text-white' : 'text-white/80 group-hover:text-white'
+        )}>
+          {workspace.task.title}
+        </p>
+        <div className="mt-1 flex items-center gap-2 text-[11px] text-white/40">
+          <GitBranch className="h-3 w-3" />
+          <span className="truncate font-mono">
+            {workspace.worktree ? formatBranchLabel(workspace.worktree.branchName) : 'pending'}
+          </span>
+          <span className="ml-auto shrink-0">{formatShortDate(workspace.task.updatedAt)}</span>
+        </div>
+      </button>
+      <button
+        className={clsx(
+          'grid h-5 w-5 shrink-0 place-items-center rounded-md transition-opacity',
+          'opacity-0 group-hover:opacity-100',
+          isDeletingTask
+            ? 'cursor-not-allowed text-white/20'
+            : 'text-white/30 hover:bg-white/[0.10] hover:text-rose-200'
+        )}
+        disabled={isDeletingTask}
+        onClick={() => onDeleteTask(workspace)}
+        title={`Delete ${workspace.task.title}`}
+        type="button"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+});
 
 function formatBranchLabel(branchName: string): string {
   return branchName.replace(/^autocode\/(?:task-\d+-)?/, 'autocode/');

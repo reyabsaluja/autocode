@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { ChevronDown, ChevronRight, GitCommitHorizontal, Loader2, Plus } from 'lucide-react';
 
@@ -158,24 +158,7 @@ export function WorkspaceChangesPanel({
               ) : commitsLoadErrorMessage ? (
                 <PanelMessage tone="error">{commitsLoadErrorMessage}</PanelMessage>
               ) : commits.length > 0 ? (
-                <ul className="py-0.5">
-                  {commits.map((entry) => (
-                    <li
-                      key={entry.sha}
-                      className="flex items-baseline gap-2 px-3 py-[5px] font-geist text-[12px]"
-                    >
-                      <span className="shrink-0 font-mono text-[11px] text-white/25">
-                        {entry.sha.slice(0, 8)}
-                      </span>
-                      <span className="min-w-0 truncate text-white/55">
-                        {entry.message}
-                      </span>
-                      <span className="ml-auto shrink-0 text-[10px] text-white/20">
-                        {entry.relativeTime}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <CommitList commits={commits} />
               ) : (
                 <PanelMessage>No commits on this branch yet.</PanelMessage>
               )
@@ -217,7 +200,7 @@ export function WorkspaceChangesPanel({
           disabled={resolveWorkspaceActionDisabled({
             action: workspaceAction.kind,
             changesCount: changes.length,
-            hasCommitMessage: commitMessage.trim().length > 0,
+            hasCommitMessage: hasCommitDraft,
             isCommitting,
             isCreatingPullRequest,
             isLoadingPublishStatus,
@@ -315,7 +298,7 @@ function SectionHeader({
   );
 }
 
-function ChangeFileList({
+const ChangeFileList = memo(function ChangeFileList({
   changes,
   onSelectChange,
   selectedPath
@@ -324,50 +307,111 @@ function ChangeFileList({
   onSelectChange: (path: string) => void;
   selectedPath: string | null;
 }) {
+  const rows = useMemo(
+    () =>
+      changes.map((change) => ({
+        change,
+        dirPath: change.relativePath.includes('/')
+          ? change.relativePath.slice(0, change.relativePath.lastIndexOf('/'))
+          : null,
+        fileName:
+          change.relativePath.lastIndexOf('/') === -1
+            ? change.relativePath
+            : change.relativePath.slice(change.relativePath.lastIndexOf('/') + 1)
+      })),
+    [changes]
+  );
+
   return (
     <ul className="py-0.5">
-      {changes.map((change) => {
-        const isSelected = change.relativePath === selectedPath;
-        const fileName = change.relativePath.split('/').at(-1) ?? change.relativePath;
-        const dirPath = change.relativePath.includes('/')
-          ? change.relativePath.slice(0, change.relativePath.lastIndexOf('/'))
-          : null;
-
+      {rows.map(({ change, dirPath, fileName }) => {
         return (
-          <li key={`${change.status}:${change.relativePath}`}>
-            <button
-              className={clsx(
-                'group flex w-full items-center gap-2 py-[5px] pl-6 pr-2 text-left font-geist transition',
-                isSelected
-                  ? 'bg-white/[0.08] text-white'
-                  : 'text-white/60 hover:bg-white/[0.05] hover:text-white/80'
-              )}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                onSelectChange(change.relativePath);
-              }}
-              type="button"
-            >
-              <ChangeStatusIndicator status={change.status} />
-              <span className="min-w-0 truncate text-[13px]">{fileName}</span>
-              {dirPath ? (
-                <span className="min-w-0 truncate text-[11px] text-white/25">{dirPath}</span>
-              ) : null}
-              <span className="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px]">
-                {change.linesAdded != null && change.linesAdded > 0 ? (
-                  <span className="text-emerald-400">+{change.linesAdded}</span>
-                ) : null}
-                {change.linesRemoved != null && change.linesRemoved > 0 ? (
-                  <span className="text-rose-400">-{change.linesRemoved}</span>
-                ) : null}
-              </span>
-            </button>
-          </li>
+          <ChangeFileRow
+            change={change}
+            dirPath={dirPath}
+            fileName={fileName}
+            isSelected={change.relativePath === selectedPath}
+            key={`${change.status}:${change.relativePath}`}
+            onSelectChange={onSelectChange}
+          />
         );
       })}
     </ul>
   );
-}
+});
+
+const ChangeFileRow = memo(function ChangeFileRow({
+  change,
+  dirPath,
+  fileName,
+  isSelected,
+  onSelectChange
+}: {
+  change: WorkspaceChange;
+  dirPath: string | null;
+  fileName: string;
+  isSelected: boolean;
+  onSelectChange: (path: string) => void;
+}) {
+  return (
+    <li>
+      <button
+        className={clsx(
+          'group flex w-full items-center gap-2 py-[5px] pl-6 pr-2 text-left font-geist transition',
+          isSelected
+            ? 'bg-white/[0.08] text-white'
+            : 'text-white/60 hover:bg-white/[0.05] hover:text-white/80'
+        )}
+        onMouseDown={(event) => {
+          event.preventDefault();
+          onSelectChange(change.relativePath);
+        }}
+        type="button"
+      >
+        <ChangeStatusIndicator status={change.status} />
+        <span className="min-w-0 truncate text-[13px]">{fileName}</span>
+        {dirPath ? (
+          <span className="min-w-0 truncate text-[11px] text-white/25">{dirPath}</span>
+        ) : null}
+        <span className="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px]">
+          {change.linesAdded != null && change.linesAdded > 0 ? (
+            <span className="text-emerald-400">+{change.linesAdded}</span>
+          ) : null}
+          {change.linesRemoved != null && change.linesRemoved > 0 ? (
+            <span className="text-rose-400">-{change.linesRemoved}</span>
+          ) : null}
+        </span>
+      </button>
+    </li>
+  );
+});
+
+const CommitList = memo(function CommitList({
+  commits
+}: {
+  commits: WorkspaceCommitLogEntry[];
+}) {
+  return (
+    <ul className="py-0.5">
+      {commits.map((entry) => (
+        <li
+          key={entry.sha}
+          className="flex items-baseline gap-2 px-3 py-[5px] font-geist text-[12px]"
+        >
+          <span className="shrink-0 font-mono text-[11px] text-white/25">
+            {entry.sha.slice(0, 8)}
+          </span>
+          <span className="min-w-0 truncate text-white/55">
+            {entry.message}
+          </span>
+          <span className="ml-auto shrink-0 text-[10px] text-white/20">
+            {entry.relativeTime}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+});
 
 const CHANGE_STATUS_CONFIG: Record<WorkspaceChange['status'], { color: string; letter: string }> = {
   added: { color: 'text-emerald-400', letter: 'A' },

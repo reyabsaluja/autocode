@@ -358,8 +358,8 @@ function formatWorkspaceChangeLabel(status: WorkspaceChange['status']) {
 }
 
 function basename(relativePath: string) {
-  const segments = relativePath.split('/');
-  return segments.at(-1) ?? relativePath;
+  const lastSlashIndex = relativePath.lastIndexOf('/');
+  return lastSlashIndex === -1 ? relativePath : relativePath.slice(lastSlashIndex + 1);
 }
 
 function ModeToggle({

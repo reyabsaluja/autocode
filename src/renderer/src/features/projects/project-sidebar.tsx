@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import type { Project } from '@shared/domain/project';
 
 interface ProjectSidebarProps {
@@ -85,27 +87,14 @@ export function ProjectSidebar({
           {!isLoading && projects.length === 0 ? <EmptyState /> : null}
 
           {!isLoading
-            ? projects.map((project) => {
-                const isSelected = project.id === selectedProjectId;
-
-                return (
-                  <button
-                    key={project.id}
-                    className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
-                      isSelected
-                        ? 'border-accent bg-teal-500/10'
-                        : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.07]'
-                    }`}
-                    onClick={() => onSelectProject(project.id)}
-                  >
-                    <p className="text-base font-semibold text-white">{project.name}</p>
-                    <p className="mt-1 line-clamp-1 text-sm text-slate-300">{project.repoPath}</p>
-                    <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Ready for tasks
-                    </p>
-                  </button>
-                );
-              })
+            ? projects.map((project) => (
+                <ProjectSidebarListItem
+                  isSelected={project.id === selectedProjectId}
+                  key={project.id}
+                  onSelectProject={onSelectProject}
+                  project={project}
+                />
+              ))
             : null}
         </div>
       </div>
@@ -132,3 +121,30 @@ function EmptyState() {
     </div>
   );
 }
+
+const ProjectSidebarListItem = memo(function ProjectSidebarListItem({
+  isSelected,
+  onSelectProject,
+  project
+}: {
+  isSelected: boolean;
+  onSelectProject: (projectId: number | null) => void;
+  project: Project;
+}) {
+  return (
+    <button
+      className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+        isSelected
+          ? 'border-accent bg-teal-500/10'
+          : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.07]'
+      }`}
+      onClick={() => onSelectProject(project.id)}
+    >
+      <p className="text-base font-semibold text-white">{project.name}</p>
+      <p className="mt-1 line-clamp-1 text-sm text-slate-300">{project.repoPath}</p>
+      <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-500">
+        Ready for tasks
+      </p>
+    </button>
+  );
+});

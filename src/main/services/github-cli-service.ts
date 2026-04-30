@@ -132,17 +132,23 @@ function selectMatchingPullRequest(
   pullRequests: GitHubPullRequestRecord[],
   branchName: string
 ): GitHubPullRequestRecord | null {
-  const exactMatches = pullRequests.filter((entry) => entry.headRefName === branchName);
+  let firstExactMatch: GitHubPullRequestRecord | null = null;
 
-  if (exactMatches.length === 0) {
-    return null;
+  for (const pullRequest of pullRequests) {
+    if (pullRequest.headRefName !== branchName) {
+      continue;
+    }
+
+    if (!firstExactMatch) {
+      firstExactMatch = pullRequest;
+    }
+
+    if (pullRequest.state === 'OPEN') {
+      return pullRequest;
+    }
   }
 
-  return (
-    exactMatches.find((entry) => entry.state === 'OPEN') ??
-    exactMatches[0] ??
-    null
-  );
+  return firstExactMatch;
 }
 
 function shouldInspectPullRequests(publishStatus: WorkspacePublishStatus): boolean {

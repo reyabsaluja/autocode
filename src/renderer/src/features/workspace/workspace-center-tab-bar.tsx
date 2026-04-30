@@ -30,7 +30,8 @@ function formatPresetLabel(name: string): string {
 }
 import { ClaudePresetIcon, CodexPresetIcon } from '../../lib/provider-preset-icons';
 import { useProviderPreferencesStore } from '../../stores/provider-preferences-store';
-import { useSessionLabelStore } from '../../stores/session-label-store';
+import { useSessionLabel } from '../../stores/session-label-store';
+import { useShallow } from 'zustand/react/shallow';
 
 interface WorkspaceCenterTabBarProps {
   activeCenterTab: string;
@@ -58,11 +59,19 @@ export function WorkspaceCenterTabBar({
   startSessionPending
 }: WorkspaceCenterTabBarProps) {
   const providers = useProviderPreferencesStore((state) => state.providers);
-  const sessionLabels = useSessionLabelStore((state) => state.labels);
-  const visibleProviders = useMemo(
-    () => providers.filter((entry) => entry.visible),
-    [providers]
-  );
+  const visibleProviders = useMemo(() => {
+    const nextVisibleProviders: typeof providers = [];
+
+    for (let index = 0; index < providers.length; index += 1) {
+      const entry = providers[index]!;
+
+      if (entry.visible) {
+        nextVisibleProviders.push(entry);
+      }
+    }
+
+    return nextVisibleProviders;
+  }, [providers]);
   const providerSessionIndexById = useMemo(() => {
     const nextProviderIndex = new Map<AgentProvider, number>();
     const indexById = new Map<number, number>();
@@ -101,10 +110,10 @@ export function WorkspaceCenterTabBar({
         {sessions.map((session) => {
           const providerIndex = providerSessionIndexById.get(session.id) ?? 1;
           const fallbackLabel = `${getProviderDisplayName(session.provider)} ${providerIndex}`;
-          const dynamicLabel = sessionLabels[session.id];
           return (
-            <CenterTab
+            <SessionCenterTab
               closeLabel={`Delete ${fallbackLabel}`}
+              fallbackLabel={fallbackLabel}
               icon={(
                 <SessionProviderIcon
                   provider={session.provider}
@@ -113,7 +122,7 @@ export function WorkspaceCenterTabBar({
               )}
               isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
               key={session.id}
-              label={dynamicLabel ?? fallbackLabel}
+              sessionId={session.id}
               onClick={() => {
                 onRequestSessionSelection(session.id);
               }}
@@ -169,6 +178,19 @@ export function WorkspaceCenterTabBar({
       </div>
     </div>
   );
+}
+
+function SessionCenterTab({
+  fallbackLabel,
+  sessionId,
+  ...props
+}: Omit<Parameters<typeof CenterTab>[0], 'label'> & {
+  fallbackLabel: string;
+  sessionId: number;
+}) {
+  const dynamicLabel = useSessionLabel(sessionId);
+
+  return <CenterTab {...props} label={dynamicLabel ?? fallbackLabel} />;
 }
 
 function QuickLaunchButton({
@@ -241,10 +263,19 @@ function ProviderSettingsButton() {
 }
 
 function ProviderSettingsPopover() {
-  const providers = useProviderPreferencesStore((state) => state.providers);
-  const toggleProvider = useProviderPreferencesStore((state) => state.toggleProvider);
-  const reorderProvider = useProviderPreferencesStore((state) => state.reorderProvider);
-  const resetToDefaults = useProviderPreferencesStore((state) => state.resetToDefaults);
+  const {
+    providers,
+    reorderProvider,
+    resetToDefaults,
+    toggleProvider
+  } = useProviderPreferencesStore(
+    useShallow((state) => ({
+      providers: state.providers,
+      reorderProvider: state.reorderProvider,
+      resetToDefaults: state.resetToDefaults,
+      toggleProvider: state.toggleProvider
+    }))
+  );
 
   return (
     <div className="absolute left-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-xl">

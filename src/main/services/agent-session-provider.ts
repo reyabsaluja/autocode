@@ -14,6 +14,16 @@ const PROVIDER_DISPLAY_NAMES: Record<AgentProvider, string> = {
   'terminal': 'Terminal'
 };
 
+const CLI_SEARCH_PATH_FALLBACKS = [
+  path.join(os.homedir(), '.bun', 'bin'),
+  path.join(os.homedir(), '.local', 'bin'),
+  path.join(os.homedir(), '.npm-global', 'bin'),
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  '/usr/bin',
+  '/bin'
+];
+
 export interface ResolvedAgentProviderRuntime {
   command: string;
   displayName: string;
@@ -103,6 +113,25 @@ function resolveCommandNameForProvider(provider: AgentProvider): string {
 }
 
 async function resolveExecutableForProvider(provider: AgentProvider): Promise<string> {
+  const cached = resolvedExecutablePaths.get(provider);
+
+  if (cached) {
+    return cached;
+  }
+
+  const pendingResolution = resolveExecutableForProviderUncached(provider).catch((error) => {
+    resolvedExecutablePaths.delete(provider);
+    throw error;
+  });
+
+  resolvedExecutablePaths.set(provider, pendingResolution);
+  return pendingResolution;
+}
+
+let cachedAgentProcessEnv: Record<string, string> | null = null;
+const resolvedExecutablePaths = new Map<AgentProvider, Promise<string>>();
+
+async function resolveExecutableForProviderUncached(provider: AgentProvider): Promise<string> {
   switch (provider) {
     case 'codex':
       return resolveCliExecutablePath(CODEX_COMMAND, 'Codex CLI');
@@ -113,16 +142,21 @@ async function resolveExecutableForProvider(provider: AgentProvider): Promise<st
   }
 }
 
-let cachedAgentProcessEnv: Record<string, string> | null = null;
-
 function buildAgentProcessEnv(): Record<string, string> {
   if (cachedAgentProcessEnv) {
     return cachedAgentProcessEnv;
   }
 
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
-  );
+  const env: Record<string, string> = {};
+
+  for (const key in process.env) {
+    const value = process.env[key];
+
+    if (typeof value === 'string') {
+      env[key] = value;
+    }
+  }
+
   const pathEntries = getCliSearchPaths(process.env.PATH);
 
   env.PATH = pathEntries.join(path.delimiter);
@@ -160,37 +194,65 @@ function getCliExecutableCandidates(command: string, currentPath: string | undef
   const fileNames = process.platform === 'win32'
     ? getWindowsExecutableNames(command)
     : [command];
+  const directoryPaths = getCliSearchPaths(currentPath);
+  const candidates: string[] = [];
 
-  return getCliSearchPaths(currentPath).flatMap((directoryPath) =>
-    fileNames.map((fileName) => path.join(directoryPath, fileName))
-  );
+  for (let directoryIndex = 0; directoryIndex < directoryPaths.length; directoryIndex += 1) {
+    const directoryPath = directoryPaths[directoryIndex]!;
+
+    for (let fileIndex = 0; fileIndex < fileNames.length; fileIndex += 1) {
+      candidates.push(path.join(directoryPath, fileNames[fileIndex]!));
+    }
+  }
+
+  return candidates;
 }
 
 function getCliSearchPaths(currentPath: string | undefined): string[] {
-  const pathEntries = (currentPath ?? '')
-    .split(path.delimiter)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-  const fallbackEntries = [
-    path.join(os.homedir(), '.bun', 'bin'),
-    path.join(os.homedir(), '.local', 'bin'),
-    path.join(os.homedir(), '.npm-global', 'bin'),
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
-    '/usr/bin',
-    '/bin'
-  ];
+  const nextEntries: string[] = [];
+  const seenEntries = new Set<string>();
+  const rawEntries = (currentPath ?? '').split(path.delimiter);
 
-  return [...new Set([...pathEntries, ...fallbackEntries])];
+  for (let index = 0; index < rawEntries.length; index += 1) {
+    const entry = rawEntries[index]!.trim();
+
+    if (!entry || seenEntries.has(entry)) {
+      continue;
+    }
+
+    seenEntries.add(entry);
+    nextEntries.push(entry);
+  }
+
+  for (let index = 0; index < CLI_SEARCH_PATH_FALLBACKS.length; index += 1) {
+    const entry = CLI_SEARCH_PATH_FALLBACKS[index]!;
+
+    if (seenEntries.has(entry)) {
+      continue;
+    }
+
+    seenEntries.add(entry);
+    nextEntries.push(entry);
+  }
+
+  return nextEntries;
 }
 
 function getWindowsExecutableNames(command: string): string[] {
-  const pathExtensions = (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM')
-    .split(';')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  const executableNames = [command];
+  const rawExtensions = (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';');
 
-  return [command, ...pathExtensions.map((extension) => `${command}${extension.toLowerCase()}`)];
+  for (let index = 0; index < rawExtensions.length; index += 1) {
+    const extension = rawExtensions[index]!.trim();
+
+    if (!extension) {
+      continue;
+    }
+
+    executableNames.push(`${command}${extension.toLowerCase()}`);
+  }
+
+  return executableNames;
 }
 
 async function isExecutableFile(candidatePath: string): Promise<boolean> {

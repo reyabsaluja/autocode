@@ -1,59 +1,107 @@
 import type { WorkspaceChange } from '../../shared/domain/workspace-inspection';
 
 export function parseWorkspaceChanges(output: string): WorkspaceChange[] {
-  const tokens = output.split('\0');
   const changes: WorkspaceChange[] = [];
+  let nextTokenStart = 0;
 
-  for (let index = 0; index < tokens.length; index += 1) {
-    const record = tokens[index];
+  while (nextTokenStart < output.length) {
+    const parsed = parseWorkspaceChangeAt(output, nextTokenStart);
+    nextTokenStart = parsed.nextTokenStart;
 
-    if (!record) {
-      continue;
+    if (parsed.change) {
+      changes.push(parsed.change);
     }
+  }
 
-    const statusCode = record.slice(0, 2);
-    const indexStatus = statusCode[0] ?? ' ';
-    const worktreeStatus = statusCode[1] ?? ' ';
-    const currentPath = decodeGitPath(record.slice(3));
-    const isStaged = indexStatus !== ' ' && indexStatus !== '?';
+  return changes;
+}
 
-    if (statusCode === '??') {
-      changes.push({
+export function parseWorkspaceChangeForPath(
+  output: string,
+  relativePath: string
+): WorkspaceChange | null {
+  let nextTokenStart = 0;
+
+  while (nextTokenStart < output.length) {
+    const parsed = parseWorkspaceChangeAt(output, nextTokenStart);
+    nextTokenStart = parsed.nextTokenStart;
+
+    if (parsed.change?.relativePath === relativePath) {
+      return parsed.change;
+    }
+  }
+
+  return null;
+}
+
+function parseWorkspaceChangeAt(
+  output: string,
+  nextTokenStart: number
+): {
+  change: WorkspaceChange | null;
+  nextTokenStart: number;
+} {
+  const recordEnd = output.indexOf('\0', nextTokenStart);
+  const safeRecordEnd = recordEnd === -1 ? output.length : recordEnd;
+  const record = output.slice(nextTokenStart, safeRecordEnd);
+  let nextStart = safeRecordEnd + 1;
+
+  if (!record) {
+    return {
+      change: null,
+      nextTokenStart: nextStart
+    };
+  }
+
+  const statusCode = record.slice(0, 2);
+  const indexStatus = statusCode[0] ?? ' ';
+  const currentPath = decodeGitPath(record.slice(3));
+  const isStaged = indexStatus !== ' ' && indexStatus !== '?';
+
+  if (statusCode === '??') {
+    return {
+      change: {
         isStaged: false,
         linesAdded: null,
         linesRemoved: null,
         previousPath: null,
         relativePath: currentPath,
         status: 'untracked'
-      });
-      continue;
-    }
+      },
+      nextTokenStart: nextStart
+    };
+  }
 
-    if (statusCode.includes('R')) {
-      const previousPath = decodeGitPath(tokens[index + 1] ?? '');
-      index += 1;
-      changes.push({
+  if (statusCode.includes('R')) {
+    const previousPathEnd = output.indexOf('\0', nextStart);
+    const safePreviousPathEnd = previousPathEnd === -1 ? output.length : previousPathEnd;
+    const previousPath = decodeGitPath(output.slice(nextStart, safePreviousPathEnd));
+    nextStart = safePreviousPathEnd + 1;
+
+    return {
+      change: {
         isStaged,
         linesAdded: null,
         linesRemoved: null,
         previousPath: previousPath || null,
         relativePath: currentPath,
         status: 'renamed'
-      });
-      continue;
-    }
+      },
+      nextTokenStart: nextStart
+    };
+  }
 
-    changes.push({
+  return {
+    change: {
       isStaged,
       linesAdded: null,
       linesRemoved: null,
       previousPath: null,
       relativePath: currentPath,
       status: mapStatusCode(statusCode)
-    });
-  }
-
-  return changes;
+    },
+    nextTokenStart: nextStart
+  };
 }
 
 function mapStatusCode(statusCode: string): WorkspaceChange['status'] {

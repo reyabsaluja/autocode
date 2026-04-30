@@ -14,14 +14,16 @@ import { queryKeys } from '../../lib/query-keys';
 import { appendStdinForLabel, clearStdinBuffer, useSessionLabelStore } from '../../stores/session-label-store';
 
 const AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES = 500;
+const AGENT_SESSION_LIST_GC_TIME_MS = 10 * 60_000;
 const pendingDeleteSessionIds = new Set<number>();
 
 export function useAgentSessionsQuery(taskId: number | null) {
   return useQuery({
     enabled: taskId !== null,
+    gcTime: AGENT_SESSION_LIST_GC_TIME_MS,
     queryFn: () => autocodeApi.agentSessions.listByTask({ taskId: taskId! }),
     queryKey: taskId !== null ? queryKeys.agentSessions(taskId) : ['agent-sessions', 'idle'],
-    refetchOnMount: 'always',
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });
@@ -78,7 +80,7 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
       if (taskId !== null) {
         queryClient.setQueryData<AgentSession[]>(
           queryKeys.agentSessions(taskId),
-          (current) => current?.filter((session) => session.id !== sessionId) ?? []
+          (current) => removeAgentSessionFromList(current ?? [], sessionId)
         );
       }
     },
@@ -101,7 +103,7 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
       if (taskId !== null && sessionId !== null) {
         queryClient.setQueryData<AgentSession[]>(
           queryKeys.agentSessions(taskId),
-          (current) => current?.filter((session) => session.id !== sessionId) ?? []
+          (current) => removeAgentSessionFromList(current ?? [], sessionId)
         );
       }
     },
@@ -146,6 +148,7 @@ export function useAgentSessionResizeMutation(sessionId: number | null) {
 export function useAgentSessionTranscriptTailQuery(sessionId: number | null, enabled = true) {
   return useQuery({
     enabled: sessionId !== null && enabled,
+    gcTime: AGENT_SESSION_LIST_GC_TIME_MS,
     queryFn: async () => {
       const result = await autocodeApi.agentSessions.readTranscriptTail({
         maxEntries: AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES,
@@ -166,7 +169,7 @@ export function useAgentSessionTranscriptTailQuery(sessionId: number | null, ena
       sessionId !== null
         ? queryKeys.agentSessionTranscript(sessionId)
         : ['agent-sessions', 'idle', 'transcript'],
-    refetchOnMount: 'always',
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });
@@ -296,8 +299,45 @@ function setTaskAgentSession(
 }
 
 function updateAgentSessionList(current: AgentSession[], session: AgentSession): AgentSession[] {
-  const next = current.filter((entry) => entry.id !== session.id);
-  return [session, ...next].sort(compareAgentSessionsByCreatedAt);
+  const next = current.slice();
+  let existingIndex = -1;
+
+  for (let index = 0; index < next.length; index += 1) {
+    if (next[index]!.id === session.id) {
+      existingIndex = index;
+      break;
+    }
+  }
+
+  if (existingIndex !== -1) {
+    next.splice(existingIndex, 1);
+  }
+
+  let insertAt = next.length;
+
+  for (let index = 0; index < next.length; index += 1) {
+    if (compareAgentSessionsByCreatedAt(session, next[index]!) < 0) {
+      insertAt = index;
+      break;
+    }
+  }
+
+  next.splice(insertAt, 0, session);
+  return next;
+}
+
+function removeAgentSessionFromList(current: AgentSession[], sessionId: number): AgentSession[] {
+  for (let index = 0; index < current.length; index += 1) {
+    if (current[index]!.id !== sessionId) {
+      continue;
+    }
+
+    const next = current.slice();
+    next.splice(index, 1);
+    return next;
+  }
+
+  return current;
 }
 
 function compareAgentSessionsByCreatedAt(left: AgentSession, right: AgentSession) {

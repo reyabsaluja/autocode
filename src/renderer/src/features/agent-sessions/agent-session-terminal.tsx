@@ -174,10 +174,13 @@ export const AgentSessionTerminal = memo(function AgentSessionTerminal({
     const nextEntries = collectPendingRenderableEntries(entries, lastRenderedSeqRef.current);
 
     try {
-      for (const entry of nextEntries) {
-        terminal.write(entry.text);
-        lastRenderedSeqRef.current = entry.seq;
+      if (nextEntries.length === 0) {
+        return;
       }
+
+      const text = nextEntries.map((entry) => entry.text).join('');
+      terminal.write(text);
+      lastRenderedSeqRef.current = nextEntries[nextEntries.length - 1]!.seq;
     } catch (error) {
       console.error('[AgentSessionTerminal] Failed to render transcript entries', error);
       setTerminalError('Autocode could not replay this terminal transcript.');

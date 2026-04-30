@@ -38,9 +38,12 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
 
     async reconcileProvisioningTaskWorkspaces(): Promise<void> {
       const recoverableTaskWorkspaces = taskWorkspaceRepository.listRecoverableTaskWorkspaces();
+      const reconciliations = new Array<Promise<void>>(recoverableTaskWorkspaces.length);
 
-      await Promise.allSettled(
-        recoverableTaskWorkspaces.map(async (recoverableTaskWorkspace) => {
+      for (let index = 0; index < recoverableTaskWorkspaces.length; index += 1) {
+        const recoverableTaskWorkspace = recoverableTaskWorkspaces[index]!;
+
+        reconciliations[index] = (async () => {
           try {
             await reconcileRecoverableTaskWorkspace(
               recoverableTaskWorkspace,
@@ -53,8 +56,10 @@ export function createTaskWorkspaceCreationService(db: AppDatabase) {
               error
             );
           }
-        })
-      );
+        })();
+      }
+
+      await Promise.allSettled(reconciliations);
     },
 
     async reconcileProvisioningTaskWorkspace(taskId: number): Promise<TaskWorkspace | null> {

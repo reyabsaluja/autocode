@@ -82,10 +82,18 @@ async function resolveBaseRef(gitRoot: string, defaultBranch: string | null): Pr
     defaultBranch ? `origin/${defaultBranch}` : null,
     'HEAD'
   ].filter((candidate): candidate is string => Boolean(candidate));
+  const availability = await Promise.all(
+    candidates.map(async (candidate) => ({
+      candidate,
+      exists: await gitRefExists(gitRoot, candidate)
+    }))
+  );
 
-  for (const candidate of candidates) {
-    if (await gitRefExists(gitRoot, candidate)) {
-      return candidate;
+  for (let index = 0; index < availability.length; index += 1) {
+    const entry = availability[index]!;
+
+    if (entry.exists) {
+      return entry.candidate;
     }
   }
 

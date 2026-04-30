@@ -1,4 +1,5 @@
-import { useCallback, useEffect, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, type RefObject } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 import type { Project } from '@shared/domain/project';
 import type { Task } from '@shared/domain/task';
@@ -22,20 +23,46 @@ export function useWorkspaceSessionController({
   editorRef,
   projects
 }: UseWorkspaceSessionControllerInput) {
-  const selectedTaskId = useWorkspaceStore((state) => state.selectedTaskId);
-  const selectedProjectId = useWorkspaceStore((state) => state.selectedProjectId);
-  const selectProject = useWorkspaceStore((state) => state.selectProject);
-  const selectTask = useWorkspaceStore((state) => state.selectTask);
+  const {
+    selectProject,
+    selectTask,
+    selectedProjectId,
+    selectedTaskId
+  } = useWorkspaceStore(
+    useShallow((state) => ({
+      selectProject: state.selectProject,
+      selectTask: state.selectTask,
+      selectedProjectId: state.selectedProjectId,
+      selectedTaskId: state.selectedTaskId
+    }))
+  );
   const { dialogProps, requestTransition } = useUnsavedChangesGuard(editorRef);
+  const projectById = useMemo(() => {
+    const next = new Map<number, Project>();
 
-  const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
+    for (const project of projects) {
+      next.set(project.id, project);
+    }
+
+    return next;
+  }, [projects]);
+  const selectedProject = selectedProjectId !== null ? projectById.get(selectedProjectId) ?? null : null;
   const effectiveProjectId = selectedProject?.id ?? null;
   const taskWorkspacesQuery = useTaskWorkspacesQuery(effectiveProjectId);
   const createTaskMutation = useCreateTaskWorkspaceMutation(effectiveProjectId);
   const deleteTaskMutation = useDeleteTaskWorkspaceMutation(effectiveProjectId);
   const taskWorkspaces = taskWorkspacesQuery.data ?? [];
+  const taskWorkspaceById = useMemo(() => {
+    const next = new Map<number, TaskWorkspace>();
+
+    for (const workspace of taskWorkspaces) {
+      next.set(workspace.task.id, workspace);
+    }
+
+    return next;
+  }, [taskWorkspaces]);
   const selectedTaskWorkspace =
-    taskWorkspaces.find((workspace) => workspace.task.id === selectedTaskId) ?? null;
+    selectedTaskId !== null ? taskWorkspaceById.get(selectedTaskId) ?? null : null;
 
   const reconcileProjectSelection = useCallback(
     (projectId: number | null) => {

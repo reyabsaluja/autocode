@@ -165,32 +165,26 @@ export function createAgentSessionRuntimeManager({
   async function reconcileInterruptedSessions(): Promise<void> {
     tmuxAvailable = await runtimeDependencies.checkTmuxAvailability();
     const timestamp = new Date().toISOString();
-    const activeSessions = agentSessionRepository.listActiveSessions();
+    const activeSessions = agentSessionRepository.listActiveSessionRecords();
 
     await Promise.allSettled(activeSessions.map(async (session) => {
-      const internalSession = agentSessionRepository.findInternalById(session.id);
-
-      if (!internalSession) {
-        return;
-      }
-
       if (tmuxAvailable) {
         const sessionName = runtimeDependencies.getTmuxSessionName(session.id);
         const alive = await runtimeDependencies.isTmuxSessionAlive(sessionName);
 
         if (alive) {
           try {
-            await ensureAgentSessionTranscriptFile(internalSession.transcriptPath);
+            await ensureAgentSessionTranscriptFile(session.transcriptPath);
             await appendSystemEntryIfPossible(
               session.id,
-              internalSession.transcriptPath,
+              session.transcriptPath,
               `Reconnected to this ${getAgentProviderDisplayName(session.provider)} session after Autocode restarted.`,
               timestamp
             );
             await reconnectRuntime({
               provider: session.provider,
               sessionId: session.id,
-              transcriptPath: internalSession.transcriptPath
+              transcriptPath: session.transcriptPath
             });
             return;
           } catch {
@@ -202,10 +196,10 @@ export function createAgentSessionRuntimeManager({
       const interruptionMessage =
         `Autocode interrupted this ${getAgentProviderDisplayName(session.provider)} session because the app restarted before it finished.`;
 
-      await ensureAgentSessionTranscriptFile(internalSession.transcriptPath);
+      await ensureAgentSessionTranscriptFile(session.transcriptPath);
       const interruptionEntry = await appendSystemEntryIfPossible(
         session.id,
-        internalSession.transcriptPath,
+        session.transcriptPath,
         interruptionMessage,
         timestamp
       );
@@ -729,10 +723,16 @@ export function createAgentSessionRuntimeManager({
   }
 
   function buildAttachProcessEnv(): Record<string, string> {
-    return Object.fromEntries(
-      Object.entries(process.env).filter(
-        (entry): entry is [string, string] => typeof entry[1] === 'string'
-      )
-    );
+    const env: Record<string, string> = {};
+
+    for (const key in process.env) {
+      const value = process.env[key];
+
+      if (typeof value === 'string') {
+        env[key] = value;
+      }
+    }
+
+    return env;
   }
 }

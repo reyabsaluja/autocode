@@ -51,13 +51,20 @@ export function createAgentSessionRepository(db: AppDatabase) {
     },
 
     listByTask(taskId: number): AgentSession[] {
-      return db
+      const rows = db
         .select()
         .from(agentSessionsTable)
         .where(eq(agentSessionsTable.taskId, taskId))
         .orderBy(desc(agentSessionsTable.createdAt), desc(agentSessionsTable.id))
-        .all()
-        .map(toAgentSession);
+        .all();
+
+      const sessions = new Array<AgentSession>(rows.length);
+
+      for (let index = 0; index < rows.length; index += 1) {
+        sessions[index] = toAgentSession(rows[index]!);
+      }
+
+      return sessions;
     },
 
     findById(sessionId: number): AgentSession | null {
@@ -85,14 +92,25 @@ export function createAgentSessionRepository(db: AppDatabase) {
       );
     },
 
-    listActiveSessions(): AgentSession[] {
+    listActiveSessionRecords(): AgentSessionRecord[] {
       return db
         .select()
         .from(agentSessionsTable)
         .where(inArray(agentSessionsTable.status, ['starting', 'running']))
         .orderBy(desc(agentSessionsTable.createdAt), desc(agentSessionsTable.id))
-        .all()
-        .map(toAgentSession);
+        .all();
+    },
+
+    listActiveSessions(): AgentSession[] {
+      const rows = this.listActiveSessionRecords();
+
+      const sessions = new Array<AgentSession>(rows.length);
+
+      for (let index = 0; index < rows.length; index += 1) {
+        sessions[index] = toAgentSession(rows[index]!);
+      }
+
+      return sessions;
     },
 
     markRunning(sessionId: number, pid: number, timestamp: string): AgentSession {

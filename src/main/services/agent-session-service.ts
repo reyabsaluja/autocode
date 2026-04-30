@@ -50,7 +50,13 @@ export function createAgentSessionService(
 
     async deleteByTask(taskId: number): Promise<void> {
       const sessions = agentSessionRepository.listByTask(taskId);
-      await Promise.all(sessions.map((session) => runtimeManager.deleteSession(session.id)));
+      const deletions = new Array<Promise<void>>(sessions.length);
+
+      for (let index = 0; index < sessions.length; index += 1) {
+        deletions[index] = runtimeManager.deleteSession(sessions[index]!.id);
+      }
+
+      await Promise.all(deletions);
     },
 
     listByTask(input: ListAgentSessionsByTaskInput): AgentSession[] {
@@ -210,10 +216,8 @@ export function createAgentSessionService(
   }
 
   function repairInterruptedSessionTranscriptPaths(timestamp: string): void {
-    for (const session of agentSessionRepository.listActiveSessions()) {
-      const internalSession = agentSessionRepository.findInternalById(session.id);
-
-      if (!internalSession || internalSession.transcriptPath.trim()) {
+    for (const session of agentSessionRepository.listActiveSessionRecords()) {
+      if (session.transcriptPath.trim()) {
         continue;
       }
 

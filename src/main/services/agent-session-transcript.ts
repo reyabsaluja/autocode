@@ -53,14 +53,18 @@ export async function readAgentSessionTranscriptTail(
 
     try {
       const lines = await readTranscriptTailLines(file, maxEntries);
-      const entries = lines.map((line) =>
-        parseIpcPayload(
-          agentSessionTranscriptEntrySchema,
-          JSON.parse(line),
-          'agentSessions:transcript',
-          'response'
-        )
-      );
+      const entries: AgentSessionTranscriptEntry[] = [];
+
+      for (const line of lines) {
+        entries.push(
+          parseIpcPayload(
+            agentSessionTranscriptEntrySchema,
+            JSON.parse(line),
+            'agentSessions:transcript',
+            'response'
+          )
+        );
+      }
 
       return {
         entries,
@@ -145,7 +149,15 @@ async function readTranscriptTailLines(
     lines.push(Buffer.from(pending));
   }
 
-  return lines.reverse().map((line) => line.toString('utf8'));
+  lines.reverse();
+
+  const nextLines = new Array<string>(lines.length);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    nextLines[index] = lines[index]!.toString('utf8');
+  }
+
+  return nextLines;
 }
 
 function isWhitespaceOnlyBuffer(buffer: Buffer): boolean {

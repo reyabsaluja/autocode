@@ -36,7 +36,7 @@ import {
   createWorkspacePullRequest,
   inspectWorkspacePullRequestStatus
 } from './github-cli-service';
-import { parseWorkspaceChanges } from './workspace-change-parser';
+import { parseWorkspaceChangeForPath, parseWorkspaceChanges } from './workspace-change-parser';
 import {
   createWorkspaceRuntime,
   isMissingPathError,
@@ -46,6 +46,11 @@ import {
   normalizeWorkspaceError,
   resolveWorkspaceTargetPath
 } from './workspace-runtime';
+
+const WORKSPACE_ENTRY_SORTER = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: 'base'
+});
 
 export function createWorkspaceService(
   db: AppDatabase,
@@ -78,7 +83,7 @@ export function createWorkspaceService(
           return left.kind === 'directory' ? -1 : 1;
         }
 
-        return left.name.localeCompare(right.name);
+        return WORKSPACE_ENTRY_SORTER.compare(left.name, right.name);
       });
 
       return {
@@ -499,8 +504,7 @@ async function resolveWorkspaceDiffText(
     return null;
   }
 
-  const change =
-    parseWorkspaceChanges(output).find((entry) => entry.relativePath === input.relativePath) ?? null;
+  const change = parseWorkspaceChangeForPath(output, input.relativePath);
 
   if (!change) {
     return null;

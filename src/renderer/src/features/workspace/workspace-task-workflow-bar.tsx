@@ -62,8 +62,21 @@ export function WorkspaceTaskWorkflowBar({
   taskWorkspace
 }: WorkspaceTaskWorkflowBarProps) {
   const task = taskWorkspace.task;
-  const activeSession = sessions.find((session) => isActiveSessionStatus(session.status)) ?? null;
-  const latestSession = sessions[0] ?? null;
+  const { activeSession, latestSession } = useMemo(() => {
+    let nextActiveSession: AgentSession | null = null;
+
+    for (const session of sessions) {
+      if (isActiveSessionStatus(session.status)) {
+        nextActiveSession = session;
+        break;
+      }
+    }
+
+    return {
+      activeSession: nextActiveSession,
+      latestSession: sessions[0] ?? null
+    };
+  }, [sessions]);
   const transitions = useMemo(
     () => getTaskTransitionTargets(task.status)
       .slice()

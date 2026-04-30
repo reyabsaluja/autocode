@@ -65,35 +65,38 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
     : null;
   const baseRef = currentWorktree?.baseRef ?? project?.defaultBranch ?? null;
   const [isBranchPickerOpen, setIsBranchPickerOpen] = useState(false);
-  const baseTaskWorkspace = useMemo(
-    () =>
-      baseRef && currentTask
-        ? taskWorkspaces.find(
-            (workspace) =>
-              workspace.task.id !== currentTask.id &&
-              workspace.worktree?.branchName === baseRef
-          ) ?? null
-        : null,
-    [baseRef, currentTask, taskWorkspaces]
-  );
-  const baseLabel = baseTaskWorkspace?.task.title ?? baseRef;
-  const integrationCandidates = useMemo(() => {
-    if (!currentTask) return [];
+  const { baseLabel, integrationCandidates } = useMemo(() => {
+    if (!currentTask) {
+      return {
+        baseLabel: baseRef,
+        integrationCandidates: [] as Array<{ branchName: string; taskId: number; title: string }>
+      };
+    }
 
+    let nextBaseLabel = baseRef;
     const candidates: Array<{ branchName: string; taskId: number; title: string }> = [];
 
     for (const workspace of taskWorkspaces) {
-      if (workspace.task.id !== currentTask.id && workspace.worktree !== null) {
-        candidates.push({
-          branchName: workspace.worktree.branchName,
-          taskId: workspace.task.id,
-          title: workspace.task.title
-        });
+      if (workspace.task.id === currentTask.id || workspace.worktree === null) {
+        continue;
       }
+
+      if (baseRef && workspace.worktree.branchName === baseRef) {
+        nextBaseLabel = workspace.task.title;
+      }
+
+      candidates.push({
+        branchName: workspace.worktree.branchName,
+        taskId: workspace.task.id,
+        title: workspace.task.title
+      });
     }
 
-    return candidates;
-  }, [currentTask, taskWorkspaces]);
+    return {
+      baseLabel: nextBaseLabel,
+      integrationCandidates: candidates
+    };
+  }, [baseRef, currentTask, taskWorkspaces]);
   const canIntegrate = Boolean(baseLabel) || integrationCandidates.length > 0;
   const integrationErrorMessage =
     (integrateBaseMutation.error instanceof Error ? integrateBaseMutation.error.message : null) ??

@@ -65,3 +65,7 @@ export function appendStdinForLabel(sessionId: number, text: string): void {
 export function clearStdinBuffer(sessionId: number): void {
   stdinBuffers.delete(sessionId);
 }
+
+export function useSessionLabel(sessionId: number): string | undefined {
+  return useSessionLabelStore((state) => state.labels[sessionId]);
+}

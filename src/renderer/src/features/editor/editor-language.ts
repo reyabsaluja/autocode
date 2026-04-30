@@ -65,7 +65,17 @@ export function useWorkspaceLanguageSupport(relativePath: string | null) {
 }
 
 function getLanguageKey(relativePath: string | null): string | null {
-  const extension = relativePath?.split('.').pop()?.toLowerCase();
+  if (!relativePath) {
+    return null;
+  }
+
+  const lastDotIndex = relativePath.lastIndexOf('.');
+
+  if (lastDotIndex === -1 || lastDotIndex === relativePath.length - 1) {
+    return null;
+  }
+
+  const extension = relativePath.slice(lastDotIndex + 1).toLowerCase();
 
   if (!extension || !(extension in languageLoaders)) {
     return null;

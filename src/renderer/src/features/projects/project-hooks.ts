@@ -7,10 +7,17 @@ import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
 import { upsertProject } from '../../lib/task-workspace-cache';
 
+const PROJECTS_STALE_TIME_MS = 60_000;
+const PROJECTS_GC_TIME_MS = 10 * 60_000;
+
 export function useProjectsQuery() {
   return useQuery({
+    gcTime: PROJECTS_GC_TIME_MS,
     queryKey: queryKeys.projects,
-    queryFn: () => autocodeApi.projects.list()
+    queryFn: () => autocodeApi.projects.list(),
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: PROJECTS_STALE_TIME_MS
   });
 }
 

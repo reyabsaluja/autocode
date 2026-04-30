@@ -362,6 +362,8 @@ export function useWorkspaceBranchesQuery(taskId: number | null) {
     enabled: taskId !== null,
     queryKey: taskId !== null ? queryKeys.workspaceBranches(taskId) : ['workspace', 'idle', 'branches'],
     queryFn: () => autocodeApi.workspaces.listBranches({ taskId: taskId! }),
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     staleTime: 30_000
   });
 }

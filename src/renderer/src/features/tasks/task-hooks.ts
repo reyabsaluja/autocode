@@ -7,11 +7,18 @@ import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
 import { upsertTaskWorkspace } from '../../lib/task-workspace-cache';
 
+const TASK_WORKSPACES_STALE_TIME_MS = 30_000;
+const TASK_WORKSPACES_GC_TIME_MS = 10 * 60_000;
+
 export function useTaskWorkspacesQuery(projectId: number | null) {
   return useQuery({
     enabled: projectId !== null,
     queryKey: projectId !== null ? queryKeys.taskWorkspaces(projectId) : ['tasks', 'idle'],
-    queryFn: () => autocodeApi.tasks.listByProject({ projectId: projectId! })
+    queryFn: () => autocodeApi.tasks.listByProject({ projectId: projectId! }),
+    gcTime: TASK_WORKSPACES_GC_TIME_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: TASK_WORKSPACES_STALE_TIME_MS
   });
 }
 
@@ -50,8 +57,9 @@ export function useDeleteTaskWorkspaceMutation(projectId: number | null) {
     mutationFn: (input: DeleteTaskInput) => autocodeApi.tasks.delete(input),
     onSuccess: async (_result, input) => {
       if (projectId !== null) {
-        queryClient.setQueryData<TaskWorkspace[]>(queryKeys.taskWorkspaces(projectId), (current) =>
-          current?.filter((workspace) => workspace.task.id !== input.taskId) ?? []
+        queryClient.setQueryData<TaskWorkspace[]>(
+          queryKeys.taskWorkspaces(projectId),
+          (current) => removeTaskWorkspaceFromList(current ?? [], input.taskId)
         );
       }
 
@@ -60,4 +68,18 @@ export function useDeleteTaskWorkspaceMutation(projectId: number | null) {
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
     }
   });
+}
+
+function removeTaskWorkspaceFromList(current: TaskWorkspace[], taskId: number): TaskWorkspace[] {
+  for (let index = 0; index < current.length; index += 1) {
+    if (current[index]!.task.id !== taskId) {
+      continue;
+    }
+
+    const next = current.slice();
+    next.splice(index, 1);
+    return next;
+  }
+
+  return current;
 }
