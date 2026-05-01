@@ -391,33 +391,49 @@ function OpenInEditorButton({ worktreePath }: { worktreePath: string | null }) {
     }
   }
 
+  const isDisabled = !worktreePath;
+
   return (
     <div className="relative" ref={containerRef}>
-      <button
-        className="inline-flex h-7 items-center gap-1.5 rounded bg-white/[0.08] pl-2 pr-1.5 font-geist text-[12px] font-medium text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={!worktreePath}
-        onClick={() => handleOpen(preferredEditor)}
-        title={`Open in ${EXTERNAL_EDITOR_LABELS[preferredEditor]}`}
-        type="button"
+      <div
+        className={clsx(
+          'inline-flex h-7 items-center overflow-hidden rounded bg-white/[0.08] font-geist text-[12px] font-medium text-white/60 transition',
+          isDisabled
+            ? 'opacity-50'
+            : 'hover:bg-white/[0.12] hover:text-white'
+        )}
       >
-        <img
-          alt=""
-          className="h-3.5 w-3.5 shrink-0 object-contain"
-          draggable={false}
-          src={EXTERNAL_EDITOR_ICON_SRC[preferredEditor]}
-        />
-        Open
         <button
-          className="ml-0.5 grid h-5 w-5 shrink-0 place-items-center rounded transition hover:bg-white/[0.10]"
+          className="inline-flex h-full items-center gap-1.5 pl-2 pr-1.5 disabled:cursor-not-allowed"
+          disabled={isDisabled}
+          onClick={() => handleOpen(preferredEditor)}
+          title={`Open in ${EXTERNAL_EDITOR_LABELS[preferredEditor]}`}
+          type="button"
+        >
+          <img
+            alt=""
+            className="h-3.5 w-3.5 shrink-0 object-contain"
+            draggable={false}
+            src={EXTERNAL_EDITOR_ICON_SRC[preferredEditor]}
+          />
+          Open
+        </button>
+        <button
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
+          aria-label="Choose editor"
+          className="grid h-full w-6 shrink-0 place-items-center border-l border-white/[0.06] transition hover:bg-white/[0.10] disabled:cursor-not-allowed"
+          disabled={isDisabled}
           onClick={(event) => {
             event.stopPropagation();
             setIsOpen((open) => !open);
           }}
+          title="Choose editor"
           type="button"
         >
           <ChevronDown className="h-3 w-3" />
         </button>
-      </button>
+      </div>
 
       {isOpen ? (
         <div className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-2xl">

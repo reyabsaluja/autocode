@@ -378,7 +378,10 @@ export function useUpdateBaseRefMutation(taskId: number | null) {
     },
     onSuccess: async () => {
       if (taskId !== null) {
-        await invalidateWorkspaceCollectionsForTask(queryClient, taskId);
+        await Promise.all([
+          invalidateWorkspaceCollectionsForTask(queryClient, taskId),
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) })
+        ]);
       }
     }
   });
