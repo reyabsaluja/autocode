@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import clsx from 'clsx';
 import {
   Bot,
@@ -62,11 +62,27 @@ export function WorkspaceTaskWorkflowBar({
   taskWorkspace
 }: WorkspaceTaskWorkflowBarProps) {
   const task = taskWorkspace.task;
-  const activeSession = sessions.find((session) => isActiveSessionStatus(session.status)) ?? null;
-  const latestSession = sessions[0] ?? null;
-  const transitions = getTaskTransitionTargets(task.status)
-    .slice()
-    .sort((left, right) => TRANSITION_PRIORITY[left] - TRANSITION_PRIORITY[right]);
+  const { activeSession, latestSession } = useMemo(() => {
+    let nextActiveSession: AgentSession | null = null;
+
+    for (const session of sessions) {
+      if (isActiveSessionStatus(session.status)) {
+        nextActiveSession = session;
+        break;
+      }
+    }
+
+    return {
+      activeSession: nextActiveSession,
+      latestSession: sessions[0] ?? null
+    };
+  }, [sessions]);
+  const transitions = useMemo(
+    () => getTaskTransitionTargets(task.status)
+      .slice()
+      .sort((left, right) => TRANSITION_PRIORITY[left] - TRANSITION_PRIORITY[right]),
+    [task.status]
+  );
   const statusConstraintMessage = activeSession
     ? `Finish the active ${getProviderDisplayName(activeSession.provider)} run before moving this task forward.`
     : changesCount > 0

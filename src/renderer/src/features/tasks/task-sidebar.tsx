@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import type { Project } from '@shared/domain/project';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
+
+const TASK_SIDEBAR_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric'
+});
 
 interface TaskSidebarProps {
   createErrorMessage: string | null;
@@ -129,38 +134,14 @@ export function TaskSidebar({
           {!isLoading && tasks.length === 0 ? <EmptyState /> : null}
 
           {!isLoading
-            ? tasks.map((workspace) => {
-                const isSelected = workspace.task.id === selectedTaskId;
-
-                return (
-                  <button
-                    key={workspace.task.id}
-                    className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
-                      isSelected
-                        ? 'border-accent bg-teal-50'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                    onClick={() => onSelectTask(workspace.task.id)}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-semibold text-slate-950">
-                          {workspace.task.title}
-                        </p>
-                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">
-                          {workspace.task.description ?? 'No prompt yet. This workspace is ready for work.'}
-                        </p>
-                      </div>
-                      <StatusBadge status={workspace.task.status} />
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-slate-500">
-                      <span>{workspace.worktree?.branchName ?? 'Workspace pending'}</span>
-                      <span>{formatShortDate(workspace.task.updatedAt)}</span>
-                    </div>
-                  </button>
-                );
-              })
+            ? tasks.map((workspace) => (
+                <TaskSidebarListItem
+                  isSelected={workspace.task.id === selectedTaskId}
+                  key={workspace.task.id}
+                  onSelectTask={onSelectTask}
+                  workspace={workspace}
+                />
+              ))
             : null}
         </div>
       </div>
@@ -188,27 +169,66 @@ function LoadingState() {
   );
 }
 
-function StatusBadge({ status }: { status: TaskWorkspace['task']['status'] }) {
-  const styles: Record<TaskWorkspace['task']['status'], string> = {
-    archived: 'border-slate-200 bg-slate-100 text-slate-600',
-    completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    draft: 'border-amber-200 bg-amber-50 text-amber-700',
-    failed: 'border-rose-200 bg-rose-50 text-rose-700',
-    in_progress: 'border-sky-200 bg-sky-50 text-sky-700',
-    needs_review: 'border-violet-200 bg-violet-50 text-violet-700',
-    ready: 'border-teal-200 bg-teal-50 text-teal-700'
-  };
+const STATUS_BADGE_STYLES: Record<TaskWorkspace['task']['status'], string> = {
+  archived: 'border-slate-200 bg-slate-100 text-slate-600',
+  completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  draft: 'border-amber-200 bg-amber-50 text-amber-700',
+  failed: 'border-rose-200 bg-rose-50 text-rose-700',
+  in_progress: 'border-sky-200 bg-sky-50 text-sky-700',
+  needs_review: 'border-violet-200 bg-violet-50 text-violet-700',
+  ready: 'border-teal-200 bg-teal-50 text-teal-700'
+};
 
+function StatusBadge({ status }: { status: TaskWorkspace['task']['status'] }) {
   return (
-    <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase ${styles[status]}`}>
+    <span className={`rounded-full border px-2 py-1 text-[11px] font-semibold uppercase ${STATUS_BADGE_STYLES[status]}`}>
       {status.replace('_', ' ')}
     </span>
   );
 }
 
-function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric'
-  }).format(new Date(value));
+function formatBranchLabel(branchName: string): string {
+  return branchName.replace(/^autocode\/(?:task-\d+-)?/, 'autocode/');
 }
+
+function formatShortDate(value: string) {
+  return TASK_SIDEBAR_DATE_FORMATTER.format(new Date(value));
+}
+
+const TaskSidebarListItem = memo(function TaskSidebarListItem({
+  isSelected,
+  onSelectTask,
+  workspace
+}: {
+  isSelected: boolean;
+  onSelectTask: (taskId: number | null) => void;
+  workspace: TaskWorkspace;
+}) {
+  return (
+    <button
+      className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+        isSelected
+          ? 'border-accent bg-teal-50'
+          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+      }`}
+      onClick={() => onSelectTask(workspace.task.id)}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold text-slate-950">
+            {workspace.task.title}
+          </p>
+          <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">
+            {workspace.task.description ?? 'No prompt yet. This workspace is ready for work.'}
+          </p>
+        </div>
+        <StatusBadge status={workspace.task.status} />
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-slate-500">
+        <span>{workspace.worktree ? formatBranchLabel(workspace.worktree.branchName) : 'Workspace pending'}</span>
+        <span>{formatShortDate(workspace.task.updatedAt)}</span>
+      </div>
+    </button>
+  );
+});

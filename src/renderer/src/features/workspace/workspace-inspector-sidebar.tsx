@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Suspense, lazy, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { Files, GitCompare, RefreshCw } from 'lucide-react';
 
@@ -8,8 +8,14 @@ import type {
   WorkspaceReviewStatus
 } from '@shared/domain/workspace-inspection';
 
-import { WorkspaceChangesPanel } from './workspace-changes-panel';
 import { WorkspaceFileExplorer } from './workspace-file-explorer';
+
+const LazyWorkspaceChangesPanel = lazy(async () => {
+  const module = await import('./workspace-changes-panel');
+  return {
+    default: module.WorkspaceChangesPanel
+  };
+});
 
 interface WorkspaceInspectorSidebarProps {
   activeSidebarTab: 'changes' | 'files';
@@ -78,7 +84,7 @@ export function WorkspaceInspectorSidebar({
 }: WorkspaceInspectorSidebarProps) {
   return (
     <aside className="relative z-10 flex min-h-0 w-full flex-col overflow-hidden border-l border-white/[0.06] bg-[#1c1c1c]">
-      <div className="flex items-center gap-1 border-b border-white/[0.06] bg-[#141414] px-3 py-1.5">
+      <div className="flex h-[42px] shrink-0 items-center gap-1 border-b border-white/[0.06] bg-[#141414] px-3">
         <SidebarTab
           icon={<Files className="h-3.5 w-3.5" />}
           isActive={activeSidebarTab === 'files'}
@@ -116,32 +122,45 @@ export function WorkspaceInspectorSidebar({
             taskId={taskId}
           />
         ) : (
-          <WorkspaceChangesPanel
-            changes={changes}
-            commitErrorMessage={commitErrorMessage}
-            commitMessage={commitMessage}
-            commitNotice={commitNotice}
-            commits={commits}
-            commitsLoadErrorMessage={commitsLoadErrorMessage}
-            isCommitting={isCommitting}
-            isLoading={isLoadingChanges}
-            isLoadingCommits={isLoadingCommits}
-            isLoadingPublishStatus={isLoadingPublishStatus}
-            isCreatingPullRequest={isCreatingPullRequest}
-            isOpeningPullRequest={isOpeningPullRequest}
-            isPushing={isPushing}
-            loadErrorMessage={changesLoadErrorMessage}
-            onCommit={onCommit}
-            onCreatePullRequest={onCreatePullRequest}
-            onCommitMessageChange={onCommitMessageChange}
-            onOpenPullRequest={onOpenPullRequest}
-            onPush={onPush}
-            onRefresh={onRefresh}
-            onSelectChange={onSelectChange}
-            reviewStatus={reviewStatus}
-            publishStatusErrorMessage={publishStatusErrorMessage}
-            selectedPath={selectedPath}
-          />
+          <Suspense
+            fallback={
+              <div className="grid h-full place-items-center px-6 text-center">
+                <div className="max-w-md">
+                  <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin text-white/18" />
+                  <p className="font-geist text-[14px] font-medium text-white/72">
+                    Loading changes
+                  </p>
+                </div>
+              </div>
+            }
+          >
+            <LazyWorkspaceChangesPanel
+              changes={changes}
+              commitErrorMessage={commitErrorMessage}
+              commitMessage={commitMessage}
+              commitNotice={commitNotice}
+              commits={commits}
+              commitsLoadErrorMessage={commitsLoadErrorMessage}
+              isCommitting={isCommitting}
+              isLoading={isLoadingChanges}
+              isLoadingCommits={isLoadingCommits}
+              isLoadingPublishStatus={isLoadingPublishStatus}
+              isCreatingPullRequest={isCreatingPullRequest}
+              isOpeningPullRequest={isOpeningPullRequest}
+              isPushing={isPushing}
+              loadErrorMessage={changesLoadErrorMessage}
+              onCommit={onCommit}
+              onCreatePullRequest={onCreatePullRequest}
+              onCommitMessageChange={onCommitMessageChange}
+              onOpenPullRequest={onOpenPullRequest}
+              onPush={onPush}
+              onRefresh={onRefresh}
+              onSelectChange={onSelectChange}
+              reviewStatus={reviewStatus}
+              publishStatusErrorMessage={publishStatusErrorMessage}
+              selectedPath={selectedPath}
+            />
+          </Suspense>
         )}
       </div>
     </aside>
@@ -162,10 +181,10 @@ function SidebarTab({
   return (
     <button
       className={clsx(
-        'flex items-center gap-1.5 rounded-md px-2.5 py-1 font-geist text-[12px] font-medium transition',
+        'flex h-7 min-h-7 max-h-7 items-center gap-1.5 rounded-md px-2.5 font-geist text-[12px] font-medium leading-tight transition',
         isActive
-          ? 'bg-white/[0.10] text-white'
-          : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+          ? 'bg-white/[0.08] text-white/90'
+          : 'text-white/40 hover:bg-white/[0.05] hover:text-white/70'
       )}
       onMouseDown={(event) => {
         event.preventDefault();

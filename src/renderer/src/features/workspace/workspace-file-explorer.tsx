@@ -1,6 +1,8 @@
+import { memo, useMemo } from 'react';
 import clsx from 'clsx';
-import { ChevronDown, ChevronRight, File, Folder, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 
+import { FileTypeIcon } from '../../lib/file-type-icon';
 import { useWorkspaceExplorerDirectoryQuery } from './workspace-hooks';
 
 interface WorkspaceFileExplorerProps {
@@ -19,6 +21,10 @@ export function WorkspaceFileExplorer({
   taskId
 }: WorkspaceFileExplorerProps) {
   const rootDirectoryQuery = useWorkspaceExplorerDirectoryQuery(taskId, '');
+  const expandedDirectorySet = useMemo(
+    () => new Set(expandedDirectories),
+    [expandedDirectories]
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -40,7 +46,7 @@ export function WorkspaceFileExplorer({
               <WorkspaceFileTreeNode
                 key={entry.relativePath}
                 depth={0}
-                expandedDirectories={expandedDirectories}
+                expandedDirectorySet={expandedDirectorySet}
                 entry={entry}
                 onSelectPath={onSelectPath}
                 onToggleDirectory={onToggleDirectory}
@@ -57,71 +63,92 @@ export function WorkspaceFileExplorer({
 
 interface WorkspaceFileTreeNodeProps {
   depth: number;
-  expandedDirectories: string[];
-  entry: {
-    kind: 'directory' | 'file';
-    name: string;
-    relativePath: string;
-  };
+  expandedDirectorySet: ReadonlySet<string>;
+  entry: WorkspaceFileTreeEntry;
   onSelectPath: (path: string) => void;
   onToggleDirectory: (path: string) => void;
   selectedPath: string | null;
   taskId: number;
 }
 
+type WorkspaceFileTreeEntry =
+  | {
+      kind: 'directory';
+      name: string;
+      relativePath: string;
+    }
+  | {
+      kind: 'file';
+      name: string;
+      relativePath: string;
+    };
+
 function WorkspaceFileTreeNode({
   depth,
-  expandedDirectories,
+  expandedDirectorySet,
   entry,
   onSelectPath,
   onToggleDirectory,
   selectedPath,
   taskId
 }: WorkspaceFileTreeNodeProps) {
-  const isDirectory = entry.kind === 'directory';
-  const isExpanded = isDirectory && expandedDirectories.includes(entry.relativePath);
+  if (entry.kind === 'directory') {
+    return (
+      <WorkspaceDirectoryTreeNode
+        depth={depth}
+        entry={entry}
+        expandedDirectorySet={expandedDirectorySet}
+        onSelectPath={onSelectPath}
+        onToggleDirectory={onToggleDirectory}
+        selectedPath={selectedPath}
+        taskId={taskId}
+      />
+    );
+  }
+
+  return (
+    <WorkspaceFileLeafNode
+      depth={depth}
+      entry={entry}
+      onSelectPath={onSelectPath}
+      selectedPath={selectedPath}
+    />
+  );
+}
+
+function WorkspaceDirectoryTreeNode({
+  depth,
+  entry,
+  expandedDirectorySet,
+  onSelectPath,
+  onToggleDirectory,
+  selectedPath,
+  taskId
+}: WorkspaceFileTreeNodeProps & { entry: WorkspaceFileTreeEntry & { kind: 'directory' } }) {
+  const isExpanded = expandedDirectorySet.has(entry.relativePath);
   const childrenQuery = useWorkspaceExplorerDirectoryQuery(taskId, entry.relativePath, isExpanded);
   const isSelected = entry.relativePath === selectedPath;
-  const paddingLeft = 8 + depth * 14;
+  const paddingLeft = 10 + depth * 16;
 
   return (
     <li>
-      <button
-        className={clsx(
-          'flex w-full items-center gap-1.5 py-[5px] pr-3 text-left font-geist text-[12px] transition',
-          isSelected
-            ? 'bg-white/[0.10] text-white'
-            : 'text-white/60 hover:bg-white/[0.06] hover:text-white/90'
+      <WorkspaceTreeButton
+        depth={depth}
+        icon={isExpanded ? (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/40" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/40" />
         )}
+        isSelected={isSelected}
+        label={entry.name}
+        labelClassName="font-medium"
         onMouseDown={(event) => {
           event.preventDefault();
-
-          if (isDirectory) {
-            onToggleDirectory(entry.relativePath);
-            return;
-          }
-
-          onSelectPath(entry.relativePath);
+          onToggleDirectory(entry.relativePath);
         }}
-        style={{ paddingLeft }}
-        type="button"
-      >
-        {isDirectory ? (
-          isExpanded ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-white/30" />
-          ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-white/30" />
-          )
-        ) : (
-          <File className="h-3 w-3 shrink-0 text-white/30" />
-        )}
-        {isDirectory ? (
-          <Folder className="h-3 w-3 shrink-0 text-amber-400/60" />
-        ) : null}
-        <span className={clsx(isDirectory && 'font-medium')}>{entry.name}</span>
-      </button>
+      />
 
-      {isDirectory && isExpanded ? (
+      {isExpanded ? (
         <div>
           {childrenQuery.isLoading ? (
             <ExplorerMessage paddingLeft={paddingLeft + 22} size="sm">
@@ -142,7 +169,7 @@ function WorkspaceFileTreeNode({
                 <WorkspaceFileTreeNode
                   key={childEntry.relativePath}
                   depth={depth + 1}
-                  expandedDirectories={expandedDirectories}
+                  expandedDirectorySet={expandedDirectorySet}
                   entry={childEntry}
                   onSelectPath={onSelectPath}
                   onToggleDirectory={onToggleDirectory}
@@ -155,6 +182,70 @@ function WorkspaceFileTreeNode({
         </div>
       ) : null}
     </li>
+  );
+}
+
+const WorkspaceFileLeafNode = memo(function WorkspaceFileLeafNode({
+  depth,
+  entry,
+  onSelectPath,
+  selectedPath
+}: {
+  depth: number;
+  entry: WorkspaceFileTreeEntry & { kind: 'file' };
+  onSelectPath: (path: string) => void;
+  selectedPath: string | null;
+}) {
+  const isSelected = entry.relativePath === selectedPath;
+
+  return (
+    <li>
+      <WorkspaceTreeButton
+        depth={depth}
+        icon={<FileTypeIcon filename={entry.name} />}
+        isSelected={isSelected}
+        label={entry.name}
+        onMouseDown={(event) => {
+          event.preventDefault();
+          onSelectPath(entry.relativePath);
+        }}
+      />
+    </li>
+  );
+});
+
+function WorkspaceTreeButton({
+  depth,
+  icon,
+  isSelected,
+  label,
+  labelClassName,
+  onMouseDown
+}: {
+  depth: number;
+  icon: React.ReactNode;
+  isSelected: boolean;
+  label: string;
+  labelClassName?: string;
+  onMouseDown: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      className={clsx(
+        'flex w-full items-center gap-2 py-[5px] pr-3 text-left font-geist text-[13px] leading-tight transition',
+        isSelected
+          ? 'bg-white/[0.08] text-white'
+          : labelClassName
+            ? 'text-white/80 hover:bg-white/[0.05] hover:text-white/90'
+            : 'text-white/60 hover:bg-white/[0.05] hover:text-white/80'
+      )}
+      onMouseDown={onMouseDown}
+      style={{ paddingLeft: 10 + depth * 16 }}
+      type="button"
+    >
+      {icon}
+      <span className={clsx(labelClassName, !labelClassName && 'font-normal')}>{label}</span>
+    </button>
   );
 }
 

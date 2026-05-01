@@ -98,6 +98,19 @@
   .no-drag {
     -webkit-app-region: no-drag;
   }
+
+  .cm-editor {
+    font-variant-ligatures: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .cm-editor.cm-focused {
+    outline: none;
+  }
+
+  .cm-editor .cm-scroller {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
 }
 
 @layer utilities {

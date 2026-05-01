@@ -8,8 +8,7 @@ import type {
   ReadAgentSessionTranscriptTailResult,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
-  StartAgentSessionInput,
-  TerminateAgentSessionInput
+  StartAgentSessionInput
 } from '../../shared/contracts/agent-sessions';
 import type { AgentProvider, AgentSession, AgentSessionEvent } from '../../shared/domain/agent-session';
 import type { AppDatabase } from '../database/client';
@@ -51,10 +50,13 @@ export function createAgentSessionService(
 
     async deleteByTask(taskId: number): Promise<void> {
       const sessions = agentSessionRepository.listByTask(taskId);
+      const deletions = new Array<Promise<void>>(sessions.length);
 
-      for (const session of sessions) {
-        await runtimeManager.deleteSession(session.id);
+      for (let index = 0; index < sessions.length; index += 1) {
+        deletions[index] = runtimeManager.deleteSession(sessions[index]!.id);
       }
+
+      await Promise.all(deletions);
     },
 
     listByTask(input: ListAgentSessionsByTaskInput): AgentSession[] {
@@ -67,7 +69,7 @@ export function createAgentSessionService(
       const session = agentSessionRepository.findInternalById(input.sessionId);
 
       if (!session) {
-        throw new Error('Agent session could not be found.');
+        return { entries: [], lastEventSeq: 0 };
       }
 
       return readAgentSessionTranscriptTail(session.transcriptPath, input.maxEntries);
@@ -89,12 +91,6 @@ export function createAgentSessionService(
 
     async start(input: StartAgentSessionInput): Promise<AgentSession> {
       const context = await workspaceRuntime.observeWorkspaceContext(input.taskId);
-      const activeSession = agentSessionRepository.findActiveByTaskId(input.taskId);
-
-      if (activeSession) {
-        throw new Error(formatActiveSessionConflictMessage(activeSession));
-      }
-
       const timestamp = new Date().toISOString();
       const command = getAgentProviderCommand(input.provider);
       const transcriptPath = resolveAgentSessionTranscriptPath(sessionsRoot, randomUUID());
@@ -110,15 +106,6 @@ export function createAgentSessionService(
           transcriptPath
         );
       } catch (error) {
-        if (isSingleActiveSessionConstraintError(error)) {
-          const conflictingSession = agentSessionRepository.findActiveByTaskId(input.taskId);
-          throw new Error(
-            conflictingSession
-              ? formatActiveSessionConflictMessage(conflictingSession)
-              : 'This task already has an active session. Stop it before starting another session in the same workspace.'
-          );
-        }
-
         throw error instanceof Error
           ? error
           : new Error('Autocode could not create the requested session.');
@@ -192,7 +179,7 @@ export function createAgentSessionService(
 
       if (initialInput) {
         try {
-          await runtimeManager.writeToRuntime(runningSession.id, initialInput);
+          await runtimeManager.writeToRuntime(runningSession.id, initialInput, 'system');
         } catch (error) {
           await runtimeManager.failRuntimeSession(runningSession.id, error);
           throw error instanceof Error
@@ -207,10 +194,6 @@ export function createAgentSessionService(
       runtimeManager.publishSnapshot(session);
 
       return session;
-    },
-
-    async terminate(input: TerminateAgentSessionInput): Promise<AgentSession> {
-      return runtimeManager.terminateSession(input.sessionId);
     }
   };
 
@@ -233,10 +216,8 @@ export function createAgentSessionService(
   }
 
   function repairInterruptedSessionTranscriptPaths(timestamp: string): void {
-    for (const session of agentSessionRepository.listActiveSessions()) {
-      const internalSession = agentSessionRepository.findInternalById(session.id);
-
-      if (!internalSession || internalSession.transcriptPath.trim()) {
+    for (const session of agentSessionRepository.listActiveSessionRecords()) {
+      if (session.transcriptPath.trim()) {
         continue;
       }
 
@@ -257,17 +238,4 @@ export function createAgentSessionService(
 
     return session;
   }
-}
-
-export function formatActiveSessionConflictMessage(session: AgentSession): string {
-  const providerLabel = getAgentProviderDisplayName(session.provider);
-
-  return `This task already has an active ${providerLabel} session. Stop it before starting another session in the same workspace, or create an isolated task instead.`;
-}
-
-function isSingleActiveSessionConstraintError(error: unknown): boolean {
-  return Boolean(
-    error instanceof Error &&
-      error.message.includes('agent_sessions_task_id_active_unique')
-  );
 }

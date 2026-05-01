@@ -1,17 +1,26 @@
 import { appendFile, mkdir, open } from 'node:fs/promises';
 import path from 'node:path';
-import readline from 'node:readline';
 
 import type { ReadAgentSessionTranscriptTailResult } from '../../shared/contracts/agent-sessions';
 import type { AgentSessionTranscriptEntry, AgentSessionTranscriptStream } from '../../shared/domain/agent-session';
 import { agentSessionTranscriptEntrySchema } from '../../shared/domain/agent-session';
 import { parseIpcPayload } from '../../shared/ipc/validation';
 
+const TRANSCRIPT_TAIL_READ_CHUNK_SIZE = 64 * 1024;
+
+const ensuredDirectories = new Set<string>();
+
 export async function appendAgentSessionTranscriptEntry(
   transcriptPath: string,
   entry: AgentSessionTranscriptEntry
 ): Promise<void> {
-  await mkdir(path.dirname(transcriptPath), { recursive: true });
+  const dir = path.dirname(transcriptPath);
+
+  if (!ensuredDirectories.has(dir)) {
+    await mkdir(dir, { recursive: true });
+    ensuredDirectories.add(dir);
+  }
+
   await appendFile(transcriptPath, `${JSON.stringify(entry)}\n`, 'utf8');
 }
 
@@ -41,39 +50,25 @@ export async function readAgentSessionTranscriptTail(
 ): Promise<ReadAgentSessionTranscriptTailResult> {
   try {
     const file = await open(transcriptPath, 'r');
-    const entries: AgentSessionTranscriptEntry[] = [];
-    let lastEventSeq = 0;
 
     try {
-      const stream = file.createReadStream({ encoding: 'utf8' });
-      const lines = readline.createInterface({
-        crlfDelay: Infinity,
-        input: stream
-      });
+      const lines = await readTranscriptTailLines(file, maxEntries);
+      const entries: AgentSessionTranscriptEntry[] = [];
 
-      for await (const line of lines) {
-        if (!line.trim()) {
-          continue;
-        }
-
-        const entry = parseIpcPayload(
-          agentSessionTranscriptEntrySchema,
-          JSON.parse(line),
-          'agentSessions:transcript',
-          'response'
+      for (const line of lines) {
+        entries.push(
+          parseIpcPayload(
+            agentSessionTranscriptEntrySchema,
+            JSON.parse(line),
+            'agentSessions:transcript',
+            'response'
+          )
         );
-
-        lastEventSeq = entry.seq;
-        entries.push(entry);
-
-        if (entries.length > maxEntries) {
-          entries.shift();
-        }
       }
 
       return {
         entries,
-        lastEventSeq
+        lastEventSeq: entries.at(-1)?.seq ?? 0
       };
     } finally {
       await file.close();
@@ -88,6 +83,91 @@ export async function readAgentSessionTranscriptTail(
 
     throw error;
   }
+}
+
+async function readTranscriptTailLines(
+  file: Awaited<ReturnType<typeof open>>,
+  maxEntries: number
+): Promise<string[]> {
+  if (maxEntries <= 0) {
+    return [];
+  }
+
+  const stats = await file.stat();
+
+  if (stats.size === 0) {
+    return [];
+  }
+
+  let position = stats.size;
+  let pending = Buffer.alloc(0);
+  const lines: Buffer[] = [];
+
+  while (position > 0 && lines.length < maxEntries) {
+    const readSize = Math.min(TRANSCRIPT_TAIL_READ_CHUNK_SIZE, position);
+    position -= readSize;
+
+    const chunk = Buffer.allocUnsafe(readSize);
+    const { bytesRead } = await file.read(chunk, 0, readSize, position);
+    const combined =
+      pending.length > 0
+        ? Buffer.concat([chunk.subarray(0, bytesRead), pending])
+        : chunk.subarray(0, bytesRead);
+
+    let lineEnd = combined.length;
+
+    for (let index = combined.length - 1; index >= 0; index -= 1) {
+      if (combined[index] !== 0x0a) {
+        continue;
+      }
+
+      if (index + 1 < lineEnd) {
+        const line = combined.subarray(index + 1, lineEnd);
+
+        if (!isWhitespaceOnlyBuffer(line)) {
+          lines.push(Buffer.from(line));
+
+          if (lines.length === maxEntries) {
+            lineEnd = index;
+            break;
+          }
+        }
+      }
+
+      lineEnd = index;
+    }
+
+    pending = combined.subarray(0, lineEnd);
+  }
+
+  if (
+    position === 0 &&
+    pending.length > 0 &&
+    lines.length < maxEntries &&
+    !isWhitespaceOnlyBuffer(pending)
+  ) {
+    lines.push(Buffer.from(pending));
+  }
+
+  lines.reverse();
+
+  const nextLines = new Array<string>(lines.length);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    nextLines[index] = lines[index]!.toString('utf8');
+  }
+
+  return nextLines;
+}
+
+function isWhitespaceOnlyBuffer(buffer: Buffer): boolean {
+  for (const byte of buffer) {
+    if (byte !== 0x09 && byte !== 0x0a && byte !== 0x0d && byte !== 0x20) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export function resolveAgentSessionTranscriptPath(

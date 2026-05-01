@@ -10,8 +10,7 @@ import {
   useAgentSessionStream,
   useAgentSessionTranscriptTailQuery,
   useAgentSessionsQuery,
-  useStartAgentSessionMutation,
-  useTerminateAgentSessionMutation
+  useStartAgentSessionMutation
 } from '../agent-sessions/agent-session-hooks';
 import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 import { useCreateTaskWorkspaceMutation } from '../tasks/task-hooks';
@@ -52,25 +51,36 @@ export function useWorkspaceTerminalSessionController({
   const [isLaunchingIsolatedSession, setIsLaunchingIsolatedSession] = useState(false);
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
   const createTaskWorkspaceMutation = useCreateTaskWorkspaceMutation(taskWorkspace.task.projectId);
-  const activeSession = useMemo(
-    () => sessions.find((session) => isActiveSessionStatus(session.status)) ?? null,
-    [sessions]
-  );
-  const activeAiSessions = useMemo(
-    () =>
-      sessions.filter(
-        (session) => session.provider !== 'terminal' && isActiveSessionStatus(session.status)
-      ),
-    [sessions]
-  );
-  const selectedSession = useMemo(
-    () => sessions.find((session) => session.id === selectedSessionId) ?? null,
-    [selectedSessionId, sessions]
-  );
-  const selectedSessionIsActive = selectedSession !== null && isActiveSessionStatus(selectedSession.status);
+  const { activeAiSessions, activeSession, selectedSession, sessionById } = useMemo(() => {
+    const nextSessionById = new Map<number, (typeof sessions)[number]>();
+    const nextActiveAiSessions: typeof sessions = [];
+    let nextActiveSession: (typeof sessions)[number] | null = null;
+
+    for (const session of sessions) {
+      nextSessionById.set(session.id, session);
+
+      if (!isActiveSessionStatus(session.status)) {
+        continue;
+      }
+
+      if (!nextActiveSession) {
+        nextActiveSession = session;
+      }
+
+      if (session.provider !== 'terminal') {
+        nextActiveAiSessions.push(session);
+      }
+    }
+
+    return {
+      activeAiSessions: nextActiveAiSessions,
+      activeSession: nextActiveSession,
+      selectedSession: selectedSessionId !== null ? nextSessionById.get(selectedSessionId) ?? null : null,
+      sessionById: nextSessionById
+    };
+  }, [selectedSessionId, sessions]);
   const startSessionMutation = useStartAgentSessionMutation(taskId);
   const deleteSessionMutation = useDeleteAgentSessionMutation(taskId);
-  const terminateSessionMutation = useTerminateAgentSessionMutation(selectedSession?.id ?? null);
   const sendInputMutation = useAgentSessionInputMutation(selectedSession?.id ?? null);
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSession?.id ?? null);
   const transcriptQuery = useAgentSessionTranscriptTailQuery(
@@ -81,7 +91,6 @@ export function useWorkspaceTerminalSessionController({
     isolatedLaunchError ??
     formatWorkspaceInspectorError(startSessionMutation.error) ??
     formatWorkspaceInspectorError(deleteSessionMutation.error) ??
-    formatWorkspaceInspectorError(terminateSessionMutation.error) ??
     formatWorkspaceInspectorError(transcriptQuery.error) ??
     formatWorkspaceInspectorError(sessionsQuery.error);
 
@@ -100,12 +109,12 @@ export function useWorkspaceTerminalSessionController({
       return;
     }
 
-    if (selectedSessionId !== null && sessions.some((session) => session.id === selectedSessionId)) {
+    if (selectedSessionId !== null && sessionById.has(selectedSessionId)) {
       return;
     }
 
     setSelectedSessionId(activeSession?.id ?? null);
-  }, [activeSession?.id, selectedSessionId, sessions]);
+  }, [activeSession?.id, selectedSessionId, sessionById, sessions.length]);
 
   function requestSessionSelection(sessionId: number) {
     if (activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === sessionId) {
@@ -186,7 +195,7 @@ export function useWorkspaceTerminalSessionController({
   }
 
   function requestDeleteSession(sessionId: number) {
-    const session = sessions.find((entry) => entry.id === sessionId) ?? null;
+    const session = sessionById.get(sessionId) ?? null;
 
     if (!session) {
       return;
@@ -204,8 +213,16 @@ export function useWorkspaceTerminalSessionController({
     }
 
     if (selectedSessionId === sessionId) {
-      const nextSelectedSession =
-        sessions.find((entry) => entry.id !== sessionId) ?? null;
+      let nextSelectedSession: (typeof sessions)[number] | null = null;
+
+      for (let index = 0; index < sessions.length; index += 1) {
+        const entry = sessions[index]!;
+
+        if (entry.id !== sessionId) {
+          nextSelectedSession = entry;
+          break;
+        }
+      }
 
       setSelectedSessionId(nextSelectedSession?.id ?? null);
     }
@@ -275,13 +292,11 @@ export function useWorkspaceTerminalSessionController({
     resizeSessionMutation,
     selectedSession,
     selectedSessionId,
-    selectedSessionIsActive,
     sendInputMutation,
     sessions,
     sessionsQuery,
     startSessionMutation,
     startSessionPending: startSessionMutation.isPending || isLaunchingIsolatedSession,
-    terminateSessionMutation,
     terminalErrorMessage,
     terminalSurfaceProps,
     transcriptQuery

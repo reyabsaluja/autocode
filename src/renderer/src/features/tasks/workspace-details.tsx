@@ -1,5 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, FolderGit2, GitBranch, GitMerge, Loader2 } from 'lucide-react';
+import { forwardRef, useDeferredValue, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import clsx from 'clsx';
+import { AlertTriangle, Check, ChevronDown, ChevronRight, FolderGit2, GitBranch, GitMerge, Loader2, Search } from 'lucide-react';
 
 import type { Project } from '@shared/domain/project';
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
@@ -7,13 +8,27 @@ import type { TaskWorkspace } from '@shared/domain/task-workspace';
 import type { WorkspaceEditorHandle } from '../editor/workspace-editor-surface';
 import { UnsavedChangesDialog } from '../editor/unsaved-changes-dialog';
 import { useUnsavedChangesGuard } from '../editor/use-unsaved-changes-guard';
-import { useIntegrateBaseMutation, useMergeTaskIntoWorkspaceMutation } from '../workspace/workspace-hooks';
+import {
+  useIntegrateBaseMutation,
+  useMergeTaskIntoWorkspaceMutation,
+  useUpdateBaseRefMutation,
+  useWorkspaceBranchesQuery
+} from '../workspace/workspace-hooks';
 import { WorkspaceIntegrateDialog } from '../workspace/workspace-integrate-dialog';
+import {
+  EXTERNAL_EDITORS,
+  EXTERNAL_EDITOR_ICON_SRC,
+  EXTERNAL_EDITOR_LABELS,
+  type ExternalEditor
+} from '../../lib/editor-icon-assets';
+import { autocodeApi } from '../../lib/autocode-api';
+import { useOpenInEditorStore } from '../../stores/open-in-editor-store';
 
 type WorkspaceInspectorComponent = typeof import('../workspace/workspace-inspector')['WorkspaceInspector'];
 
 interface WorkspaceDetailsProps {
   isForkingTask: boolean;
+  isSidebarOpen: boolean;
   isLoadingTasks: boolean;
   onForkTaskWorkspace: () => Promise<unknown>;
   onRequestTaskSelection: (taskId: number) => void;
@@ -24,6 +39,7 @@ interface WorkspaceDetailsProps {
 
 export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetailsProps>(function WorkspaceDetails({
   isForkingTask,
+  isSidebarOpen,
   isLoadingTasks,
   onForkTaskWorkspace,
   onRequestTaskSelection,
@@ -40,41 +56,47 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   const taskId = taskWorkspace?.task.id ?? null;
   const integrateBaseMutation = useIntegrateBaseMutation(taskId);
   const mergeTaskMutation = useMergeTaskIntoWorkspaceMutation(taskId);
+  const updateBaseRefMutation = useUpdateBaseRefMutation(taskId);
+  const branchesQuery = useWorkspaceBranchesQuery(taskId);
   const currentTask = taskWorkspace?.task ?? null;
   const currentWorktree = taskWorkspace?.worktree ?? null;
-  const workspaceLabel = currentWorktree
+  const currentBranchLabel = currentWorktree
     ? formatWorkspaceBranchLabel(currentWorktree.branchName)
-    : currentTask?.title ?? null;
+    : null;
   const baseRef = currentWorktree?.baseRef ?? project?.defaultBranch ?? null;
-  const baseTaskWorkspace = useMemo(
-    () =>
-      baseRef && currentTask
-        ? taskWorkspaces.find(
-            (workspace) =>
-              workspace.task.id !== currentTask.id &&
-              workspace.worktree?.branchName === baseRef
-          ) ?? null
-        : null,
-    [baseRef, currentTask, taskWorkspaces]
-  );
-  const baseLabel = baseTaskWorkspace?.task.title ?? baseRef;
-  const integrationCandidates = useMemo(
-    () =>
-      currentTask
-        ? taskWorkspaces
-            .filter(
-              (workspace) =>
-                workspace.task.id !== currentTask.id &&
-                workspace.worktree !== null
-            )
-            .map((workspace) => ({
-              branchName: workspace.worktree!.branchName,
-              taskId: workspace.task.id,
-              title: workspace.task.title
-            }))
-        : [],
-    [currentTask, taskWorkspaces]
-  );
+  const [isBranchPickerOpen, setIsBranchPickerOpen] = useState(false);
+  const { baseLabel, integrationCandidates } = useMemo(() => {
+    if (!currentTask) {
+      return {
+        baseLabel: baseRef,
+        integrationCandidates: [] as Array<{ branchName: string; taskId: number; title: string }>
+      };
+    }
+
+    let nextBaseLabel = baseRef;
+    const candidates: Array<{ branchName: string; taskId: number; title: string }> = [];
+
+    for (const workspace of taskWorkspaces) {
+      if (workspace.task.id === currentTask.id || workspace.worktree === null) {
+        continue;
+      }
+
+      if (baseRef && workspace.worktree.branchName === baseRef) {
+        nextBaseLabel = workspace.task.title;
+      }
+
+      candidates.push({
+        branchName: workspace.worktree.branchName,
+        taskId: workspace.task.id,
+        title: workspace.task.title
+      });
+    }
+
+    return {
+      baseLabel: nextBaseLabel,
+      integrationCandidates: candidates
+    };
+  }, [baseRef, currentTask, taskWorkspaces]);
   const canIntegrate = Boolean(baseLabel) || integrationCandidates.length > 0;
   const integrationErrorMessage =
     (integrateBaseMutation.error instanceof Error ? integrateBaseMutation.error.message : null) ??
@@ -111,6 +133,7 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   useEffect(() => {
     setIsIntegrateDialogOpen(false);
+    setIsBranchPickerOpen(false);
     setIntegrationNotice(null);
     integrateBaseMutation.reset();
     mergeTaskMutation.reset();
@@ -190,51 +213,79 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
 
   return (
     <section className="flex h-full flex-col animate-fade-in">
-      <header className="flex h-[38px] shrink-0 items-center border-b border-white/[0.06] bg-[#141414] px-4">
-        <div className="min-w-0 flex items-center gap-2">
-          {worktree ? <GitBranch className="h-3.5 w-3.5 shrink-0 text-white/30" /> : null}
+      <header className={clsx(
+        'grid h-[38px] shrink-0 grid-cols-[minmax(0,1fr)_300px] border-b border-white/[0.06] bg-[#141414]',
+        isSidebarOpen ? '' : 'pl-[100px]'
+      )}>
+        <div className="flex items-center gap-1.5 pl-4 pr-2">
+          {worktree ? <GitBranch className="h-3.5 w-3.5 shrink-0 text-white" /> : null}
           <p className="min-w-0 truncate font-geist text-[13px] font-semibold text-white/90">
-            {workspaceLabel}
+            {currentBranchLabel ?? task.title}
           </p>
-        </div>
-
-        <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
-          <button
-            aria-label="Create an isolated task branch"
-            className="inline-flex h-7 w-7 items-center justify-center rounded bg-white/[0.08] text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isForkingTask}
-            onClick={() => { void onForkTaskWorkspace(); }}
-            title="Create a new isolated task workspace from this task's current branch"
-            type="button"
-          >
-            {isForkingTask ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <GitBranch className="h-3.5 w-3.5" />
-            )}
-          </button>
-          <button
-            className="inline-flex h-7 items-center gap-1.5 rounded bg-white/[0.08] px-2.5 font-geist text-[12px] font-medium text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!canIntegrate || integrateBaseMutation.isPending || mergeTaskMutation.isPending}
-            onClick={() => {
-              setIntegrationNotice(null);
-              setIsIntegrateDialogOpen(true);
-            }}
-            title={canIntegrate ? 'Integrate base or task changes into this workspace' : 'No branches are available to integrate into this task'}
-            type="button"
-          >
-            {integrateBaseMutation.isPending || mergeTaskMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <GitMerge className="h-3.5 w-3.5" />
-            )}
-            Integrate
-          </button>
-          <HeaderBadge icon={<FolderGit2 className="h-3 w-3" />} value={project.name} />
-          {baseLabel ? (
-            <HeaderBadge value={`Based on ${baseLabel}`} />
+          {baseRef ? (
+            <>
+              <ChevronRight className="h-3 w-3 shrink-0 text-white ml-1" />
+              <div className="relative">
+                <button
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 font-geist text-[13px] text-white transition hover:bg-white/[0.08] hover:text-white/80"
+                  onClick={() => setIsBranchPickerOpen((open) => !open)}
+                  type="button"
+                >
+                  {baseLabel ?? baseRef}
+                  <ChevronDown className="h-3 w-3 text-white" />
+                </button>
+                {isBranchPickerOpen ? (
+                  <BranchPicker
+                    branches={branchesQuery.data ?? []}
+                    currentBaseRef={baseRef}
+                    isLoading={branchesQuery.isLoading}
+                    onClose={() => setIsBranchPickerOpen(false)}
+                    onSelect={(branch) => {
+                      updateBaseRefMutation.mutate(branch);
+                      setIsBranchPickerOpen(false);
+                    }}
+                  />
+                ) : null}
+              </div>
+            </>
           ) : null}
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 pl-4">
+            <button
+              aria-label="Create an isolated task branch"
+              className="inline-flex h-7 w-7 items-center justify-center rounded bg-white/[0.08] text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isForkingTask}
+              onClick={() => { void onForkTaskWorkspace(); }}
+              title="Create a new isolated task workspace from this task's current branch"
+              type="button"
+            >
+              {isForkingTask ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <GitBranch className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <button
+              className="inline-flex h-7 items-center gap-1.5 rounded bg-white/[0.08] px-2.5 font-geist text-[12px] font-medium text-white/60 transition hover:bg-white/[0.12] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!canIntegrate || integrateBaseMutation.isPending || mergeTaskMutation.isPending}
+              onClick={() => {
+                setIntegrationNotice(null);
+                setIsIntegrateDialogOpen(true);
+              }}
+              title={canIntegrate ? 'Integrate base or task changes into this workspace' : 'No branches are available to integrate into this task'}
+              type="button"
+            >
+              {integrateBaseMutation.isPending || mergeTaskMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <GitMerge className="h-3.5 w-3.5" />
+              )}
+              Integrate
+            </button>
+            <OpenInEditorButton worktreePath={worktree?.worktreePath ?? null} />
+          </div>
         </div>
+        <div />
       </header>
 
       {integrationNotice ? (
@@ -296,21 +347,226 @@ export const WorkspaceDetails = forwardRef<WorkspaceEditorHandle, WorkspaceDetai
   );
 });
 
-function HeaderBadge({
-  icon,
-  value
-}: {
-  icon?: React.ReactNode;
-  value: string;
-}) {
+function OpenInEditorButton({ worktreePath }: { worktreePath: string | null }) {
+  const preferredEditor = useOpenInEditorStore((state) => state.preferredEditor);
+  const setPreferredEditor = useOpenInEditorStore((state) => state.setPreferredEditor);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
+
+  function handleOpen(editor: ExternalEditor) {
+    setPreferredEditor(editor);
+    setIsOpen(false);
+
+    if (worktreePath) {
+      void autocodeApi.workspaces.openInEditor({ editor, worktreePath }).catch((error) => {
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : `Autocode could not open this workspace in ${EXTERNAL_EDITOR_LABELS[editor]}.`
+        );
+      });
+    }
+  }
+
+  const isDisabled = !worktreePath;
+
   return (
-    <span className="flex items-center gap-1 rounded bg-white/[0.06] px-1.5 py-0.5 font-geist text-[11px] text-white/45">
-      {icon ? <span className="text-white/30">{icon}</span> : null}
-      <span className="max-w-[140px] truncate">{value}</span>
-    </span>
+    <div className="relative" ref={containerRef}>
+      <div
+        className={clsx(
+          'inline-flex h-7 items-center overflow-hidden rounded bg-white/[0.08] font-geist text-[12px] font-medium text-white/60 transition',
+          isDisabled
+            ? 'opacity-50'
+            : 'hover:bg-white/[0.12] hover:text-white'
+        )}
+      >
+        <button
+          className="inline-flex h-full items-center gap-1.5 pl-2 pr-1.5 disabled:cursor-not-allowed"
+          disabled={isDisabled}
+          onClick={() => handleOpen(preferredEditor)}
+          title={`Open in ${EXTERNAL_EDITOR_LABELS[preferredEditor]}`}
+          type="button"
+        >
+          <img
+            alt=""
+            className="h-3.5 w-3.5 shrink-0 object-contain"
+            draggable={false}
+            src={EXTERNAL_EDITOR_ICON_SRC[preferredEditor]}
+          />
+          Open
+        </button>
+        <button
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
+          aria-label="Choose editor"
+          className="grid h-full w-6 shrink-0 place-items-center border-l border-white/[0.06] transition hover:bg-white/[0.10] disabled:cursor-not-allowed"
+          disabled={isDisabled}
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsOpen((open) => !open);
+          }}
+          title="Choose editor"
+          type="button"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+
+      {isOpen ? (
+        <div className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-2xl">
+          <div className="py-1">
+            {EXTERNAL_EDITORS.map((editor) => (
+              <button
+                key={editor}
+                className={clsx(
+                  'flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition hover:bg-white/[0.06]',
+                  editor === preferredEditor ? 'bg-white/[0.04]' : ''
+                )}
+                onClick={() => handleOpen(editor)}
+                type="button"
+              >
+                <img
+                  alt=""
+                  className="h-3.5 w-3.5 shrink-0 object-contain"
+                  draggable={false}
+                  src={EXTERNAL_EDITOR_ICON_SRC[editor]}
+                />
+                <span className="font-geist text-[12px] font-medium text-white/70">
+                  {EXTERNAL_EDITOR_LABELS[editor]}
+                </span>
+                {editor === preferredEditor ? (
+                  <Check className="ml-auto h-3 w-3 text-white/50" />
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 function formatWorkspaceBranchLabel(branchName: string): string {
-  return branchName.replace(/^autocode\/task-\d+-/, 'autocode/');
+  return branchName.replace(/^autocode\/(?:task-\d+-)?/, 'autocode/');
+}
+
+interface BranchPickerProps {
+  branches: string[];
+  currentBaseRef: string;
+  isLoading: boolean;
+  onClose: () => void;
+  onSelect: (branch: string) => void;
+}
+
+function BranchPicker({ branches, currentBaseRef, isLoading, onClose, onSelect }: BranchPickerProps) {
+  const [filter, setFilter] = useState('');
+  const deferredFilter = useDeferredValue(filter);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [onClose]);
+
+  const filtered = useMemo(() => {
+    if (!deferredFilter) return branches;
+    const lower = deferredFilter.toLowerCase();
+    return branches.filter((b) => b.toLowerCase().includes(lower));
+  }, [branches, deferredFilter]);
+
+  return (
+    <div
+      ref={dropdownRef}
+      className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-2xl"
+    >
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2">
+        <Search className="h-3.5 w-3.5 shrink-0 text-white/30" />
+        <input
+          ref={inputRef}
+          className="flex-1 bg-transparent font-geist text-[13px] text-white/80 placeholder-white/30 outline-none"
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Switch base branch\u2026"
+          type="text"
+          value={filter}
+        />
+      </div>
+      <div className="max-h-[240px] overflow-auto py-1">
+        {isLoading ? (
+          <div className="flex items-center gap-2 px-3 py-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-white/30" />
+            <span className="font-geist text-[12px] text-white/30">Loading branches\u2026</span>
+          </div>
+        ) : filtered.length === 0 ? (
+          <p className="px-3 py-2 font-geist text-[12px] text-white/30">No branches found</p>
+        ) : (
+          filtered.map((branch) => {
+            const isActive = branch === currentBaseRef;
+
+            return (
+              <button
+                key={branch}
+                className={clsx(
+                  'flex w-full items-center gap-2 px-3 py-1.5 text-left transition',
+                  isActive ? 'bg-white/[0.04]' : 'hover:bg-white/[0.06]'
+                )}
+                onClick={() => onSelect(branch)}
+                type="button"
+              >
+                <span className="w-4 shrink-0">
+                  {isActive ? <Check className="h-3.5 w-3.5 text-white/60" /> : null}
+                </span>
+                <span className="min-w-0 truncate font-geist text-[13px] text-white/70">
+                  {branch}
+                </span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 }

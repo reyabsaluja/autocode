@@ -1,4 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron';
+import { shell } from 'electron';
 
 import {
   type WorkspaceChangesInput,
@@ -19,6 +20,9 @@ import {
   type WorkspaceIntegrateBaseInput,
   workspaceIntegrateBaseInputSchema,
   workspaceIntegrationResultSchema,
+  type WorkspaceListBranchesInput,
+  workspaceListBranchesInputSchema,
+  workspaceListBranchesResultSchema,
   type WorkspaceMergeTaskInput,
   workspaceMergeTaskInputSchema,
   type WorkspaceOpenPullRequestInput,
@@ -32,7 +36,13 @@ import {
   workspacePushResultSchema,
   type WorkspaceRecentCommitsInput,
   workspaceRecentCommitsInputSchema,
-  workspaceRecentCommitsResultSchema
+  workspaceRecentCommitsResultSchema,
+  type WorkspaceOpenInEditorInput,
+  workspaceOpenInEditorInputSchema,
+  workspaceOpenInEditorResultSchema,
+  type WorkspaceUpdateBaseRefInput,
+  workspaceUpdateBaseRefInputSchema,
+  workspaceUpdateBaseRefResultSchema
 } from '../../shared/contracts/workspaces';
 import {
   type WorkspaceFileReadInput,
@@ -43,6 +53,7 @@ import {
   workspaceFileWriteInputSchema
 } from '../../shared/contracts/workspace-files';
 import { workspaceChannels } from '../../shared/ipc/channels';
+import { createExternalEditorService } from '../services/external-editor-service';
 import { createWorkspaceFileService } from '../services/workspace-file-service';
 import { createWorkspaceService } from '../services/workspace-service';
 import { handleValidatedIpc } from './handle-validated-ipc';
@@ -54,6 +65,10 @@ export function registerWorkspaceHandlers(
   workspaceService: WorkspaceService,
   workspaceFileService: WorkspaceFileService
 ): void {
+  const externalEditorService = createExternalEditorService({
+    openPath: (targetPath) => shell.openPath(targetPath)
+  });
+
   handleValidatedIpc(workspaceChannels.listDirectory, {
     handler: async (_event: IpcMainInvokeEvent, input: WorkspaceDirectoryInput) =>
       workspaceService.listDirectory(input),
@@ -110,6 +125,20 @@ export function registerWorkspaceHandlers(
     outputSchema: workspaceCreatePullRequestResultSchema
   });
 
+  handleValidatedIpc(workspaceChannels.listBranches, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceListBranchesInput) =>
+      workspaceService.listBranches(input.taskId),
+    inputSchema: workspaceListBranchesInputSchema,
+    outputSchema: workspaceListBranchesResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.updateBaseRef, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceUpdateBaseRefInput) =>
+      workspaceService.updateBaseRef(input.taskId, input.baseRef),
+    inputSchema: workspaceUpdateBaseRefInputSchema,
+    outputSchema: workspaceUpdateBaseRefResultSchema
+  });
+
   handleValidatedIpc(workspaceChannels.integrateBase, {
     handler: async (_event: IpcMainInvokeEvent, input: WorkspaceIntegrateBaseInput) =>
       workspaceService.integrateBase(input),
@@ -143,5 +172,12 @@ export function registerWorkspaceHandlers(
       workspaceFileService.writeFile(input),
     inputSchema: workspaceFileWriteInputSchema,
     outputSchema: workspaceFileWriteResultSchema
+  });
+
+  handleValidatedIpc(workspaceChannels.openInEditor, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceOpenInEditorInput) =>
+      externalEditorService.openInEditor(input),
+    inputSchema: workspaceOpenInEditorInputSchema,
+    outputSchema: workspaceOpenInEditorResultSchema
   });
 }

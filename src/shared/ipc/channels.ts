@@ -5,13 +5,13 @@ export const agentSessionChannels = {
   readTranscriptTail: 'agentSessions:readTranscriptTail',
   resize: 'agentSessions:resize',
   sendInput: 'agentSessions:sendInput',
-  start: 'agentSessions:start',
-  terminate: 'agentSessions:terminate'
+  start: 'agentSessions:start'
 } as const;
 
 export const projectChannels = {
   list: 'projects:list',
   add: 'projects:add',
+  delete: 'projects:delete',
   pickPath: 'projects:pickPath'
 } as const;
 
@@ -28,6 +28,8 @@ export const workspaceChannels = {
   getDiff: 'workspaces:getDiff',
   getPublishStatus: 'workspaces:getPublishStatus',
   integrateBase: 'workspaces:integrateBase',
+  listBranches: 'workspaces:listBranches',
+  openInEditor: 'workspaces:openInEditor',
   openPullRequest: 'workspaces:openPullRequest',
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',
@@ -35,5 +37,6 @@ export const workspaceChannels = {
   listDirectory: 'workspaces:listDirectory',
   mergeTask: 'workspaces:mergeTask',
   pushBranch: 'workspaces:pushBranch',
+  updateBaseRef: 'workspaces:updateBaseRef',
   writeFile: 'workspaces:writeFile'
 } as const;

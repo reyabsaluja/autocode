@@ -54,7 +54,6 @@ function createMainWindow(): BrowserWindow {
 
 async function bootstrap(): Promise<void> {
   const { db } = getDatabaseContext();
-  const projectService = createProjectService(db);
   const publishWorkspaceInspectionChange = (taskId: number) => {
     const event = {
       taskId,
@@ -72,6 +71,9 @@ async function bootstrap(): Promise<void> {
   }, publishWorkspaceInspectionChange);
   const taskService = createTaskService(db, {
     deleteByTask: agentSessionService.deleteByTask
+  });
+  const projectService = createProjectService(db, {
+    deleteTaskWorkspace: taskService.deleteTaskWorkspace
   });
   const workspaceService = createWorkspaceService(
     db,

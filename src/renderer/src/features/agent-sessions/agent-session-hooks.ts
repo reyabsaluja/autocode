@@ -11,15 +11,19 @@ import type { AgentSession, AgentSessionEvent, AgentSessionTranscriptEntry } fro
 
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
+import { appendStdinForLabel, clearStdinBuffer, useSessionLabelStore } from '../../stores/session-label-store';
 
 const AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES = 500;
+const AGENT_SESSION_LIST_GC_TIME_MS = 10 * 60_000;
+const pendingDeleteSessionIds = new Set<number>();
 
 export function useAgentSessionsQuery(taskId: number | null) {
   return useQuery({
     enabled: taskId !== null,
+    gcTime: AGENT_SESSION_LIST_GC_TIME_MS,
     queryFn: () => autocodeApi.agentSessions.listByTask({ taskId: taskId! }),
     queryKey: taskId !== null ? queryKeys.agentSessions(taskId) : ['agent-sessions', 'idle'],
-    refetchOnMount: 'always',
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });
@@ -68,49 +72,45 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
         return;
       }
 
+      pendingDeleteSessionIds.add(sessionId);
+
       await queryClient.cancelQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
       queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
 
       if (taskId !== null) {
         queryClient.setQueryData<AgentSession[]>(
           queryKeys.agentSessions(taskId),
-          (current) => current?.filter((session) => session.id !== sessionId) ?? []
+          (current) => removeAgentSessionFromList(current ?? [], sessionId)
         );
       }
     },
-    onError: async () => {
+    onError: async (_error, sessionId) => {
+      if (sessionId !== null) {
+        pendingDeleteSessionIds.delete(sessionId);
+      }
+
       if (taskId !== null) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions(taskId) });
       }
     },
     onSuccess: (_result, sessionId) => {
+      if (sessionId !== null) {
+        queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
+        useSessionLabelStore.getState().removeLabel(sessionId);
+        clearStdinBuffer(sessionId);
+      }
+
       if (taskId !== null && sessionId !== null) {
         queryClient.setQueryData<AgentSession[]>(
           queryKeys.agentSessions(taskId),
-          (current) => current?.filter((session) => session.id !== sessionId) ?? []
+          (current) => removeAgentSessionFromList(current ?? [], sessionId)
         );
       }
-
-      if (sessionId !== null) {
-        queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
-      }
-    }
-  });
-}
-
-export function useTerminateAgentSessionMutation(sessionId: number | null) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => {
-      if (sessionId === null) {
-        throw new Error('Select an active session before terminating it.');
-      }
-
-      return autocodeApi.agentSessions.terminate({ sessionId });
     },
-    onSuccess: (session) => {
-      setAgentSessionInAllTaskLists(queryClient, session);
+    onSettled: (_result, _error, sessionId) => {
+      if (sessionId !== null) {
+        setTimeout(() => pendingDeleteSessionIds.delete(sessionId), 3000);
+      }
     }
   });
 }
@@ -148,16 +148,28 @@ export function useAgentSessionResizeMutation(sessionId: number | null) {
 export function useAgentSessionTranscriptTailQuery(sessionId: number | null, enabled = true) {
   return useQuery({
     enabled: sessionId !== null && enabled,
-    queryFn: () =>
-      autocodeApi.agentSessions.readTranscriptTail({
+    gcTime: AGENT_SESSION_LIST_GC_TIME_MS,
+    queryFn: async () => {
+      const result = await autocodeApi.agentSessions.readTranscriptTail({
         maxEntries: AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES,
         sessionId: sessionId!
-      }),
+      });
+
+      if (sessionId !== null) {
+        for (const entry of result.entries) {
+          if (entry.stream === 'stdin') {
+            appendStdinForLabel(sessionId, entry.text);
+          }
+        }
+      }
+
+      return result;
+    },
     queryKey:
       sessionId !== null
         ? queryKeys.agentSessionTranscript(sessionId)
         : ['agent-sessions', 'idle', 'transcript'],
-    refetchOnMount: 'always',
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });
@@ -186,8 +198,22 @@ function handleAgentSessionEvent(
   event: AgentSessionEvent
 ) {
   if (event.type === 'snapshot') {
+    if (pendingDeleteSessionIds.has(event.session.id)) {
+      return;
+    }
+
     setTaskAgentSession(queryClient, taskId, event.session);
     return;
+  }
+
+  if (pendingDeleteSessionIds.has(event.sessionId)) {
+    return;
+  }
+
+  for (const entry of event.entries) {
+    if (entry.stream === 'stdin') {
+      appendStdinForLabel(event.sessionId, entry.text);
+    }
   }
 
   queryClient.setQueryData<ReadAgentSessionTranscriptTailResult>(
@@ -273,8 +299,45 @@ function setTaskAgentSession(
 }
 
 function updateAgentSessionList(current: AgentSession[], session: AgentSession): AgentSession[] {
-  const next = current.filter((entry) => entry.id !== session.id);
-  return [session, ...next].sort(compareAgentSessionsByCreatedAt);
+  const next = current.slice();
+  let existingIndex = -1;
+
+  for (let index = 0; index < next.length; index += 1) {
+    if (next[index]!.id === session.id) {
+      existingIndex = index;
+      break;
+    }
+  }
+
+  if (existingIndex !== -1) {
+    next.splice(existingIndex, 1);
+  }
+
+  let insertAt = next.length;
+
+  for (let index = 0; index < next.length; index += 1) {
+    if (compareAgentSessionsByCreatedAt(session, next[index]!) < 0) {
+      insertAt = index;
+      break;
+    }
+  }
+
+  next.splice(insertAt, 0, session);
+  return next;
+}
+
+function removeAgentSessionFromList(current: AgentSession[], sessionId: number): AgentSession[] {
+  for (let index = 0; index < current.length; index += 1) {
+    if (current[index]!.id !== sessionId) {
+      continue;
+    }
+
+    const next = current.slice();
+    next.splice(index, 1);
+    return next;
+  }
+
+  return current;
 }
 
 function compareAgentSessionsByCreatedAt(left: AgentSession, right: AgentSession) {

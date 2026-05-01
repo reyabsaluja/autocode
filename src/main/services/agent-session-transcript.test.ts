@@ -59,6 +59,33 @@ describe('agent session transcript persistence', () => {
     expect(tail.entries).toEqual([]);
   });
 
+  test('reads the last entries without scanning from the beginning of a large transcript', async () => {
+    const rootDirectory = await mkdtemp(path.join(os.tmpdir(), 'autocode-agent-session-'));
+    tempDirectories.push(rootDirectory);
+    const transcriptPath = resolveAgentSessionTranscriptPath(rootDirectory, 9);
+
+    await ensureAgentSessionTranscriptFile(transcriptPath);
+
+    await appendAgentSessionTranscriptEntry(
+      transcriptPath,
+      formatAgentSessionTranscriptEntry(1, 'stdout', `${'a'.repeat(70_000)}\n`, '2026-04-01T12:00:00.000Z')
+    );
+    await appendAgentSessionTranscriptEntry(
+      transcriptPath,
+      formatAgentSessionTranscriptEntry(2, 'stderr', 'warning\n', '2026-04-01T12:00:01.000Z')
+    );
+    await appendAgentSessionTranscriptEntry(
+      transcriptPath,
+      formatAgentSessionTranscriptEntry(3, 'system', 'done', '2026-04-01T12:00:02.000Z')
+    );
+
+    const tail = await readAgentSessionTranscriptTail(transcriptPath, 2);
+
+    expect(tail.lastEventSeq).toBe(3);
+    expect(tail.entries.map((entry) => entry.seq)).toEqual([2, 3]);
+    expect(tail.entries.map((entry) => entry.stream)).toEqual(['stderr', 'system']);
+  });
+
   test('supports preallocated string path keys before a session id exists', () => {
     expect(resolveAgentSessionTranscriptPath('/tmp/autocode-sessions', 'session-start-123')).toBe(
       path.join('/tmp/autocode-sessions', 'session-start-123', 'transcript.ndjson')

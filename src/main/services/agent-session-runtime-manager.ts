@@ -111,7 +111,6 @@ export function createAgentSessionRuntimeManager({
     reconcileInterruptedSessions,
     resizeRuntime,
     startRuntime,
-    terminateSession,
     writeToRuntime
   };
 
@@ -166,33 +165,28 @@ export function createAgentSessionRuntimeManager({
   async function reconcileInterruptedSessions(): Promise<void> {
     tmuxAvailable = await runtimeDependencies.checkTmuxAvailability();
     const timestamp = new Date().toISOString();
+    const activeSessions = agentSessionRepository.listActiveSessionRecords();
 
-    for (const session of agentSessionRepository.listActiveSessions()) {
-      const internalSession = agentSessionRepository.findInternalById(session.id);
-
-      if (!internalSession) {
-        continue;
-      }
-
+    await Promise.allSettled(activeSessions.map(async (session) => {
       if (tmuxAvailable) {
         const sessionName = runtimeDependencies.getTmuxSessionName(session.id);
         const alive = await runtimeDependencies.isTmuxSessionAlive(sessionName);
 
         if (alive) {
           try {
-            await ensureAgentSessionTranscriptFile(internalSession.transcriptPath);
+            await ensureAgentSessionTranscriptFile(session.transcriptPath);
             await appendSystemEntryIfPossible(
               session.id,
-              internalSession.transcriptPath,
+              session.transcriptPath,
               `Reconnected to this ${getAgentProviderDisplayName(session.provider)} session after Autocode restarted.`,
               timestamp
             );
             await reconnectRuntime({
               provider: session.provider,
               sessionId: session.id,
-              transcriptPath: internalSession.transcriptPath
+              transcriptPath: session.transcriptPath
             });
-            continue;
+            return;
           } catch {
             // Reconnection failed — fall through to terminate
           }
@@ -202,10 +196,10 @@ export function createAgentSessionRuntimeManager({
       const interruptionMessage =
         `Autocode interrupted this ${getAgentProviderDisplayName(session.provider)} session because the app restarted before it finished.`;
 
-      await ensureAgentSessionTranscriptFile(internalSession.transcriptPath);
+      await ensureAgentSessionTranscriptFile(session.transcriptPath);
       const interruptionEntry = await appendSystemEntryIfPossible(
         session.id,
-        internalSession.transcriptPath,
+        session.transcriptPath,
         interruptionMessage,
         timestamp
       );
@@ -230,7 +224,7 @@ export function createAgentSessionRuntimeManager({
         session: nextSession,
         type: 'snapshot'
       });
-    }
+    }));
   }
 
   async function startRuntime(input: StartAgentSessionRuntimeInput): Promise<{ pid: number }> {
@@ -372,7 +366,11 @@ export function createAgentSessionRuntimeManager({
     }
   }
 
-  async function writeToRuntime(sessionId: number, text: string): Promise<void> {
+  async function writeToRuntime(
+    sessionId: number,
+    text: string,
+    stream: AgentSessionTranscriptStream = 'stdin'
+  ): Promise<void> {
     const runtime = requireRuntime(sessionId);
 
     await enqueueSessionWork(sessionId, async () => {
@@ -385,7 +383,7 @@ export function createAgentSessionRuntimeManager({
       const entry = await appendTranscriptEntry(
         sessionId,
         internalSession.transcriptPath,
-        'stdin',
+        stream,
         text,
         new Date().toISOString()
       );
@@ -414,24 +412,11 @@ export function createAgentSessionRuntimeManager({
     });
   }
 
-  async function terminateSession(
-    sessionId: number,
-    systemMessage = 'Session terminated by user.'
-  ): Promise<AgentSession> {
-    return finalizeSession(sessionId, {
-      exitCode: null,
-      killRuntime: true,
-      lastError: null,
-      status: 'terminated',
-      systemMessage
-    });
-  }
-
   async function deleteSession(sessionId: number): Promise<void> {
     const session = agentSessionRepository.findInternalById(sessionId);
 
     if (!session) {
-      throw new Error('Agent session could not be found.');
+      return;
     }
 
     if (ACTIVE_AGENT_SESSION_STATUSES.has(session.status)) {
@@ -738,10 +723,16 @@ export function createAgentSessionRuntimeManager({
   }
 
   function buildAttachProcessEnv(): Record<string, string> {
-    return Object.fromEntries(
-      Object.entries(process.env).filter(
-        (entry): entry is [string, string] => typeof entry[1] === 'string'
-      )
-    );
+    const env: Record<string, string> = {};
+
+    for (const key in process.env) {
+      const value = process.env[key];
+
+      if (typeof value === 'string') {
+        env[key] = value;
+      }
+    }
+
+    return env;
   }
 }

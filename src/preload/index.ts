@@ -14,13 +14,13 @@ import {
   sendAgentSessionInputSchema,
   sendAgentSessionResultSchema,
   startAgentSessionInputSchema,
-  startAgentSessionResultSchema,
-  terminateAgentSessionInputSchema,
-  terminateAgentSessionResultSchema
+  startAgentSessionResultSchema
 } from '../shared/contracts/agent-sessions';
 import {
   addProjectInputSchema,
   addProjectResultSchema,
+  deleteProjectInputSchema,
+  deleteProjectResultSchema,
   listProjectsResultSchema,
   pickProjectPathResultSchema
 } from '../shared/contracts/projects';
@@ -46,7 +46,13 @@ import {
   workspaceDirectoryResultSchema,
   workspaceIntegrateBaseInputSchema,
   workspaceIntegrationResultSchema,
+  workspaceListBranchesInputSchema,
+  workspaceListBranchesResultSchema,
   workspaceMergeTaskInputSchema,
+  workspaceOpenInEditorInputSchema,
+  workspaceOpenInEditorResultSchema,
+  workspaceUpdateBaseRefInputSchema,
+  workspaceUpdateBaseRefResultSchema,
   workspaceOpenPullRequestInputSchema,
   workspaceOpenPullRequestResultSchema,
   workspacePublishStatusInputSchema,
@@ -122,13 +128,7 @@ const api: AutocodeApi = {
 
           callback(event);
         }
-      ),
-    terminate: (input) =>
-      invokeValidatedIpc(agentSessionChannels.terminate, {
-        input,
-        inputSchema: terminateAgentSessionInputSchema,
-        outputSchema: terminateAgentSessionResultSchema
-      })
+      )
   },
   projects: {
     list: () =>
@@ -144,6 +144,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: addProjectInputSchema,
         outputSchema: addProjectResultSchema
+      }),
+    delete: (input) =>
+      invokeValidatedIpc(projectChannels.delete, {
+        input,
+        inputSchema: deleteProjectInputSchema,
+        outputSchema: deleteProjectResultSchema
       })
   },
   tasks: {
@@ -221,11 +227,23 @@ const api: AutocodeApi = {
         inputSchema: workspaceIntegrateBaseInputSchema,
         outputSchema: workspaceIntegrationResultSchema
       }),
+    listBranches: (input) =>
+      invokeValidatedIpc(workspaceChannels.listBranches, {
+        input,
+        inputSchema: workspaceListBranchesInputSchema,
+        outputSchema: workspaceListBranchesResultSchema
+      }),
     mergeTask: (input) =>
       invokeValidatedIpc(workspaceChannels.mergeTask, {
         input,
         inputSchema: workspaceMergeTaskInputSchema,
         outputSchema: workspaceIntegrationResultSchema
+      }),
+    openInEditor: (input) =>
+      invokeValidatedIpc(workspaceChannels.openInEditor, {
+        input,
+        inputSchema: workspaceOpenInEditorInputSchema,
+        outputSchema: workspaceOpenInEditorResultSchema
       }),
     openPullRequest: (input) =>
       invokeValidatedIpc(workspaceChannels.openPullRequest, {
@@ -238,6 +256,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: workspaceFileReadInputSchema,
         outputSchema: workspaceFileReadResultSchema
+      }),
+    updateBaseRef: (input) =>
+      invokeValidatedIpc(workspaceChannels.updateBaseRef, {
+        input,
+        inputSchema: workspaceUpdateBaseRefInputSchema,
+        outputSchema: workspaceUpdateBaseRefResultSchema
       }),
     writeFile: (input) =>
       invokeValidatedIpc(workspaceChannels.writeFile, {

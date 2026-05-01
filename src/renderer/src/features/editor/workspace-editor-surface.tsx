@@ -1,11 +1,10 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
-import CodeMirror from '@uiw/react-codemirror';
-import { oneDark } from '@codemirror/theme-one-dark';
+import { Suspense, forwardRef, lazy, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { AlertTriangle, FileCode, Loader2, Minus, Plus, Save, Undo2 } from 'lucide-react';
 
 import type { WorkspaceChange } from '@shared/domain/workspace-inspection';
 
+import { autocodeEditorTheme } from '../../lib/editor-theme';
 import { WorkspaceDiffViewer } from '../workspace/workspace-diff-viewer';
 import { useWorkspaceDiffQuery } from '../workspace/workspace-hooks';
 import { useWorkspaceLanguageSupport } from './editor-language';
@@ -14,6 +13,13 @@ import {
   resolveLatestWorkspaceFileContent,
   resolveWorkspaceEditorSyncState
 } from './workspace-editor-sync';
+
+const LazyCodeMirror = lazy(() => import('@uiw/react-codemirror'));
+
+const CODEMIRROR_BASIC_SETUP = {
+  foldGutter: false,
+  highlightActiveLineGutter: true
+} as const;
 
 export interface WorkspaceEditorHandle {
   discardUnsavedChanges: () => void;
@@ -168,7 +174,7 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
     const editorTitle = activeFilePath ? basename(activeFilePath) : 'Editor';
 
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-surface-0">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-[#101010]">
         <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#141414] px-4 py-1.5">
           <div className="flex min-w-0 items-center gap-2">
             <FileCode className="h-3.5 w-3.5 shrink-0 text-white/30" />
@@ -291,22 +297,28 @@ export const WorkspaceEditorSurface = forwardRef<WorkspaceEditorHandle, Workspac
             />
           ) : (
             <div className="h-full">
-              <CodeMirror
-                basicSetup={{
-                  foldGutter: false,
-                  highlightActiveLineGutter: true
-                }}
-                className="h-full text-[13px]"
-                extensions={languageExtensions}
-                height="100%"
-                onChange={(value) => {
-                  setBufferContent(value);
-                  setSaveNotice(null);
-                  writeFileMutation.reset();
-                }}
-                theme={oneDark}
-                value={bufferContent}
-              />
+              <Suspense
+                fallback={
+                  <EditorMessage>
+                    <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+                    Loading editor...
+                  </EditorMessage>
+                }
+              >
+                <LazyCodeMirror
+                  basicSetup={CODEMIRROR_BASIC_SETUP}
+                  className="h-full text-[13px]"
+                  extensions={languageExtensions}
+                  height="100%"
+                  onChange={(value) => {
+                    setBufferContent(value);
+                    setSaveNotice(null);
+                    writeFileMutation.reset();
+                  }}
+                  theme={autocodeEditorTheme}
+                  value={bufferContent}
+                />
+              </Suspense>
             </div>
           )}
         </div>
@@ -346,8 +358,8 @@ function formatWorkspaceChangeLabel(status: WorkspaceChange['status']) {
 }
 
 function basename(relativePath: string) {
-  const segments = relativePath.split('/');
-  return segments.at(-1) ?? relativePath;
+  const lastSlashIndex = relativePath.lastIndexOf('/');
+  return lastSlashIndex === -1 ? relativePath : relativePath.slice(lastSlashIndex + 1);
 }
 
 function ModeToggle({

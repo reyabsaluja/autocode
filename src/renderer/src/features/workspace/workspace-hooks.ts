@@ -20,6 +20,11 @@ import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
+import {
+  invalidateTaskWorkspaceCollectionsForTask,
+  upsertProject,
+  upsertTaskWorkspace
+} from '../../lib/task-workspace-cache';
 
 const WORKSPACE_EXPLORER_DIRECTORY_STALE_TIME_MS = 60_000;
 const WORKSPACE_EXPLORER_DIRECTORY_GC_TIME_MS = 10 * 60_000;
@@ -332,8 +337,7 @@ function syncWorkspaceCollections(
         return current;
       }
 
-      const next = current.filter((entry) => entry.task.id !== input.taskWorkspace.task.id);
-      return [input.taskWorkspace, ...next].sort(compareTaskWorkspacesByUpdatedAt);
+      return upsertTaskWorkspace(current, input.taskWorkspace);
     }
   );
 
@@ -342,8 +346,7 @@ function syncWorkspaceCollections(
       return current;
     }
 
-    const next = current.filter((entry) => entry.id !== input.project.id);
-    return [input.project, ...next].sort(compareProjectsByUpdatedAt);
+    return upsertProject(current, input.project);
   });
 }
 
@@ -351,40 +354,35 @@ async function invalidateWorkspaceCollectionsForTask(
   queryClient: ReturnType<typeof useQueryClient>,
   taskId: number
 ) {
-  const projectId = findProjectIdForTask(queryClient, taskId);
-
-  if (projectId !== null) {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.taskWorkspaces(projectId) });
-  }
-
-  await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+  await invalidateTaskWorkspaceCollectionsForTask(queryClient, taskId);
 }
 
-function findProjectIdForTask(
-  queryClient: ReturnType<typeof useQueryClient>,
-  taskId: number
-): number | null {
-  const taskLists = queryClient.getQueriesData<TaskWorkspace[]>({ queryKey: ['tasks'] });
+export function useWorkspaceBranchesQuery(taskId: number | null) {
+  return useQuery({
+    enabled: taskId !== null,
+    queryKey: taskId !== null ? queryKeys.workspaceBranches(taskId) : ['workspace', 'idle', 'branches'],
+    queryFn: () => autocodeApi.workspaces.listBranches({ taskId: taskId! }),
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000
+  });
+}
 
-  for (const [, taskWorkspaces] of taskLists) {
-    if (!taskWorkspaces) {
-      continue;
+export function useUpdateBaseRefMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (baseRef: string) => {
+      if (taskId === null) throw new Error('No active task');
+      return autocodeApi.workspaces.updateBaseRef({ taskId, baseRef });
+    },
+    onSuccess: async () => {
+      if (taskId !== null) {
+        await Promise.all([
+          invalidateWorkspaceCollectionsForTask(queryClient, taskId),
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspacePublishStatus(taskId) })
+        ]);
+      }
     }
-
-    const matchingWorkspace = taskWorkspaces.find((workspace) => workspace.task.id === taskId);
-
-    if (matchingWorkspace) {
-      return matchingWorkspace.task.projectId;
-    }
-  }
-
-  return null;
-}
-
-function compareTaskWorkspacesByUpdatedAt(left: TaskWorkspace, right: TaskWorkspace) {
-  return right.task.updatedAt.localeCompare(left.task.updatedAt);
-}
-
-function compareProjectsByUpdatedAt(left: Project, right: Project) {
-  return right.updatedAt.localeCompare(left.updatedAt);
+  });
 }

@@ -24,8 +24,8 @@ export function formatWorkspaceInspectorError(error: unknown): string | null {
 }
 
 export function basename(value: string): string {
-  const parts = value.split('/');
-  return parts.at(-1) ?? value;
+  const lastSlashIndex = value.lastIndexOf('/');
+  return lastSlashIndex === -1 ? value : value.slice(lastSlashIndex + 1);
 }
 
 export function getProviderDisplayName(provider: AgentProvider): string {
@@ -37,15 +37,6 @@ export function getProviderDisplayName(provider: AgentProvider): string {
     case 'terminal':
       return 'Terminal';
   }
-}
-
-export function getProviderSessionIndex(
-  sessions: Array<{ id: number; provider: AgentProvider }>,
-  session: { id: number; provider: AgentProvider }
-): number {
-  const sameSessions = sessions.filter((entry) => entry.provider === session.provider);
-  const reverseIndex = [...sameSessions].reverse().findIndex((entry) => entry.id === session.id);
-  return reverseIndex + 1;
 }
 
 export function isActiveSessionStatus(

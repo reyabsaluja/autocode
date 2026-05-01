@@ -33,10 +33,6 @@ export const resizeAgentSessionInputSchema = z.object({
   sessionId: sessionIdSchema
 });
 
-export const terminateAgentSessionInputSchema = z.object({
-  sessionId: sessionIdSchema
-});
-
 export const deleteAgentSessionInputSchema = z.object({
   sessionId: sessionIdSchema
 });
@@ -51,7 +47,6 @@ export const listAgentSessionsByTaskResultSchema = agentSessionListSchema;
 export const startAgentSessionResultSchema = agentSessionSchema;
 export const sendAgentSessionResultSchema = z.void();
 export const resizeAgentSessionResultSchema = z.void();
-export const terminateAgentSessionResultSchema = agentSessionSchema;
 export const deleteAgentSessionResultSchema = z.void();
 export const readAgentSessionTranscriptTailResultSchema = z.object({
   entries: z.array(agentSessionTranscriptEntrySchema),
@@ -63,7 +58,6 @@ export type ListAgentSessionsByTaskInput = z.infer<typeof listAgentSessionsByTas
 export type StartAgentSessionInput = z.infer<typeof startAgentSessionInputSchema>;
 export type SendAgentSessionInput = z.infer<typeof sendAgentSessionInputSchema>;
 export type ResizeAgentSessionInput = z.infer<typeof resizeAgentSessionInputSchema>;
-export type TerminateAgentSessionInput = z.infer<typeof terminateAgentSessionInputSchema>;
 export type DeleteAgentSessionInput = z.infer<typeof deleteAgentSessionInputSchema>;
 export type ReadAgentSessionTranscriptTailInput = z.infer<
   typeof readAgentSessionTranscriptTailInputSchema
@@ -73,7 +67,6 @@ export type ListAgentSessionsByTaskResult = z.infer<typeof listAgentSessionsByTa
 export type StartAgentSessionResult = z.infer<typeof startAgentSessionResultSchema>;
 export type SendAgentSessionResult = z.infer<typeof sendAgentSessionResultSchema>;
 export type ResizeAgentSessionResult = z.infer<typeof resizeAgentSessionResultSchema>;
-export type TerminateAgentSessionResult = z.infer<typeof terminateAgentSessionResultSchema>;
 export type DeleteAgentSessionResult = z.infer<typeof deleteAgentSessionResultSchema>;
 export type ReadAgentSessionTranscriptTailResult = z.infer<
   typeof readAgentSessionTranscriptTailResultSchema

@@ -79,6 +79,7 @@ export function App() {
           createErrorMessage={formatErrorMessage(workspaceSession.createTaskMutation.error) ?? taskLoadError}
           isAddingProject={addProjectMutation.isPending}
           isCreatingTask={workspaceSession.createTaskMutation.isPending}
+          isDeletingProject={workspaceSession.deleteProjectMutation.isPending}
           isDeletingTask={workspaceSession.deleteTaskMutation.isPending}
           isLoadingProjects={projectsQuery.isLoading}
           isLoadingTasks={workspaceSession.taskWorkspacesQuery.isLoading}
@@ -97,13 +98,14 @@ export function App() {
           onCreateTask={workspaceSession.createTaskWorkspace}
           onManualPathChange={setManualRepositoryPath}
           onDeleteTask={workspaceSession.requestTaskDeletion}
+          onDeleteProject={workspaceSession.requestProjectDeletion}
           onSelectProject={workspaceSession.requestProjectSelection}
           onSelectTask={workspaceSession.requestTaskSelection}
           onSubmitManualPath={handleManualRepositoryAdd}
           onToggleSidebar={() => setIsSidebarOpen(false)}
         />
       ) : (
-        <div className="drag-region absolute left-0 top-0 z-10 flex h-[38px] items-center pl-[68px] pr-2">
+        <div className="drag-region absolute left-0 top-0 z-10 flex h-[38px] items-center pl-[76px] pr-2">
           <button
             className="no-drag grid h-7 w-7 place-items-center rounded-control text-text-faint transition hover:bg-white/[0.08] hover:text-text-secondary"
             onClick={() => setIsSidebarOpen(true)}
@@ -119,6 +121,7 @@ export function App() {
         <WorkspaceDetails
           ref={editorRef}
           isForkingTask={workspaceSession.createTaskMutation.isPending}
+          isSidebarOpen={isSidebarOpen}
           isLoadingTasks={workspaceSession.taskWorkspacesQuery.isLoading}
           onForkTaskWorkspace={workspaceSession.forkSelectedTaskWorkspace}
           onRequestTaskSelection={workspaceSession.requestTaskSelection}

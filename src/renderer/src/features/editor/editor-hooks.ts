@@ -8,6 +8,8 @@ import type {
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
 
+const WORKSPACE_FILE_GC_TIME_MS = 10 * 60_000;
+
 export function useWorkspaceFileQuery(
   taskId: number | null,
   relativePath: string | null,
@@ -15,6 +17,7 @@ export function useWorkspaceFileQuery(
 ) {
   return useQuery({
     enabled: taskId !== null && relativePath !== null && enabled,
+    gcTime: WORKSPACE_FILE_GC_TIME_MS,
     queryKey:
       taskId !== null && relativePath !== null
         ? queryKeys.workspaceFile(taskId, relativePath)
@@ -24,7 +27,7 @@ export function useWorkspaceFileQuery(
         relativePath: relativePath!,
         taskId: taskId!
       } satisfies WorkspaceFileReadInput),
-    refetchOnMount: 'always',
+    refetchOnMount: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity
   });

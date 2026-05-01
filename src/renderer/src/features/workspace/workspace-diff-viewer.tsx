@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import clsx from 'clsx';
 import { Loader2 } from 'lucide-react';
 
@@ -14,6 +15,21 @@ export function WorkspaceDiffViewer({
   isLoading,
   selectedPath
 }: WorkspaceDiffViewerProps) {
+  const diffLines = useMemo(
+    () => {
+      if (!diffText) {
+        return [];
+      }
+
+      return diffText.split('\n').map((line, index) => ({
+        className: resolveDiffLineClassName(line),
+        key: `${index}:${line.slice(0, 8)}`,
+        text: line
+      }));
+    },
+    [diffText]
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-2">
@@ -45,17 +61,9 @@ export function WorkspaceDiffViewer({
 
         {!isLoading && !errorMessage && diffText ? (
           <pre className="whitespace-pre-wrap break-words px-4 py-4 font-mono text-[12px] leading-[1.7] text-white/60">
-            {diffText.split('\n').map((line, index) => (
-              <span
-                key={index}
-                className={clsx(
-                  'block px-1',
-                  line.startsWith('+') && !line.startsWith('+++') && 'bg-emerald-500/[0.06] text-emerald-300',
-                  line.startsWith('-') && !line.startsWith('---') && 'bg-rose-500/[0.06] text-rose-300',
-                  line.startsWith('@@') && 'text-sky-400/70'
-                )}
-              >
-                {line}
+            {diffLines.map((line) => (
+              <span key={line.key} className={line.className}>
+                {line.text}
               </span>
             ))}
           </pre>
@@ -73,5 +81,14 @@ function DiffMessage({ children, tone = 'subtle' }: { children: React.ReactNode;
     )}>
       {children}
     </p>
+  );
+}
+
+function resolveDiffLineClassName(line: string): string {
+  return clsx(
+    'block px-1',
+    line.startsWith('+') && !line.startsWith('+++') && 'bg-emerald-500/[0.06] text-emerald-300',
+    line.startsWith('-') && !line.startsWith('---') && 'bg-rose-500/[0.06] text-rose-300',
+    line.startsWith('@@') && 'text-sky-400/70'
   );
 }

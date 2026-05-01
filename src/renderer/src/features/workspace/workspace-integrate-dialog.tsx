@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import clsx from 'clsx';
 import { ArrowDownToLine, GitBranch, Loader2, Sparkles } from 'lucide-react';
 
@@ -91,38 +92,15 @@ export function WorkspaceIntegrateDialog({
               </div>
 
               <div className="max-h-[240px] overflow-auto py-1">
-                {mergeCandidates.map((candidate) => {
-                  const isMerging = isMergingTaskId === candidate.taskId;
-
-                  return (
-                    <button
-                      key={candidate.taskId}
-                      className={clsx(
-                        'flex w-full items-center gap-3 px-4 py-3 text-left transition',
-                        'hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50'
-                      )}
-                      disabled={isIntegratingBase || isMergingTaskId !== null}
-                      onClick={() => onMergeTask(candidate.taskId)}
-                      type="button"
-                    >
-                      <span className="rounded-md bg-white/[0.06] p-1.5 text-white/45">
-                        {isMerging ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <GitBranch className="h-3.5 w-3.5" />
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-geist text-[13px] font-medium text-white/82">
-                          {candidate.title}
-                        </p>
-                        <p className="mt-0.5 truncate font-geist text-[12px] text-white/40">
-                          Bring in the full committed branch from <span className="text-white/60">{candidate.branchName}</span>.
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
+                {mergeCandidates.map((candidate) => (
+                  <MergeCandidateRow
+                    candidate={candidate}
+                    disabled={isIntegratingBase || isMergingTaskId !== null}
+                    isMerging={isMergingTaskId === candidate.taskId}
+                    key={candidate.taskId}
+                    onMergeTask={onMergeTask}
+                  />
+                ))}
               </div>
             </div>
           ) : null}
@@ -153,3 +131,43 @@ export function WorkspaceIntegrateDialog({
     </div>
   );
 }
+
+const MergeCandidateRow = memo(function MergeCandidateRow({
+  candidate,
+  disabled,
+  isMerging,
+  onMergeTask
+}: {
+  candidate: WorkspaceIntegrateDialogCandidate;
+  disabled: boolean;
+  isMerging: boolean;
+  onMergeTask: (taskId: number) => void;
+}) {
+  return (
+    <button
+      className={clsx(
+        'flex w-full items-center gap-3 px-4 py-3 text-left transition',
+        'hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50'
+      )}
+      disabled={disabled}
+      onClick={() => onMergeTask(candidate.taskId)}
+      type="button"
+    >
+      <span className="rounded-md bg-white/[0.06] p-1.5 text-white/45">
+        {isMerging ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <GitBranch className="h-3.5 w-3.5" />
+        )}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-geist text-[13px] font-medium text-white/82">
+          {candidate.title}
+        </p>
+        <p className="mt-0.5 truncate font-geist text-[12px] text-white/40">
+          Bring in the full committed branch from <span className="text-white/60">{candidate.branchName}</span>.
+        </p>
+      </div>
+    </button>
+  );
+});

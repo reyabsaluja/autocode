@@ -8,11 +8,14 @@ import type {
   ResizeAgentSessionInput,
   SendAgentSessionInput,
   StartAgentSessionInput,
-  StartAgentSessionResult,
-  TerminateAgentSessionInput,
-  TerminateAgentSessionResult
+  StartAgentSessionResult
 } from './agent-sessions';
-import type { AddProjectInput, ListProjectsResult } from './projects';
+import type {
+  AddProjectInput,
+  DeleteProjectInput,
+  DeleteProjectResult,
+  ListProjectsResult
+} from './projects';
 import type {
   CreateTaskInput,
   DeleteTaskInput,
@@ -33,7 +36,10 @@ import type {
   WorkspaceDirectoryResult,
   WorkspaceIntegrateBaseInput,
   WorkspaceIntegrationResult,
+  WorkspaceListBranchesInput,
+  WorkspaceListBranchesResult,
   WorkspaceMergeTaskInput,
+  WorkspaceOpenInEditorInput,
   WorkspaceOpenPullRequestInput,
   WorkspaceOpenPullRequestResult,
   WorkspacePublishStatusInput,
@@ -42,6 +48,8 @@ import type {
   WorkspacePushResult,
   WorkspaceRecentCommitsInput,
   WorkspaceRecentCommitsResult,
+  WorkspaceUpdateBaseRefInput,
+  WorkspaceUpdateBaseRefResult,
   WorkspaceInspectionEvent
 } from './workspaces';
 import type {
@@ -68,12 +76,12 @@ export interface AutocodeApi {
       taskId: number,
       callback: (event: AgentSessionEvent) => void
     ) => () => void;
-    terminate: (input: TerminateAgentSessionInput) => Promise<TerminateAgentSessionResult>;
   };
   projects: {
     list: () => Promise<ListProjectsResult>;
     pickPath: () => Promise<string | null>;
     add: (input: AddProjectInput) => Promise<Project>;
+    delete: (input: DeleteProjectInput) => Promise<DeleteProjectResult>;
   };
   tasks: {
     listByProject: (input: ListTasksByProjectInput) => Promise<TaskWorkspaceList>;
@@ -92,7 +100,10 @@ export interface AutocodeApi {
       input: WorkspaceCreatePullRequestInput
     ) => Promise<WorkspaceCreatePullRequestResult>;
     integrateBase: (input: WorkspaceIntegrateBaseInput) => Promise<WorkspaceIntegrationResult>;
+    listBranches: (input: WorkspaceListBranchesInput) => Promise<WorkspaceListBranchesResult>;
     mergeTask: (input: WorkspaceMergeTaskInput) => Promise<WorkspaceIntegrationResult>;
+    openInEditor: (input: WorkspaceOpenInEditorInput) => Promise<void>;
+    updateBaseRef: (input: WorkspaceUpdateBaseRefInput) => Promise<WorkspaceUpdateBaseRefResult>;
     openPullRequest: (input: WorkspaceOpenPullRequestInput) => Promise<WorkspaceOpenPullRequestResult>;
     readFile: (input: WorkspaceFileReadInput) => Promise<WorkspaceFileReadResult>;
     writeFile: (input: WorkspaceFileWriteInput) => Promise<WorkspaceFileWriteResult>;

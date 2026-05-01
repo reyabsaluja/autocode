@@ -56,15 +56,15 @@ async function validateWorkspaceContext(
 ): Promise<ResolvedWorkspaceContext> {
   try {
     const worktreePath = await resolveWorkspaceRoot(context.worktree.worktreePath);
-    const topLevelPath = await realpath(
-      await execGit(['rev-parse', '--show-toplevel'], worktreePath)
-    );
+    const [topLevelPath, currentBranch, registeredWorktrees] = await Promise.all([
+      execGit(['rev-parse', '--show-toplevel'], worktreePath).then((topLevel) => realpath(topLevel)),
+      execGit(['branch', '--show-current'], worktreePath),
+      listRegisteredWorktrees(context.project.gitRoot)
+    ]);
 
     if (topLevelPath !== worktreePath) {
       throw new Error('Stored workspace path no longer matches the task worktree root.');
     }
-
-    const currentBranch = await execGit(['branch', '--show-current'], worktreePath);
 
     if (!currentBranch) {
       throw new Error('Workspace is not currently attached to a branch.');
@@ -75,8 +75,6 @@ async function validateWorkspaceContext(
         `Workspace branch drifted from ${context.worktree.branchName} to ${currentBranch}.`
       );
     }
-
-    const registeredWorktrees = await listRegisteredWorktrees(context.project.gitRoot);
 
     if (!registeredWorktrees.has(worktreePath)) {
       throw new Error('Stored workspace is no longer registered with the project repository.');

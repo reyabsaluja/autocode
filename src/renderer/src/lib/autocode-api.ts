@@ -26,13 +26,13 @@ export const autocodeApi: AutocodeApi = {
     resize: (input) => getAutocodeApi().agentSessions.resize(input),
     sendInput: (input) => getAutocodeApi().agentSessions.sendInput(input),
     start: (input) => getAutocodeApi().agentSessions.start(input),
-    subscribe: (taskId, callback) => getAutocodeApi().agentSessions.subscribe(taskId, callback),
-    terminate: (input) => getAutocodeApi().agentSessions.terminate(input)
+    subscribe: (taskId, callback) => getAutocodeApi().agentSessions.subscribe(taskId, callback)
   },
   projects: {
     list: () => getAutocodeApi().projects.list(),
     pickPath: () => getAutocodeApi().projects.pickPath(),
-    add: (input) => getAutocodeApi().projects.add(input)
+    add: (input) => getAutocodeApi().projects.add(input),
+    delete: (input) => getAutocodeApi().projects.delete(input)
   },
   tasks: {
     listByProject: (input) => getAutocodeApi().tasks.listByProject(input),
@@ -49,7 +49,10 @@ export const autocodeApi: AutocodeApi = {
     pushBranch: (input) => getAutocodeApi().workspaces.pushBranch(input),
     createPullRequest: (input) => getAutocodeApi().workspaces.createPullRequest(input),
     integrateBase: (input) => getAutocodeApi().workspaces.integrateBase(input),
+    listBranches: (input) => getAutocodeApi().workspaces.listBranches(input),
     mergeTask: (input) => getAutocodeApi().workspaces.mergeTask(input),
+    openInEditor: (input) => getAutocodeApi().workspaces.openInEditor(input),
+    updateBaseRef: (input) => getAutocodeApi().workspaces.updateBaseRef(input),
     openPullRequest: (input) => getAutocodeApi().workspaces.openPullRequest(input),
     readFile: (input) => getAutocodeApi().workspaces.readFile(input),
     subscribeInspection: (taskId, callback) =>

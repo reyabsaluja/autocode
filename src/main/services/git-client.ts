@@ -6,6 +6,10 @@ import { promisify } from 'node:util';
 import type { WorkspacePublishStatus } from '../../shared/domain/workspace-inspection';
 
 const execFileAsync = promisify(execFile);
+const GIT_BRANCH_SORTER = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: 'base'
+});
 
 export interface GitRepositoryMetadata {
   defaultBranch: string | null;
@@ -71,9 +75,42 @@ export async function resolveCheckedOutGitBranch(gitRoot: string): Promise<strin
   return branchName;
 }
 
+export async function listGitBranches(gitRoot: string): Promise<string[]> {
+  const output = await execGit(['branch', '-a', '--format=%(refname:short)'], gitRoot);
+
+  if (!output) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const branches: string[] = [];
+
+  for (const raw of output.split('\n')) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+
+    const normalized = trimmed.replace(/^origin\//, '');
+    if (normalized === 'HEAD') continue;
+
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      branches.push(normalized);
+    }
+  }
+
+  branches.sort((a, b) => GIT_BRANCH_SORTER.compare(a, b));
+  return branches;
+}
+
 export async function listRegisteredWorktrees(gitRoot: string): Promise<Set<string>> {
   const records = await listRegisteredWorktreeRecords(gitRoot);
-  return new Set(records.map((record) => record.path));
+  const worktrees = new Set<string>();
+
+  for (const record of records) {
+    worktrees.add(record.path);
+  }
+
+  return worktrees;
 }
 
 export async function resolveGitBranchPublishStatus(
@@ -185,24 +222,37 @@ async function listGitRemotes(gitRoot: string): Promise<string[]> {
       return [];
     }
 
-    return output
-      .split('\n')
-      .map((entry) => entry.trim())
-      .filter(Boolean);
+    const remotes: string[] = [];
+
+    for (const rawEntry of output.split('\n')) {
+      const entry = rawEntry.trim();
+
+      if (entry) {
+        remotes.push(entry);
+      }
+    }
+
+    return remotes;
   } catch {
     return [];
   }
 }
 
 async function resolveDefaultBranch(gitRoot: string): Promise<string | null> {
-  const branchCandidates = [
-    await tryExecGit(['symbolic-ref', 'refs/remotes/origin/HEAD', '--short'], gitRoot),
-    await tryResolveCheckedOutGitBranch(gitRoot)
-  ]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.replace(/^origin\//, ''));
+  const branchCandidates = await Promise.all([
+    tryExecGit(['symbolic-ref', 'refs/remotes/origin/HEAD', '--short'], gitRoot),
+    tryResolveCheckedOutGitBranch(gitRoot)
+  ]);
 
-  return branchCandidates[0] ?? null;
+  for (let index = 0; index < branchCandidates.length; index += 1) {
+    const value = branchCandidates[index];
+
+    if (value) {
+      return value.replace(/^origin\//, '');
+    }
+  }
+
+  return null;
 }
 
 async function tryExecGit(args: string[], gitRoot: string): Promise<string | null> {
@@ -307,9 +357,15 @@ async function resolveLocalComparisonRef(
     input.baseRef,
     input.defaultBranch ? `origin/${input.defaultBranch}` : null,
     input.defaultBranch
-  ].filter((candidate): candidate is string => Boolean(candidate));
+  ];
 
-  for (const candidate of candidates) {
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+
+    if (!candidate) {
+      continue;
+    }
+
     if (await gitRefExists(gitRoot, candidate)) {
       return candidate;
     }
@@ -323,8 +379,8 @@ function resolvePreferredPushRemote(
   upstreamBranch: string | null
 ): string | null {
   if (upstreamBranch) {
-    const [remoteName] = upstreamBranch.split('/');
-    return remoteName || null;
+    const separatorIndex = upstreamBranch.indexOf('/');
+    return separatorIndex === -1 ? upstreamBranch || null : upstreamBranch.slice(0, separatorIndex);
   }
 
   if (remotes.includes('origin')) {

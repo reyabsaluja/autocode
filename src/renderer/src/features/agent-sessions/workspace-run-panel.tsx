@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
   ChevronDown,
   ChevronUp,
   Loader2,
   Play,
-  Square,
   Terminal
 } from 'lucide-react';
 
 import type { AgentSession, AgentSessionStatus } from '@shared/domain/agent-session';
+import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 
 import {
   useAgentSessionInputMutation,
@@ -17,8 +17,7 @@ import {
   useAgentSessionStream,
   useAgentSessionTranscriptTailQuery,
   useAgentSessionsQuery,
-  useStartAgentSessionMutation,
-  useTerminateAgentSessionMutation
+  useStartAgentSessionMutation
 } from './agent-session-hooks';
 import { AgentSessionTerminal } from './agent-session-terminal';
 
@@ -26,31 +25,47 @@ interface WorkspaceRunPanelProps {
   taskId: number;
 }
 
+const EMPTY_ENTRIES: AgentSessionTranscriptEntry[] = [];
+
 const DEFAULT_TERMINAL_SIZE = {
   cols: 120,
   rows: 30
 };
 
+const SESSION_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short'
+});
+
 export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
   const sessionsQuery = useAgentSessionsQuery(taskId);
   const sessions = sessionsQuery.data ?? [];
-  const activeSession = useMemo(
-    () => sessions.find((session) => isActiveSessionStatus(session.status)) ?? null,
-    [sessions]
-  );
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [terminalSize, setTerminalSize] = useState(DEFAULT_TERMINAL_SIZE);
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
   const previousActiveSessionIdRef = useRef<number | null>(null);
   const startSessionMutation = useStartAgentSessionMutation(taskId);
-  const terminateSessionMutation = useTerminateAgentSessionMutation(activeSession?.id ?? null);
   const sendInputMutation = useAgentSessionInputMutation(selectedSessionId);
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSessionId);
-  const selectedSession = useMemo(
-    () => sessions.find((session) => session.id === selectedSessionId) ?? null,
-    [selectedSessionId, sessions]
-  );
+  const { activeSession, selectedSession, sessionById } = useMemo(() => {
+    const nextSessionById = new Map<number, AgentSession>();
+    let nextActiveSession: AgentSession | null = null;
+
+    for (const session of sessions) {
+      nextSessionById.set(session.id, session);
+
+      if (!nextActiveSession && isActiveSessionStatus(session.status)) {
+        nextActiveSession = session;
+      }
+    }
+
+    return {
+      activeSession: nextActiveSession,
+      selectedSession: selectedSessionId !== null ? nextSessionById.get(selectedSessionId) ?? null : null,
+      sessionById: nextSessionById
+    };
+  }, [selectedSessionId, sessions]);
   const transcriptQuery = useAgentSessionTranscriptTailQuery(selectedSessionId, selectedSessionId !== null);
 
   useAgentSessionStream(taskId);
@@ -74,7 +89,7 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
     if (
       nextSelectedSession &&
       (selectedSessionId === null ||
-        !sessions.some((session) => session.id === selectedSessionId))
+        !sessionById.has(selectedSessionId))
     ) {
       setSelectedSessionId(nextSelectedSession.id);
     }
@@ -87,7 +102,7 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
     }
 
     previousActiveSessionIdRef.current = activeSession?.id ?? null;
-  }, [activeSession, selectedSessionId, sessions]);
+  }, [activeSession, selectedSessionId, sessionById, sessions]);
 
   const handleStartSession = async () => {
     const session = await startSessionMutation.mutateAsync({ ...terminalSize, provider: 'codex' });
@@ -111,12 +126,18 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
     }
   };
 
-  const selectedTranscriptEntries = transcriptQuery.data?.entries ?? [];
+  const selectedTranscriptEntries = transcriptQuery.data?.entries ?? EMPTY_ENTRIES;
   const isSelectedSessionInteractive = isActiveSessionStatus(selectedSession?.status);
+  const isSelectedSessionInteractiveRef = useRef(isSelectedSessionInteractive);
+  isSelectedSessionInteractiveRef.current = isSelectedSessionInteractive;
+  const handleTerminalData = useCallback((text: string) => {
+    if (isSelectedSessionInteractiveRef.current) {
+      sendInputMutation.mutate({ text });
+    }
+  }, [sendInputMutation]);
   const statusLabel = selectedSession ? formatSessionStatus(selectedSession.status) : 'No run selected';
   const errorMessage =
     formatError(startSessionMutation.error) ??
-    formatError(terminateSessionMutation.error) ??
     formatError(transcriptQuery.error) ??
     formatError(sessionsQuery.error);
 
@@ -181,35 +202,19 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
             <SessionStatusBadge status={selectedSession?.status ?? null} />
 
             <div className="ml-auto flex items-center gap-2">
-              {activeSession ? (
-                <button
-                  className="inline-flex items-center gap-1.5 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 font-geist text-[12px] font-medium text-rose-200 transition hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={terminateSessionMutation.isPending}
-                  onClick={() => { void terminateSessionMutation.mutateAsync(); }}
-                  type="button"
-                >
-                  {terminateSessionMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Square className="h-3.5 w-3.5" />
-                  )}
-                  Terminate
-                </button>
-              ) : (
-                <button
-                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-geist text-[12px] font-medium text-emerald-100 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={startSessionMutation.isPending}
-                  onClick={() => { void handleStartSession(); }}
-                  type="button"
-                >
-                  {startSessionMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Play className="h-3.5 w-3.5" />
-                  )}
-                  Start Codex Run
-                </button>
-              )}
+              <button
+                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-geist text-[12px] font-medium text-emerald-100 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={startSessionMutation.isPending || activeSession !== null}
+                onClick={() => { void handleStartSession(); }}
+                type="button"
+              >
+                {startSessionMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+                Start Codex Run
+              </button>
             </div>
           </div>
 
@@ -232,11 +237,7 @@ export function WorkspaceRunPanel({ taskId }: WorkspaceRunPanelProps) {
                   entries={selectedTranscriptEntries}
                   isInteractive={isSelectedSessionInteractive}
                   isVisible={isOpen}
-                  onData={(text) => {
-                    if (isSelectedSessionInteractive) {
-                      sendInputMutation.mutate({ text });
-                    }
-                  }}
+                  onData={handleTerminalData}
                   onResize={handleResize}
                   sessionId={selectedSession.id}
                 />
@@ -286,10 +287,7 @@ function formatSessionStatus(status: AgentSessionStatus): string {
 }
 
 function formatSessionTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value));
+  return SESSION_TIME_FORMATTER.format(new Date(value));
 }
 
 function isActiveSessionStatus(status: AgentSessionStatus | undefined): status is 'starting' | 'running' {

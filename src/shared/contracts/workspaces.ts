@@ -56,6 +56,19 @@ export const workspaceOpenPullRequestInputSchema = z.object({
   taskId: taskIdSchema
 });
 
+export const workspaceListBranchesInputSchema = z.object({
+  taskId: taskIdSchema
+});
+
+export const workspaceListBranchesResultSchema = z.array(z.string());
+
+export const workspaceUpdateBaseRefInputSchema = z.object({
+  baseRef: z.string().trim().min(1),
+  taskId: taskIdSchema
+});
+
+export const workspaceUpdateBaseRefResultSchema = z.void();
+
 export const workspaceIntegrateBaseInputSchema = z.object({
   taskId: taskIdSchema
 });
@@ -64,6 +77,13 @@ export const workspaceMergeTaskInputSchema = z.object({
   sourceTaskId: taskIdSchema,
   taskId: taskIdSchema
 });
+
+export const workspaceOpenInEditorInputSchema = z.object({
+  editor: z.enum(['cursor', 'finder', 'vscode']),
+  worktreePath: z.string().trim().min(1)
+});
+
+export const workspaceOpenInEditorResultSchema = z.void();
 
 export const workspaceCollectionSyncSchema = z.object({
   project: projectSchema,
@@ -122,4 +142,9 @@ export type WorkspacePublishStatusResult = z.infer<typeof workspacePublishStatus
 export type WorkspacePushResult = z.infer<typeof workspacePushResultSchema>;
 export type WorkspaceCreatePullRequestResult = z.infer<typeof workspaceCreatePullRequestResultSchema>;
 export type WorkspaceOpenPullRequestResult = z.infer<typeof workspaceOpenPullRequestResultSchema>;
+export type WorkspaceListBranchesInput = z.infer<typeof workspaceListBranchesInputSchema>;
+export type WorkspaceListBranchesResult = z.infer<typeof workspaceListBranchesResultSchema>;
+export type WorkspaceUpdateBaseRefInput = z.infer<typeof workspaceUpdateBaseRefInputSchema>;
+export type WorkspaceUpdateBaseRefResult = z.infer<typeof workspaceUpdateBaseRefResultSchema>;
 export type WorkspaceIntegrationResult = z.infer<typeof workspaceIntegrationResultSchema>;
+export type WorkspaceOpenInEditorInput = z.infer<typeof workspaceOpenInEditorInputSchema>;

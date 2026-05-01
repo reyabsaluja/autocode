@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { existsSync, mkdirSync, realpathSync } from 'node:fs';
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 
 import type { Project } from '../../shared/domain/project';
 import type { Task } from '../../shared/domain/task';
@@ -82,10 +82,18 @@ async function resolveBaseRef(gitRoot: string, defaultBranch: string | null): Pr
     defaultBranch ? `origin/${defaultBranch}` : null,
     'HEAD'
   ].filter((candidate): candidate is string => Boolean(candidate));
+  const availability = await Promise.all(
+    candidates.map(async (candidate) => ({
+      candidate,
+      exists: await gitRefExists(gitRoot, candidate)
+    }))
+  );
 
-  for (const candidate of candidates) {
-    if (await gitRefExists(gitRoot, candidate)) {
-      return candidate;
+  for (let index = 0; index < availability.length; index += 1) {
+    const entry = availability[index]!;
+
+    if (entry.exists) {
+      return entry.candidate;
     }
   }
 
@@ -114,7 +122,7 @@ async function ensureTaskWorktree(
   const { worktreePath } = worktreePlan;
   const registeredWorktrees = await listRegisteredWorktrees(project.gitRoot);
 
-  mkdirSync(path.dirname(worktreePath), { recursive: true });
+  await mkdir(path.dirname(worktreePath), { recursive: true });
 
   if (registeredWorktrees.has(worktreePath)) {
     const baseRef = await resolveProvisioningBaseRef(
@@ -162,7 +170,7 @@ function createTaskWorktreePlan(
   baseRef: string | null = null
 ): TaskWorktreePlan {
   return {
-    branchName: createTaskBranchName(taskId, title),
+    branchName: createTaskBranchName(title),
     baseRef,
     worktreePath: resolveTaskWorktreePath(projectId, taskId, title)
   };
@@ -172,11 +180,11 @@ function resolveTaskWorktreePath(projectId: number, taskId: number, title: strin
   const directory = path.join(resolveAutocodeWorktreesRoot(), `project-${projectId}`);
   mkdirSync(directory, { recursive: true });
 
-  return path.join(realpathSync(directory), `task-${taskId}-${slugify(title)}`);
+  return path.join(realpathSync(directory), `${slugify(title)}-${taskId}`);
 }
 
-function createTaskBranchName(taskId: number, title: string): string {
-  return `autocode/task-${taskId}-${slugify(title)}`;
+function createTaskBranchName(title: string): string {
+  return `autocode/${slugify(title)}`;
 }
 
 async function resolveAvailableBranchName(gitRoot: string, branchName: string): Promise<string> {
