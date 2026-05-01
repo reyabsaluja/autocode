@@ -10,7 +10,12 @@ import type {
   StartAgentSessionInput,
   StartAgentSessionResult
 } from './agent-sessions';
-import type { AddProjectInput, ListProjectsResult } from './projects';
+import type {
+  AddProjectInput,
+  DeleteProjectInput,
+  DeleteProjectResult,
+  ListProjectsResult
+} from './projects';
 import type {
   CreateTaskInput,
   DeleteTaskInput,
@@ -76,6 +81,7 @@ export interface AutocodeApi {
     list: () => Promise<ListProjectsResult>;
     pickPath: () => Promise<string | null>;
     add: (input: AddProjectInput) => Promise<Project>;
+    delete: (input: DeleteProjectInput) => Promise<DeleteProjectResult>;
   };
   tasks: {
     listByProject: (input: ListTasksByProjectInput) => Promise<TaskWorkspaceList>;

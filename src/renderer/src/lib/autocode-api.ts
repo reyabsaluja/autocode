@@ -31,7 +31,8 @@ export const autocodeApi: AutocodeApi = {
   projects: {
     list: () => getAutocodeApi().projects.list(),
     pickPath: () => getAutocodeApi().projects.pickPath(),
-    add: (input) => getAutocodeApi().projects.add(input)
+    add: (input) => getAutocodeApi().projects.add(input),
+    delete: (input) => getAutocodeApi().projects.delete(input)
   },
   tasks: {
     listByProject: (input) => getAutocodeApi().tasks.listByProject(input),

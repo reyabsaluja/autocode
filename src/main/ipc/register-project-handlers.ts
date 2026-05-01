@@ -2,8 +2,11 @@ import { BrowserWindow, dialog, type IpcMainInvokeEvent, type OpenDialogOptions 
 
 import {
   type AddProjectInput,
+  type DeleteProjectInput,
   addProjectInputSchema,
   addProjectResultSchema,
+  deleteProjectInputSchema,
+  deleteProjectResultSchema,
   listProjectsResultSchema,
   pickProjectPathResultSchema
 } from '../../shared/contracts/projects';
@@ -56,5 +59,12 @@ export function registerProjectHandlers(projectService: ProjectService): void {
     handler: async (_event: IpcMainInvokeEvent, input: AddProjectInput) => projectService.addProject(input),
     inputSchema: addProjectInputSchema,
     outputSchema: addProjectResultSchema
+  });
+
+  handleValidatedIpc(projectChannels.delete, {
+    handler: async (_event: IpcMainInvokeEvent, input: DeleteProjectInput) =>
+      projectService.deleteProject(input),
+    inputSchema: deleteProjectInputSchema,
+    outputSchema: deleteProjectResultSchema
   });
 }

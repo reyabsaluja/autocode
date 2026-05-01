@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { AddProjectInput } from '@shared/contracts/projects';
+import type { AddProjectInput, DeleteProjectInput } from '@shared/contracts/projects';
 import type { Project } from '@shared/domain/project';
 
 import { autocodeApi } from '../../lib/autocode-api';
@@ -29,6 +29,22 @@ export function useAddProjectMutation() {
     onSuccess: (project) => {
       queryClient.setQueryData<Project[]>(queryKeys.projects, (current) => {
         return current ? upsertProject(current, project) : [project];
+      });
+    }
+  });
+}
+
+export function useDeleteProjectMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: DeleteProjectInput) => autocodeApi.projects.delete(input),
+    onSuccess: (_result, input) => {
+      queryClient.setQueryData<Project[]>(queryKeys.projects, (current) =>
+        current?.filter((project) => project.id !== input.projectId) ?? []
+      );
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.taskWorkspaces(input.projectId)
       });
     }
   });

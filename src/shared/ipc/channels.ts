@@ -11,6 +11,7 @@ export const agentSessionChannels = {
 export const projectChannels = {
   list: 'projects:list',
   add: 'projects:add',
+  delete: 'projects:delete',
   pickPath: 'projects:pickPath'
 } as const;
 

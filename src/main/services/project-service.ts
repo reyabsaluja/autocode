@@ -1,12 +1,19 @@
 import { asc, desc, eq } from 'drizzle-orm';
 
-import type { AddProjectInput } from '../../shared/contracts/projects';
+import type { AddProjectInput, DeleteProjectInput } from '../../shared/contracts/projects';
 import type { Project } from '../../shared/domain/project';
 import type { AppDatabase } from '../database/client';
-import { projectsTable } from '../database/schema';
+import { projectsTable, tasksTable } from '../database/schema';
 import { resolveGitRepository } from './git-client';
 
-export function createProjectService(db: AppDatabase) {
+interface ProjectTaskCleanupService {
+  deleteTaskWorkspace(taskId: number): Promise<void>;
+}
+
+export function createProjectService(
+  db: AppDatabase,
+  taskCleanupService?: ProjectTaskCleanupService
+) {
   return {
     listProjects(): Project[] {
       return db
@@ -54,6 +61,34 @@ export function createProjectService(db: AppDatabase) {
         })
         .returning()
         .get();
+    },
+
+    async deleteProject(input: DeleteProjectInput): Promise<void> {
+      const project = db
+        .select()
+        .from(projectsTable)
+        .where(eq(projectsTable.id, input.projectId))
+        .get();
+
+      if (!project) {
+        throw new Error('Workspace could not be found.');
+      }
+
+      const tasks = db
+        .select({ id: tasksTable.id })
+        .from(tasksTable)
+        .where(eq(tasksTable.projectId, input.projectId))
+        .all();
+
+      if (taskCleanupService) {
+        for (const task of tasks) {
+          await taskCleanupService.deleteTaskWorkspace(task.id);
+        }
+      }
+
+      db.delete(projectsTable)
+        .where(eq(projectsTable.id, input.projectId))
+        .run();
     }
   };
 }

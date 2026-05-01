@@ -79,6 +79,7 @@ export function App() {
           createErrorMessage={formatErrorMessage(workspaceSession.createTaskMutation.error) ?? taskLoadError}
           isAddingProject={addProjectMutation.isPending}
           isCreatingTask={workspaceSession.createTaskMutation.isPending}
+          isDeletingProject={workspaceSession.deleteProjectMutation.isPending}
           isDeletingTask={workspaceSession.deleteTaskMutation.isPending}
           isLoadingProjects={projectsQuery.isLoading}
           isLoadingTasks={workspaceSession.taskWorkspacesQuery.isLoading}
@@ -97,6 +98,7 @@ export function App() {
           onCreateTask={workspaceSession.createTaskWorkspace}
           onManualPathChange={setManualRepositoryPath}
           onDeleteTask={workspaceSession.requestTaskDeletion}
+          onDeleteProject={workspaceSession.requestProjectDeletion}
           onSelectProject={workspaceSession.requestProjectSelection}
           onSelectTask={workspaceSession.requestTaskSelection}
           onSubmitManualPath={handleManualRepositoryAdd}

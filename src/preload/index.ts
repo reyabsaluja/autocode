@@ -19,6 +19,8 @@ import {
 import {
   addProjectInputSchema,
   addProjectResultSchema,
+  deleteProjectInputSchema,
+  deleteProjectResultSchema,
   listProjectsResultSchema,
   pickProjectPathResultSchema
 } from '../shared/contracts/projects';
@@ -142,6 +144,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: addProjectInputSchema,
         outputSchema: addProjectResultSchema
+      }),
+    delete: (input) =>
+      invokeValidatedIpc(projectChannels.delete, {
+        input,
+        inputSchema: deleteProjectInputSchema,
+        outputSchema: deleteProjectResultSchema
       })
   },
   tasks: {

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import {
   ChevronDown,
@@ -21,10 +21,14 @@ const SIDEBAR_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   day: 'numeric'
 });
 
+const CONTEXT_MENU_WIDTH = 144;
+const CONTEXT_MENU_HEIGHT = 40;
+
 interface WorkspaceSidebarProps {
   createErrorMessage: string | null;
   isAddingProject: boolean;
   isCreatingTask: boolean;
+  isDeletingProject: boolean;
   isDeletingTask: boolean;
   isLoadingProjects: boolean;
   isLoadingTasks: boolean;
@@ -37,6 +41,7 @@ interface WorkspaceSidebarProps {
   taskWorkspaces: TaskWorkspace[];
   onAddRepository: () => Promise<void>;
   onCreateTask: (input: { description: string; title: string }) => Promise<void>;
+  onDeleteProject: (project: Project) => void;
   onDeleteTask: (workspace: TaskWorkspace) => void;
   onManualPathChange: (value: string) => void;
   onSelectProject: (projectId: number | null) => void;
@@ -49,6 +54,7 @@ export function WorkspaceSidebar({
   createErrorMessage,
   isAddingProject,
   isCreatingTask,
+  isDeletingProject,
   isDeletingTask,
   isLoadingProjects,
   isLoadingTasks,
@@ -61,6 +67,7 @@ export function WorkspaceSidebar({
   taskWorkspaces,
   onAddRepository,
   onCreateTask,
+  onDeleteProject,
   onDeleteTask,
   onManualPathChange,
   onSelectProject,
@@ -73,6 +80,46 @@ export function WorkspaceSidebar({
   const [description, setDescription] = useState('');
   const [isReposExpanded, setIsReposExpanded] = useState(false);
   const [isTasksExpanded, setIsTasksExpanded] = useState(true);
+  const [projectContextMenu, setProjectContextMenu] = useState<{
+    project: Project;
+    x: number;
+    y: number;
+  } | null>(null);
+  const projectContextMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!projectContextMenu) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (projectContextMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      closeProjectContextMenu();
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        closeProjectContextMenu();
+      }
+    }
+
+    window.addEventListener('blur', closeProjectContextMenu);
+    window.addEventListener('resize', closeProjectContextMenu);
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('scroll', closeProjectContextMenu, true);
+
+    return () => {
+      window.removeEventListener('blur', closeProjectContextMenu);
+      window.removeEventListener('resize', closeProjectContextMenu);
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('scroll', closeProjectContextMenu, true);
+    };
+  }, [projectContextMenu]);
 
   const handleCreateTask = async () => {
     await onCreateTask({
@@ -84,6 +131,31 @@ export function WorkspaceSidebar({
     setDescription('');
     setIsComposerOpen(false);
   };
+
+  function closeProjectContextMenu() {
+    setProjectContextMenu(null);
+  }
+
+  function openProjectContextMenu(event: React.MouseEvent, selectedProject: Project) {
+    event.preventDefault();
+    event.stopPropagation();
+    onSelectProject(selectedProject.id);
+    setProjectContextMenu({
+      project: selectedProject,
+      x: Math.max(8, Math.min(event.clientX, window.innerWidth - CONTEXT_MENU_WIDTH - 8)),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT - 8))
+    });
+  }
+
+  function handleProjectContextMenuDelete() {
+    if (!projectContextMenu) {
+      return;
+    }
+
+    const selectedProject = projectContextMenu.project;
+    closeProjectContextMenu();
+    onDeleteProject(selectedProject);
+  }
 
   return (
     <aside className="flex h-full w-[280px] shrink-0 flex-col bg-[#1c1c1c]">
@@ -185,7 +257,10 @@ export function WorkspaceSidebar({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {project ? (
           <>
-            <div className="group/ws flex w-full items-center gap-1 py-3 pl-[11px] pr-2 transition hover:bg-white/[0.08]">
+            <div
+              className="group/ws flex w-full items-center gap-1 py-3 pl-[11px] pr-2 transition hover:bg-white/[0.08]"
+              onContextMenu={(event) => openProjectContextMenu(event, project)}
+            >
               <button
                 className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                 onClick={() => setIsTasksExpanded((c) => !c)}
@@ -296,6 +371,32 @@ export function WorkspaceSidebar({
           </div>
         )}
       </div>
+
+      {projectContextMenu ? (
+        <div
+          className="fixed z-50 min-w-36 overflow-hidden rounded-lg border border-rose-500/25 bg-[#211516] p-1 shadow-2xl shadow-black/35 animate-fade-in"
+          ref={projectContextMenuRef}
+          role="menu"
+          style={{
+            left: projectContextMenu.x,
+            top: projectContextMenu.y
+          }}
+        >
+          <button
+            className={clsx(
+              'flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 font-geist text-[12px] font-semibold text-rose-200 transition',
+              'hover:bg-rose-500/[0.12] hover:text-rose-100 disabled:cursor-not-allowed disabled:opacity-50'
+            )}
+            disabled={isDeletingProject}
+            onClick={handleProjectContextMenuDelete}
+            role="menuitem"
+            type="button"
+          >
+            <span>Delete</span>
+            <Trash2 className="h-3.5 w-3.5 text-rose-300" />
+          </button>
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -386,7 +487,7 @@ const WorkspaceTaskListItem = memo(function WorkspaceTaskListItem({
         title={`Delete ${workspace.task.title}`}
         type="button"
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="h-3 w-3" />
       </button>
     </div>
   );
