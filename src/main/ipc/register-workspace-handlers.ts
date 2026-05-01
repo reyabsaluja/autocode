@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import type { IpcMainInvokeEvent } from 'electron';
 import { shell } from 'electron';
 
@@ -54,6 +53,7 @@ import {
   workspaceFileWriteInputSchema
 } from '../../shared/contracts/workspace-files';
 import { workspaceChannels } from '../../shared/ipc/channels';
+import { createExternalEditorService } from '../services/external-editor-service';
 import { createWorkspaceFileService } from '../services/workspace-file-service';
 import { createWorkspaceService } from '../services/workspace-service';
 import { handleValidatedIpc } from './handle-validated-ipc';
@@ -65,6 +65,10 @@ export function registerWorkspaceHandlers(
   workspaceService: WorkspaceService,
   workspaceFileService: WorkspaceFileService
 ): void {
+  const externalEditorService = createExternalEditorService({
+    openPath: (targetPath) => shell.openPath(targetPath)
+  });
+
   handleValidatedIpc(workspaceChannels.listDirectory, {
     handler: async (_event: IpcMainInvokeEvent, input: WorkspaceDirectoryInput) =>
       workspaceService.listDirectory(input),
@@ -171,21 +175,8 @@ export function registerWorkspaceHandlers(
   });
 
   handleValidatedIpc(workspaceChannels.openInEditor, {
-    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceOpenInEditorInput) => {
-      const { editor, worktreePath } = input;
-
-      switch (editor) {
-        case 'finder':
-          await shell.openPath(worktreePath);
-          break;
-        case 'vscode':
-          spawn('code', [worktreePath], { detached: true, stdio: 'ignore' }).unref();
-          break;
-        case 'cursor':
-          spawn('cursor', [worktreePath], { detached: true, stdio: 'ignore' }).unref();
-          break;
-      }
-    },
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceOpenInEditorInput) =>
+      externalEditorService.openInEditor(input),
     inputSchema: workspaceOpenInEditorInputSchema,
     outputSchema: workspaceOpenInEditorResultSchema
   });

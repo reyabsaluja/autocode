@@ -381,7 +381,13 @@ function OpenInEditorButton({ worktreePath }: { worktreePath: string | null }) {
     setIsOpen(false);
 
     if (worktreePath) {
-      void autocodeApi.workspaces.openInEditor({ editor, worktreePath });
+      void autocodeApi.workspaces.openInEditor({ editor, worktreePath }).catch((error) => {
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : `Autocode could not open this workspace in ${EXTERNAL_EDITOR_LABELS[editor]}.`
+        );
+      });
     }
   }
 
