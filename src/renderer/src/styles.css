@@ -155,9 +155,8 @@
   }
 
   .chat-markdown pre {
-    margin-top: 0.75em;
-    margin-bottom: 0.75em;
-    border-radius: 8px;
+    margin: 0;
+    border-radius: 0;
     overflow: hidden;
   }
 

@@ -1,10 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type HTMLAttributes } from 'react';
 import {
   Brain,
   Check,
   ChevronDown,
   ChevronRight,
   CircleAlert,
+  Copy,
   ListTodo,
   Loader2,
   MessageSquare,
@@ -19,6 +20,71 @@ import { useStickToBottom } from 'use-stick-to-bottom';
 import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 
 const streamdownPlugins = { code, math };
+
+const streamdownComponents = {
+  pre: CodeBlockWrapper
+};
+
+function CodeBlockWrapper(props: HTMLAttributes<HTMLPreElement>) {
+  const { children, ...rest } = props;
+
+  const codeEl = Array.isArray(children) ? children[0] : children;
+  const codeProps = (codeEl && typeof codeEl === 'object' && 'props' in codeEl)
+    ? (codeEl as { props: { className?: string; children?: string } }).props
+    : null;
+
+  const language = codeProps?.className
+    ?.split(/\s+/)
+    .find((c: string) => c.startsWith('language-'))
+    ?.replace('language-', '') ?? '';
+
+  const codeText = typeof codeProps?.children === 'string' ? codeProps.children : '';
+
+  return (
+    <div className="group/code relative my-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#0c0c0c]">
+      <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-1.5">
+        <span className="font-mono text-[11px] text-white/30">
+          {language || 'text'}
+        </span>
+        <CopyButton text={codeText} />
+      </div>
+      <pre {...rest} className="!m-0 !rounded-none !border-0 overflow-auto p-3">
+        {children}
+      </pre>
+    </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [text]);
+
+  return (
+    <button
+      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-white/25 transition hover:bg-white/[0.06] hover:text-white/50"
+      onClick={handleCopy}
+      type="button"
+    >
+      {copied ? (
+        <>
+          <Check className="h-3 w-3 text-emerald-400/60" />
+          <span className="font-mono text-[10px] text-emerald-400/60">Copied</span>
+        </>
+      ) : (
+        <>
+          <Copy className="h-3 w-3" />
+          <span className="font-mono text-[10px]">Copy</span>
+        </>
+      )}
+    </button>
+  );
+}
 
 interface WorkspaceChatSurfaceProps {
   emptyStateMode: 'idle' | 'selectSession' | 'starting';
@@ -314,6 +380,7 @@ function AssistantMessage({ text, isStreaming }: { text: string; isStreaming?: b
       <div className="chat-markdown prose prose-invert max-w-none font-geist text-[13.5px] leading-[1.7] text-white/90">
         <Streamdown
           plugins={streamdownPlugins}
+          components={streamdownComponents}
           isAnimating={isStreaming}
         >
           {text}
