@@ -5,14 +5,11 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
-  FileCode,
-  Globe,
   ListTodo,
   Loader2,
   MessageSquare,
   Send,
-  Square,
-  Terminal as TerminalIcon
+  Square
 } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
@@ -356,62 +353,61 @@ function ThinkingMessage({ text, isStreaming }: { text: string; isStreaming?: bo
 
 function ToolMessage({ data, isStreaming }: { data: ToolData; isStreaming?: boolean }) {
   const [isExpanded, setIsExpanded] = useState(false);
-
-  const icon = getToolIcon(data.type, isStreaming);
+  const hasExpandableContent = Boolean(data.output || (data.changes && data.changes.length > 0));
   const label = getToolLabel(data);
-  const statusColor = getToolStatusColor(data.status, data.exitCode);
+  const verb = getToolVerb(data);
+  const failed = data.exitCode !== undefined && data.exitCode !== 0;
 
   return (
-    <div className={`rounded-lg border ${statusColor.border} ${statusColor.bg}`}>
+    <div className="group/tool -my-1">
       <button
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-white/[0.02]"
-        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.03]"
+        onClick={() => hasExpandableContent && setIsExpanded(!isExpanded)}
         type="button"
       >
-        {icon}
-        <span className={`flex-1 truncate font-mono text-[12px] ${statusColor.text}`}>
-          {label}
-        </span>
-        {data.exitCode !== undefined ? (
-          <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
-            data.exitCode === 0
-              ? 'bg-emerald-500/10 text-emerald-400'
-              : 'bg-rose-500/10 text-rose-400'
-          }`}>
-            {data.exitCode === 0 ? <Check className="inline h-3 w-3" /> : `exit ${data.exitCode}`}
-          </span>
-        ) : isStreaming ? (
-          <Loader2 className="h-3 w-3 animate-spin text-white/30" />
-        ) : null}
-        {isExpanded ? (
-          <ChevronDown className="h-3 w-3 text-white/25" />
+        {isStreaming ? (
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-white/30" />
+        ) : failed ? (
+          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-rose-400/60" />
         ) : (
-          <ChevronRight className="h-3 w-3 text-white/25" />
+          <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400/50" />
         )}
+        <span className="flex-1 truncate font-geist text-[12.5px] text-white/45">
+          <span className="text-white/35">{verb} </span>
+          {label}
+          {failed ? <span className="ml-1.5 text-rose-400/60">exit {data.exitCode}</span> : null}
+        </span>
+        {hasExpandableContent ? (
+          isExpanded ? (
+            <ChevronDown className="h-3 w-3 shrink-0 text-white/20" />
+          ) : (
+            <ChevronRight className="h-3 w-3 shrink-0 text-white/15 opacity-0 transition group-hover/tool:opacity-100" />
+          )
+        ) : null}
       </button>
-      {isExpanded && data.output ? (
-        <div className="border-t border-white/[0.04] px-3 py-2">
-          <pre className="max-h-[200px] overflow-auto font-mono text-[11px] leading-relaxed text-white/50 whitespace-pre-wrap">
-            {data.output}
-          </pre>
-        </div>
-      ) : null}
-      {isExpanded && data.changes ? (
-        <div className="border-t border-white/[0.04] px-3 py-2">
-          <ul className="space-y-0.5">
-            {data.changes.map((c, i) => (
-              <li key={i} className="flex items-center gap-2 font-mono text-[11px] text-white/50">
-                <span className={`rounded px-1 py-0.5 text-[9px] font-bold uppercase ${
-                  c.kind === 'add' ? 'bg-emerald-500/10 text-emerald-400' :
-                  c.kind === 'delete' ? 'bg-rose-500/10 text-rose-400' :
-                  'bg-amber-500/10 text-amber-400'
-                }`}>
-                  {c.kind}
-                </span>
-                {c.path}
-              </li>
-            ))}
-          </ul>
+      {isExpanded ? (
+        <div className="ml-7 mr-2 mt-0.5 mb-1 overflow-hidden rounded-md border border-white/[0.05] bg-[#0c0c0c]">
+          {data.output ? (
+            <pre className="max-h-[180px] overflow-auto p-2.5 font-mono text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap">
+              {data.output}
+            </pre>
+          ) : null}
+          {data.changes ? (
+            <div className="p-2.5">
+              {data.changes.map((c, i) => (
+                <div key={i} className="flex items-center gap-2 py-0.5 font-mono text-[11px] text-white/40">
+                  <span className={
+                    c.kind === 'add' ? 'text-emerald-400/60' :
+                    c.kind === 'delete' ? 'text-rose-400/60' :
+                    'text-amber-400/60'
+                  }>
+                    {c.kind === 'add' ? '+' : c.kind === 'delete' ? '-' : '~'}
+                  </span>
+                  {c.path}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -472,33 +468,16 @@ function ThinkingIndicator() {
   );
 }
 
-function getToolIcon(type: string, isStreaming?: boolean) {
-  const cls = `h-3.5 w-3.5 shrink-0 ${isStreaming ? 'animate-pulse text-amber-400/70' : 'text-white/40'}`;
-
-  switch (type) {
-    case 'command':
-      return <TerminalIcon className={cls} />;
-    case 'file_change':
-      return <FileCode className={cls} />;
-    case 'web_search':
-      return <Globe className={cls} />;
-    case 'mcp':
-      return <TerminalIcon className={cls} />;
-    default:
-      return <TerminalIcon className={cls} />;
-  }
-}
-
 function getToolLabel(data: ToolData): string {
   switch (data.type) {
     case 'command':
       return data.command ?? 'command';
     case 'file_change':
       return data.changes
-        ? `${data.changes.length} file${data.changes.length === 1 ? '' : 's'} changed`
+        ? data.changes.map((c) => c.path.split('/').pop()).join(', ')
         : 'file changes';
     case 'web_search':
-      return data.query ? `search: ${data.query}` : 'web search';
+      return data.query ? `"${data.query}"` : 'web search';
     case 'mcp':
       return data.server && data.tool ? `${data.server}.${data.tool}` : 'mcp tool';
     default:
@@ -506,28 +485,19 @@ function getToolLabel(data: ToolData): string {
   }
 }
 
-function getToolStatusColor(status?: string, exitCode?: number) {
-  if (exitCode !== undefined && exitCode !== 0) {
-    return {
-      border: 'border-rose-500/10',
-      bg: 'bg-rose-500/[0.02]',
-      text: 'text-white/50'
-    };
+function getToolVerb(data: ToolData): string {
+  switch (data.type) {
+    case 'command':
+      return 'Ran';
+    case 'file_change':
+      return 'Edited';
+    case 'web_search':
+      return 'Searched';
+    case 'mcp':
+      return 'Called';
+    default:
+      return 'Ran';
   }
-
-  if (status === 'completed' || status === 'failed') {
-    return {
-      border: 'border-white/[0.04]',
-      bg: 'bg-white/[0.02]',
-      text: 'text-white/50'
-    };
-  }
-
-  return {
-    border: 'border-white/[0.04]',
-    bg: 'bg-white/[0.015]',
-    text: 'text-white/40'
-  };
 }
 
 function buildChatItems(entries: AgentSessionTranscriptEntry[]): ChatItem[] {
