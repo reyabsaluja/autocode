@@ -49,8 +49,14 @@ const ChatActionsContext = createContext<ChatActions>({
 
 const streamdownPlugins = { code, math };
 
+const streamdownControls = {
+  table: false as const,
+  code: false as const
+};
+
 const streamdownComponents = {
-  pre: CodeBlockWrapper
+  pre: CodeBlockWrapper,
+  table: TableWrapper
 };
 
 function CodeBlockWrapper(props: HTMLAttributes<HTMLPreElement>) {
@@ -79,6 +85,20 @@ function CodeBlockWrapper(props: HTMLAttributes<HTMLPreElement>) {
       <pre {...rest} className="!m-0 !rounded-none !border-0 overflow-auto p-3">
         {children}
       </pre>
+    </div>
+  );
+}
+
+function TableWrapper(props: HTMLAttributes<HTMLTableElement>) {
+  const { children, ...rest } = props;
+
+  return (
+    <div className="my-3 overflow-hidden rounded-lg border border-white/[0.06]">
+      <div className="overflow-x-auto">
+        <table {...rest} className="!my-0 !border-0 [&_td]:!border-white/[0.06] [&_th]:!border-white/[0.06] [&_th]:!bg-white/[0.04]">
+          {children}
+        </table>
+      </div>
     </div>
   );
 }
@@ -601,6 +621,7 @@ function AssistantMessage({ text, isStreaming }: { text: string; isStreaming?: b
         <Streamdown
           plugins={streamdownPlugins}
           components={streamdownComponents}
+          controls={streamdownControls}
           isAnimating={isStreaming}
         >
           {text}
