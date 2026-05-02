@@ -6,14 +6,21 @@ import {
   ChevronRight,
   CircleAlert,
   Copy,
+  FileCode,
+  FilePen,
+  FilePlus2,
+  FolderSearch,
+  Globe,
   ListTodo,
   Loader2,
   MessageSquare,
   Pencil,
   RotateCcw,
+  Search,
   Send,
   Square,
-  StopCircle
+  StopCircle,
+  Terminal
 } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
@@ -147,6 +154,7 @@ interface ToolGroupData {
 
 interface ToolData {
   type: string;
+  toolName?: string;
   command?: string;
   output?: string;
   exitCode?: number;
@@ -155,7 +163,12 @@ interface ToolData {
   server?: string;
   tool?: string;
   query?: string;
+  url?: string;
   error?: { message: string };
+  filePath?: string;
+  pattern?: string;
+  oldString?: string;
+  newString?: string;
 }
 
 interface TurnUsage {
@@ -222,11 +235,21 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
         case 'thinking': return 'Reasoning';
         case 'assistant': return 'Writing';
         case 'tool': {
-          const verb = item.toolData ? getToolVerb(item.toolData) : 'Running';
-          const label = item.toolData ? getToolLabel(item.toolData) : 'tool';
-          return `${verb} ${label}`;
+          if (!item.toolData) return 'Running tool';
+          const verb = getToolVerb(item.toolData);
+          const label = getToolLabel(item.toolData);
+          return `${verb} ${truncateMiddle(label, 40)}`;
         }
-        case 'tool-group': return 'Running tools';
+        case 'tool-group': {
+          const tools = item.toolGroup?.tools ?? [];
+          const running = tools.find((t) => t.isStreaming);
+          if (running) {
+            const verb = getToolVerb(running.data);
+            const label = getToolLabel(running.data);
+            return `${verb} ${truncateMiddle(label, 40)}`;
+          }
+          return 'Running tools';
+        }
         default: return 'Working';
       }
     }
@@ -643,6 +666,289 @@ function ThinkingMessage({ text, isStreaming }: { text: string; isStreaming?: bo
 }
 
 function ToolMessage({ data, isStreaming }: { data: ToolData; isStreaming?: boolean }) {
+  const toolType = data.toolName ?? data.type;
+
+  switch (toolType) {
+    case 'Bash':
+    case 'bash':
+      return <BashToolCard data={data} isStreaming={isStreaming} />;
+    case 'Read':
+    case 'read_file':
+      return <ReadToolCard data={data} isStreaming={isStreaming} />;
+    case 'Edit':
+    case 'edit_file':
+      return <EditToolCard data={data} isStreaming={isStreaming} />;
+    case 'Write':
+    case 'write_file':
+      return <WriteToolCard data={data} isStreaming={isStreaming} />;
+    case 'Glob':
+    case 'glob':
+      return <SearchToolCard data={data} isStreaming={isStreaming} icon={<FolderSearch className="h-3.5 w-3.5" />} verb="Searched" />;
+    case 'Grep':
+    case 'grep':
+      return <SearchToolCard data={data} isStreaming={isStreaming} icon={<Search className="h-3.5 w-3.5" />} verb="Grepped" />;
+    case 'WebSearch':
+    case 'web_search':
+      return <SearchToolCard data={data} isStreaming={isStreaming} icon={<Globe className="h-3.5 w-3.5" />} verb="Searched" />;
+    case 'WebFetch':
+    case 'web_fetch':
+      return <SearchToolCard data={data} isStreaming={isStreaming} icon={<Globe className="h-3.5 w-3.5" />} verb="Fetched" />;
+    default:
+      return <GenericToolCard data={data} isStreaming={isStreaming} />;
+  }
+}
+
+function ToolCardShell({
+  children,
+  failed,
+  hasContent,
+  icon,
+  isExpanded,
+  isStreaming,
+  label,
+  onToggle,
+  verb
+}: {
+  children?: React.ReactNode;
+  failed?: boolean;
+  hasContent?: boolean;
+  icon: React.ReactNode;
+  isExpanded: boolean;
+  isStreaming?: boolean;
+  label: React.ReactNode;
+  onToggle: () => void;
+  verb: string;
+}) {
+  return (
+    <div className="group/tool">
+      <button
+        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition ${
+          isExpanded
+            ? 'bg-white/[0.03]'
+            : 'hover:bg-white/[0.03]'
+        }`}
+        onClick={onToggle}
+        type="button"
+      >
+        <div className={`grid h-6 w-6 shrink-0 place-items-center rounded-md ${
+          isStreaming
+            ? 'bg-blue-500/[0.10] text-blue-400/70'
+            : failed
+              ? 'bg-rose-500/[0.10] text-rose-400/60'
+              : 'bg-emerald-500/[0.08] text-emerald-400/50'
+        }`}>
+          {isStreaming ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            icon
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 font-geist text-[12.5px]">
+            <span className="text-white/35">{verb}</span>
+            <span className="truncate text-white/55">{label}</span>
+            {failed ? (
+              <span className="shrink-0 rounded bg-rose-500/[0.12] px-1.5 py-px text-[10px] font-medium text-rose-400/70">
+                failed
+              </span>
+            ) : null}
+          </span>
+        </div>
+        {hasContent ? (
+          <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-white/20 transition-transform duration-150 ${
+            isExpanded ? 'rotate-90' : 'opacity-0 group-hover/tool:opacity-100'
+          }`} />
+        ) : null}
+      </button>
+      {isExpanded && children ? (
+        <div className="mt-1 ml-[42px] mr-2 overflow-hidden rounded-lg border border-white/[0.06] bg-[#0a0a0a]">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function BashToolCard({ data, isStreaming }: { data: ToolData; isStreaming?: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const failed = data.exitCode !== undefined && data.exitCode !== 0;
+  const command = data.command ?? '';
+
+  return (
+    <ToolCardShell
+      icon={<Terminal className="h-3.5 w-3.5" />}
+      verb="Ran"
+      label={
+        <span className="font-mono text-[11.5px] text-white/50">{truncateMiddle(command, 80)}</span>
+      }
+      failed={failed}
+      isStreaming={isStreaming}
+      isExpanded={isExpanded}
+      hasContent={Boolean(data.output)}
+      onToggle={() => setIsExpanded(!isExpanded)}
+    >
+      <div className="flex items-center justify-between border-b border-white/[0.05] px-3 py-1.5">
+        <span className="font-mono text-[10px] text-white/25">
+          <span className="text-emerald-400/40">$</span> {command}
+        </span>
+        {data.output ? <CopyButton text={data.output} /> : null}
+      </div>
+      {data.output ? (
+        <pre className="max-h-[240px] overflow-auto p-3 font-mono text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap">
+          {data.output}
+        </pre>
+      ) : null}
+      {failed ? (
+        <div className="border-t border-rose-500/10 bg-rose-500/[0.04] px-3 py-1.5">
+          <span className="font-mono text-[10px] text-rose-400/60">exit code {data.exitCode}</span>
+        </div>
+      ) : null}
+    </ToolCardShell>
+  );
+}
+
+function ReadToolCard({ data, isStreaming }: { data: ToolData; isStreaming?: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const failed = data.exitCode !== undefined && data.exitCode !== 0;
+  const filePath = data.filePath ?? '';
+  const fileName = filePath.split('/').pop() ?? filePath;
+
+  return (
+    <ToolCardShell
+      icon={<FileCode className="h-3.5 w-3.5" />}
+      verb="Read"
+      label={<FilePathLabel path={filePath} />}
+      failed={failed}
+      isStreaming={isStreaming}
+      isExpanded={isExpanded}
+      hasContent={Boolean(data.output)}
+      onToggle={() => setIsExpanded(!isExpanded)}
+    >
+      <div className="flex items-center justify-between border-b border-white/[0.05] px-3 py-1.5">
+        <span className="font-mono text-[10px] text-white/25">{fileName}</span>
+        {data.output ? <CopyButton text={data.output} /> : null}
+      </div>
+      {data.output ? (
+        <pre className="max-h-[280px] overflow-auto p-3 font-mono text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap">
+          {data.output}
+        </pre>
+      ) : null}
+    </ToolCardShell>
+  );
+}
+
+function EditToolCard({ data, isStreaming }: { data: ToolData; isStreaming?: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const failed = data.exitCode !== undefined && data.exitCode !== 0;
+  const filePath = data.filePath ?? '';
+  const hasInlineDiff = Boolean(data.oldString || data.newString);
+
+  return (
+    <ToolCardShell
+      icon={<FilePen className="h-3.5 w-3.5" />}
+      verb="Edited"
+      label={<FilePathLabel path={filePath} />}
+      failed={failed}
+      isStreaming={isStreaming}
+      isExpanded={isExpanded}
+      hasContent={hasInlineDiff || Boolean(data.output)}
+      onToggle={() => setIsExpanded(!isExpanded)}
+    >
+      {hasInlineDiff ? (
+        <div className="max-h-[320px] overflow-auto">
+          {data.oldString ? (
+            <div className="border-b border-white/[0.04]">
+              {data.oldString.split('\n').map((line, i) => (
+                <div key={`old-${i}`} className="flex bg-rose-500/[0.06] px-3 py-px font-mono text-[11px]">
+                  <span className="mr-3 w-4 shrink-0 select-none text-right text-rose-400/30">-</span>
+                  <span className="text-rose-300/50">{line}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {data.newString ? (
+            <div>
+              {data.newString.split('\n').map((line, i) => (
+                <div key={`new-${i}`} className="flex bg-emerald-500/[0.06] px-3 py-px font-mono text-[11px]">
+                  <span className="mr-3 w-4 shrink-0 select-none text-right text-emerald-400/30">+</span>
+                  <span className="text-emerald-300/50">{line}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : data.output ? (
+        <pre className="max-h-[240px] overflow-auto p-3 font-mono text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap">
+          {data.output}
+        </pre>
+      ) : null}
+    </ToolCardShell>
+  );
+}
+
+function WriteToolCard({ data, isStreaming }: { data: ToolData; isStreaming?: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const failed = data.exitCode !== undefined && data.exitCode !== 0;
+  const filePath = data.filePath ?? '';
+
+  return (
+    <ToolCardShell
+      icon={<FilePlus2 className="h-3.5 w-3.5" />}
+      verb="Wrote"
+      label={<FilePathLabel path={filePath} />}
+      failed={failed}
+      isStreaming={isStreaming}
+      isExpanded={isExpanded}
+      hasContent={Boolean(data.output)}
+      onToggle={() => setIsExpanded(!isExpanded)}
+    >
+      {data.output ? (
+        <pre className="max-h-[240px] overflow-auto p-3 font-mono text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap">
+          {data.output}
+        </pre>
+      ) : null}
+    </ToolCardShell>
+  );
+}
+
+function SearchToolCard({
+  data,
+  icon,
+  isStreaming,
+  verb
+}: {
+  data: ToolData;
+  icon: React.ReactNode;
+  isStreaming?: boolean;
+  verb: string;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const failed = data.exitCode !== undefined && data.exitCode !== 0;
+  const label = data.pattern ?? data.query ?? data.url ?? data.filePath ?? '';
+
+  return (
+    <ToolCardShell
+      icon={icon}
+      verb={verb}
+      label={
+        <span className="font-mono text-[11.5px] text-white/50">{truncateMiddle(label, 60)}</span>
+      }
+      failed={failed}
+      isStreaming={isStreaming}
+      isExpanded={isExpanded}
+      hasContent={Boolean(data.output)}
+      onToggle={() => setIsExpanded(!isExpanded)}
+    >
+      {data.output ? (
+        <pre className="max-h-[240px] overflow-auto p-3 font-mono text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap">
+          {data.output}
+        </pre>
+      ) : null}
+    </ToolCardShell>
+  );
+}
+
+function GenericToolCard({ data, isStreaming }: { data: ToolData; isStreaming?: boolean }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasExpandableContent = Boolean(data.output || (data.changes && data.changes.length > 0));
   const label = getToolLabel(data);
@@ -650,59 +956,64 @@ function ToolMessage({ data, isStreaming }: { data: ToolData; isStreaming?: bool
   const failed = data.exitCode !== undefined && data.exitCode !== 0;
 
   return (
-    <div className="group/tool -my-1">
-      <button
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.03]"
-        onClick={() => hasExpandableContent && setIsExpanded(!isExpanded)}
-        type="button"
-      >
-        {isStreaming ? (
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-white/30" />
-        ) : failed ? (
-          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-rose-400/60" />
-        ) : (
-          <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400/50" />
-        )}
-        <span className="flex-1 truncate font-geist text-[12.5px] text-white/45">
-          <span className="text-white/35">{verb} </span>
-          {label}
-          {failed ? <span className="ml-1.5 text-rose-400/60">exit {data.exitCode}</span> : null}
-        </span>
-        {hasExpandableContent ? (
-          isExpanded ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-white/20" />
-          ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-white/15 opacity-0 transition group-hover/tool:opacity-100" />
-          )
-        ) : null}
-      </button>
-      {isExpanded ? (
-        <div className="ml-7 mr-2 mt-0.5 mb-1 overflow-hidden rounded-md border border-white/[0.05] bg-[#0c0c0c]">
-          {data.output ? (
-            <pre className="max-h-[180px] overflow-auto p-2.5 font-mono text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap">
-              {data.output}
-            </pre>
-          ) : null}
-          {data.changes ? (
-            <div className="p-2.5">
-              {data.changes.map((c, i) => (
-                <div key={i} className="flex items-center gap-2 py-0.5 font-mono text-[11px] text-white/40">
-                  <span className={
-                    c.kind === 'add' ? 'text-emerald-400/60' :
-                    c.kind === 'delete' ? 'text-rose-400/60' :
-                    'text-amber-400/60'
-                  }>
-                    {c.kind === 'add' ? '+' : c.kind === 'delete' ? '-' : '~'}
-                  </span>
-                  {c.path}
-                </div>
-              ))}
+    <ToolCardShell
+      icon={failed ? <CircleAlert className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+      verb={verb}
+      label={label}
+      failed={failed}
+      isStreaming={isStreaming}
+      isExpanded={isExpanded}
+      hasContent={hasExpandableContent}
+      onToggle={() => setIsExpanded(!isExpanded)}
+    >
+      {data.output ? (
+        <pre className="max-h-[180px] overflow-auto p-3 font-mono text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap">
+          {data.output}
+        </pre>
+      ) : null}
+      {data.changes ? (
+        <div className="p-3">
+          {data.changes.map((c, i) => (
+            <div key={i} className="flex items-center gap-2 py-0.5 font-mono text-[11px] text-white/40">
+              <span className={
+                c.kind === 'add' ? 'text-emerald-400/60' :
+                c.kind === 'delete' ? 'text-rose-400/60' :
+                'text-amber-400/60'
+              }>
+                {c.kind === 'add' ? '+' : c.kind === 'delete' ? '-' : '~'}
+              </span>
+              {c.path}
             </div>
-          ) : null}
+          ))}
         </div>
       ) : null}
-    </div>
+    </ToolCardShell>
   );
+}
+
+function FilePathLabel({ path }: { path: string }) {
+  if (!path) return <span className="text-white/40">file</span>;
+
+  const parts = path.split('/');
+  const fileName = parts.pop() ?? '';
+  const dir = parts.length > 2
+    ? `.../${parts.slice(-2).join('/')}/`
+    : parts.length > 0
+      ? `${parts.join('/')}/`
+      : '';
+
+  return (
+    <span className="font-mono text-[11.5px]">
+      {dir ? <span className="text-white/25">{dir}</span> : null}
+      <span className="text-white/55">{fileName}</span>
+    </span>
+  );
+}
+
+function truncateMiddle(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const half = Math.floor((max - 3) / 2);
+  return `${text.slice(0, half)}...${text.slice(-half)}`;
 }
 
 function ToolGroupMessage({ group, isStreaming }: { group: ToolGroupData; isStreaming?: boolean }) {
@@ -716,33 +1027,61 @@ function ToolGroupMessage({ group, isStreaming }: { group: ToolGroupData; isStre
   const summary = buildToolGroupSummary(tools);
 
   return (
-    <div>
+    <div className="group/tool">
       <button
-        className="group/tg flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.03]"
+        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition ${
+          isExpanded ? 'bg-white/[0.03]' : 'hover:bg-white/[0.03]'
+        }`}
         onClick={() => setIsExpanded(!isExpanded)}
         type="button"
       >
-        {isStreaming ? (
-          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-white/30" />
-        ) : failedCount > 0 ? (
-          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-rose-400/60" />
-        ) : (
-          <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400/50" />
-        )}
-        <span className="flex-1 truncate font-geist text-[12.5px] text-white/45">
-          {summary}
+        <div className={`grid h-6 w-6 shrink-0 place-items-center rounded-md ${
+          isStreaming
+            ? 'bg-blue-500/[0.10] text-blue-400/70'
+            : failedCount > 0
+              ? 'bg-rose-500/[0.10] text-rose-400/60'
+              : 'bg-emerald-500/[0.08] text-emerald-400/50'
+        }`}>
           {isStreaming ? (
-            <span className="ml-1.5 text-white/25">{doneCount}/{tools.length}</span>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : failedCount > 0 ? (
+            <CircleAlert className="h-3.5 w-3.5" />
+          ) : (
+            <Check className="h-3.5 w-3.5" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <span className="font-geist text-[12.5px] text-white/45">
+            {summary}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {isStreaming ? (
+            <span className="font-mono text-[10px] text-white/20">
+              {doneCount}/{tools.length}
+            </span>
           ) : null}
-        </span>
-        {isExpanded ? (
-          <ChevronDown className="h-3 w-3 shrink-0 text-white/20" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0 text-white/15 opacity-0 transition group-hover/tg:opacity-100" />
-        )}
+          <div className="flex items-center gap-0.5">
+            {tools.map((t, i) => (
+              <div
+                key={i}
+                className={`h-1.5 w-1.5 rounded-full transition ${
+                  t.isStreaming
+                    ? 'animate-pulse bg-blue-400/60'
+                    : t.data.exitCode !== undefined && t.data.exitCode !== 0
+                      ? 'bg-rose-400/60'
+                      : 'bg-emerald-400/40'
+                }`}
+              />
+            ))}
+          </div>
+          <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-white/20 transition-transform duration-150 ${
+            isExpanded ? 'rotate-90' : 'opacity-0 group-hover/tool:opacity-100'
+          }`} />
+        </div>
       </button>
       {isExpanded ? (
-        <div className="ml-3 border-l border-white/[0.05] pl-1">
+        <div className="ml-5 border-l border-white/[0.06] pl-2 pt-1 pb-1">
           {tools.map((t, i) => (
             <ToolMessage key={i} data={t.data} isStreaming={t.isStreaming} />
           ))}
@@ -755,34 +1094,70 @@ function ToolGroupMessage({ group, isStreaming }: { group: ToolGroupData; isStre
 function buildToolGroupSummary(
   tools: Array<{ data: ToolData; isStreaming?: boolean }>
 ): string {
-  const commands = tools.filter((t) => t.data.type === 'command');
-  const fileChanges = tools.filter((t) => t.data.type === 'file_change');
-  const searches = tools.filter((t) => t.data.type === 'web_search');
-  const mcps = tools.filter((t) => t.data.type === 'mcp');
+  const counts: Record<string, number> = {};
+
+  for (const t of tools) {
+    const name = t.data.toolName ?? t.data.type;
+    const category = getToolCategory(name);
+    counts[category] = (counts[category] ?? 0) + 1;
+  }
 
   const parts: string[] = [];
 
-  if (commands.length > 0) {
-    parts.push(`Ran ${commands.length} command${commands.length > 1 ? 's' : ''}`);
+  if (counts.command) {
+    parts.push(`Ran ${counts.command} command${counts.command > 1 ? 's' : ''}`);
   }
-  if (fileChanges.length > 0) {
-    const totalFiles = fileChanges.reduce(
-      (sum, t) => sum + (t.data.changes?.length ?? 1), 0
-    );
-    parts.push(`Edited ${totalFiles} file${totalFiles > 1 ? 's' : ''}`);
+  if (counts.read) {
+    parts.push(`Read ${counts.read} file${counts.read > 1 ? 's' : ''}`);
   }
-  if (searches.length > 0) {
-    parts.push(`Searched ${searches.length} time${searches.length > 1 ? 's' : ''}`);
+  if (counts.edit) {
+    parts.push(`Edited ${counts.edit} file${counts.edit > 1 ? 's' : ''}`);
   }
-  if (mcps.length > 0) {
-    parts.push(`Called ${mcps.length} tool${mcps.length > 1 ? 's' : ''}`);
+  if (counts.write) {
+    parts.push(`Wrote ${counts.write} file${counts.write > 1 ? 's' : ''}`);
+  }
+  if (counts.search) {
+    parts.push(`${counts.search} search${counts.search > 1 ? 'es' : ''}`);
+  }
+  if (counts.other) {
+    parts.push(`${counts.other} tool call${counts.other > 1 ? 's' : ''}`);
   }
 
   if (parts.length === 0) {
     return `${tools.length} tool call${tools.length > 1 ? 's' : ''}`;
   }
 
-  return parts.join(', ');
+  return parts.join(' · ');
+}
+
+function getToolCategory(name: string): string {
+  switch (name) {
+    case 'Bash':
+    case 'bash':
+    case 'command':
+      return 'command';
+    case 'Read':
+    case 'read_file':
+      return 'read';
+    case 'Edit':
+    case 'edit_file':
+    case 'file_change':
+      return 'edit';
+    case 'Write':
+    case 'write_file':
+      return 'write';
+    case 'Glob':
+    case 'glob':
+    case 'Grep':
+    case 'grep':
+    case 'WebSearch':
+    case 'web_search':
+    case 'WebFetch':
+    case 'web_fetch':
+      return 'search';
+    default:
+      return 'other';
+  }
 }
 
 function TodoListMessage({ items }: { items: Array<{ text: string; completed: boolean }> }) {
@@ -886,34 +1261,79 @@ function ThinkingIndicator() {
 }
 
 function getToolLabel(data: ToolData): string {
-  switch (data.type) {
+  const toolName = data.toolName ?? data.type;
+
+  switch (toolName) {
+    case 'Bash':
+    case 'bash':
+      return data.command ?? 'command';
+    case 'Read':
+    case 'read_file':
+      return data.filePath?.split('/').pop() ?? 'file';
+    case 'Edit':
+    case 'edit_file':
+      return data.filePath?.split('/').pop() ?? 'file';
+    case 'Write':
+    case 'write_file':
+      return data.filePath?.split('/').pop() ?? 'file';
+    case 'Glob':
+    case 'glob':
+      return data.pattern ?? 'files';
+    case 'Grep':
+    case 'grep':
+      return data.pattern ?? 'pattern';
+    case 'WebSearch':
+    case 'web_search':
+      return data.query ? `"${data.query}"` : 'web';
+    case 'WebFetch':
+    case 'web_fetch':
+      return data.url ?? 'url';
     case 'command':
       return data.command ?? 'command';
     case 'file_change':
       return data.changes
         ? data.changes.map((c) => c.path.split('/').pop()).join(', ')
         : 'file changes';
-    case 'web_search':
-      return data.query ? `"${data.query}"` : 'web search';
     case 'mcp':
       return data.server && data.tool ? `${data.server}.${data.tool}` : 'mcp tool';
     default:
-      return 'tool';
+      return data.toolName ?? 'tool';
   }
 }
 
 function getToolVerb(data: ToolData): string {
-  switch (data.type) {
+  const toolName = data.toolName ?? data.type;
+
+  switch (toolName) {
+    case 'Bash':
+    case 'bash':
     case 'command':
-      return 'Ran';
-    case 'file_change':
-      return 'Edited';
+      return 'Running';
+    case 'Read':
+    case 'read_file':
+      return 'Reading';
+    case 'Edit':
+    case 'edit_file':
+      return 'Editing';
+    case 'Write':
+    case 'write_file':
+      return 'Writing';
+    case 'Glob':
+    case 'glob':
+    case 'Grep':
+    case 'grep':
+    case 'WebSearch':
     case 'web_search':
-      return 'Searched';
+      return 'Searching';
+    case 'WebFetch':
+    case 'web_fetch':
+      return 'Fetching';
+    case 'file_change':
+      return 'Editing';
     case 'mcp':
-      return 'Called';
+      return 'Calling';
     default:
-      return 'Ran';
+      return 'Running';
   }
 }
 

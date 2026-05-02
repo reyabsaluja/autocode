@@ -177,6 +177,7 @@ export function createBedrockChatSessionRuntimeManager({
       let currentThinkingItemId: string | null = null;
       let inputTokens = 0;
       let outputTokens = 0;
+      const toolUseMap = new Map<string, ToolUseMeta>();
 
       for await (const message of activeQuery) {
         if (abortController.signal.aborted) {
@@ -193,7 +194,9 @@ export function createBedrockChatSessionRuntimeManager({
             getCurrentThinkingItemId: () => currentThinkingItemId,
             setCurrentThinkingItemId: (id) => { currentThinkingItemId = id; },
             addInputTokens: (n) => { inputTokens += n; },
-            addOutputTokens: (n) => { outputTokens += n; }
+            addOutputTokens: (n) => { outputTokens += n; },
+            registerToolUse: (id, name, input) => { toolUseMap.set(id, { name, input }); },
+            getToolUse: (id) => toolUseMap.get(id)
           }
         );
       }
@@ -230,6 +233,11 @@ export function createBedrockChatSessionRuntimeManager({
     }
   }
 
+  interface ToolUseMeta {
+    name: string;
+    input: Record<string, unknown>;
+  }
+
   interface MessageTracker {
     getCurrentAssistantItemId: () => string | null;
     setCurrentAssistantItemId: (id: string | null) => void;
@@ -237,6 +245,8 @@ export function createBedrockChatSessionRuntimeManager({
     setCurrentThinkingItemId: (id: string | null) => void;
     addInputTokens: (n: number) => void;
     addOutputTokens: (n: number) => void;
+    registerToolUse: (id: string, name: string, input: Record<string, unknown>) => void;
+    getToolUse: (id: string) => ToolUseMeta | undefined;
   }
 
   async function handleSDKMessage(
@@ -270,15 +280,18 @@ export function createBedrockChatSessionRuntimeManager({
             await writeTranscriptEntry(sessionId, transcriptPath, 'thinking', (block as any).thinking ?? '', thinkingId);
           } else if (block.type === 'tool_use') {
             const toolId = `bedrock-tool-${block.id}`;
+            tracker.registerToolUse(block.id, block.name, block.input as Record<string, unknown>);
+
+            if (tracker.getCurrentAssistantItemId()) {
+              await writeTranscriptEntry(sessionId, transcriptPath, 'assistant-done', '', tracker.getCurrentAssistantItemId()!);
+              tracker.setCurrentAssistantItemId(null);
+            }
+
             await writeTranscriptEntry(
               sessionId,
               transcriptPath,
               'tool-start',
-              JSON.stringify({
-                type: 'command',
-                command: `${block.name}: ${JSON.stringify(block.input).slice(0, 200)}`,
-                status: 'running'
-              }),
+              JSON.stringify(buildToolStartPayload(block.name, block.input as Record<string, unknown>)),
               toolId
             );
           }
@@ -318,21 +331,25 @@ export function createBedrockChatSessionRuntimeManager({
           for (const block of userMsg.message.content) {
             if (block.type === 'tool_result') {
               const toolId = `bedrock-tool-${block.tool_use_id}`;
+              const toolMeta = tracker.getToolUse(block.tool_use_id);
               const resultText = typeof block.content === 'string'
                 ? block.content
-                : JSON.stringify(block.content ?? '').slice(0, 500);
+                : Array.isArray(block.content)
+                  ? block.content.map((c: any) => c.text ?? '').join('')
+                  : JSON.stringify(block.content ?? '');
 
               await writeTranscriptEntry(
                 sessionId,
                 transcriptPath,
                 'tool-done',
-                JSON.stringify({
-                  type: 'command',
-                  command: '',
-                  output: resultText,
-                  exitCode: block.is_error ? 1 : 0,
-                  status: block.is_error ? 'error' : 'completed'
-                }),
+                JSON.stringify(
+                  buildToolDonePayload(
+                    toolMeta?.name ?? 'unknown',
+                    toolMeta?.input ?? {},
+                    resultText,
+                    Boolean(block.is_error)
+                  )
+                ),
                 toolId
               );
             }
@@ -370,6 +387,90 @@ export function createBedrockChatSessionRuntimeManager({
       default:
         break;
     }
+  }
+
+  function buildToolStartPayload(name: string, input: Record<string, unknown>): Record<string, unknown> {
+    switch (name) {
+      case 'Bash':
+        return {
+          type: 'bash',
+          toolName: 'Bash',
+          command: (input.command as string) ?? '',
+          status: 'running'
+        };
+      case 'Read':
+        return {
+          type: 'read_file',
+          toolName: 'Read',
+          filePath: (input.file_path as string) ?? '',
+          status: 'running'
+        };
+      case 'Edit':
+        return {
+          type: 'edit_file',
+          toolName: 'Edit',
+          filePath: (input.file_path as string) ?? '',
+          oldString: (input.old_string as string) ?? '',
+          newString: (input.new_string as string) ?? '',
+          status: 'running'
+        };
+      case 'Write':
+        return {
+          type: 'write_file',
+          toolName: 'Write',
+          filePath: (input.file_path as string) ?? '',
+          status: 'running'
+        };
+      case 'Glob':
+        return {
+          type: 'glob',
+          toolName: 'Glob',
+          pattern: (input.pattern as string) ?? '',
+          status: 'running'
+        };
+      case 'Grep':
+        return {
+          type: 'grep',
+          toolName: 'Grep',
+          pattern: (input.pattern as string) ?? '',
+          filePath: (input.path as string) ?? '',
+          status: 'running'
+        };
+      case 'WebSearch':
+        return {
+          type: 'web_search',
+          toolName: 'WebSearch',
+          query: (input.query as string) ?? '',
+          status: 'running'
+        };
+      case 'WebFetch':
+        return {
+          type: 'web_fetch',
+          toolName: 'WebFetch',
+          url: (input.url as string) ?? '',
+          status: 'running'
+        };
+      default:
+        return {
+          type: 'command',
+          toolName: name,
+          command: `${name}: ${JSON.stringify(input).slice(0, 200)}`,
+          status: 'running'
+        };
+    }
+  }
+
+  function buildToolDonePayload(
+    name: string,
+    input: Record<string, unknown>,
+    output: string,
+    isError: boolean
+  ): Record<string, unknown> {
+    const base = buildToolStartPayload(name, input);
+    base.status = isError ? 'error' : 'completed';
+    base.output = output;
+    base.exitCode = isError ? 1 : 0;
+    return base;
   }
 
   async function stopChatSession(sessionId: number): Promise<void> {
