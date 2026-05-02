@@ -57,7 +57,7 @@ export function useWorkspaceTerminalSessionController({
   const [isLaunchingIsolatedSession, setIsLaunchingIsolatedSession] = useState(false);
   const lastReportedTerminalSizeRef = useRef(DEFAULT_TERMINAL_SIZE);
   const createTaskWorkspaceMutation = useCreateTaskWorkspaceMutation(taskWorkspace.task.projectId);
-  const { activeAiSessions, activeSession, selectedSession, sessionById } = useMemo(() => {
+  const { activeAiSessions, activeSession, mostRecentSession, selectedSession, sessionById } = useMemo(() => {
     const nextSessionById = new Map<number, (typeof sessions)[number]>();
     const nextActiveAiSessions: typeof sessions = [];
     let nextActiveSession: (typeof sessions)[number] | null = null;
@@ -81,6 +81,7 @@ export function useWorkspaceTerminalSessionController({
     return {
       activeAiSessions: nextActiveAiSessions,
       activeSession: nextActiveSession,
+      mostRecentSession: sessions[0] ?? null,
       selectedSession: selectedSessionId !== null ? nextSessionById.get(selectedSessionId) ?? null : null,
       sessionById: nextSessionById
     };
@@ -121,8 +122,8 @@ export function useWorkspaceTerminalSessionController({
       return;
     }
 
-    setSelectedSessionId(activeSession?.id ?? null);
-  }, [activeSession?.id, selectedSessionId, sessionById, sessions.length]);
+    setSelectedSessionId(activeSession?.id ?? mostRecentSession?.id ?? null);
+  }, [activeSession?.id, mostRecentSession?.id, selectedSessionId, sessionById, sessions.length]);
 
   function requestSessionSelection(sessionId: number) {
     if (activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === sessionId) {

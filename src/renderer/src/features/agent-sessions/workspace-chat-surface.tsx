@@ -364,6 +364,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
                 {items.length === 0 ? (
                   <ChatSessionEmptyState
                     isInteractive={isInteractive}
+                    onStartNewChat={onStartNewChat}
                     onSuggestionClick={(text) => {
                       setComposerValue(text);
                       textareaRef.current?.focus();
@@ -394,68 +395,79 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
             ) : null}
           </div>
 
-          <div className="shrink-0 border-t border-white/[0.06] bg-[#0e0e0e]">
-            {agentActivity && onStop ? (
-              <div className="mx-auto flex max-w-[720px] items-center justify-end px-5 pt-2.5 pb-0">
-                <button
-                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-white/40 transition hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-white/70"
-                  onClick={onStop}
-                  title="Stop generating (Esc)"
-                  type="button"
-                >
-                  <StopCircle className="h-3 w-3" />
-                  <span className="font-geist text-[11px] font-medium">Stop</span>
-                </button>
-              </div>
-            ) : null}
-            <form
-              className="mx-auto max-w-[720px] px-5 py-3"
-              onSubmit={handleSubmit}
-            >
-              <div className={`overflow-hidden rounded-xl border bg-[#141414] transition ${
-                isInteractive
-                  ? 'border-white/[0.08] focus-within:border-white/20 focus-within:ring-1 focus-within:ring-white/10'
-                  : 'border-white/[0.04]'
-              }`}>
-                <textarea
-                  ref={textareaRef}
-                  className="min-h-[44px] max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1.5 font-geist text-[13px] leading-relaxed text-white placeholder:text-white/25 focus:outline-none"
-                  disabled={!isInteractive}
-                  onChange={handleTextareaInput}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    isInteractive
-                      ? `Ask ${providerLabel} to make changes...`
-                      : 'Chat session is not active'
-                  }
-                  rows={1}
-                  value={composerValue}
-                />
-                <div className="flex items-center justify-between px-3 pb-2">
-                  <div className="flex items-center gap-1">
-                    <ChatModelSelector
-                      onStartNewChat={onStartNewChat}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="hidden font-geist text-[10px] text-white/15 sm:inline">
-                      <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1 py-0.5 font-mono text-[9px]">↵</kbd> send
-                      <span className="mx-1.5">·</span>
-                      <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1 py-0.5 font-mono text-[9px]">⇧↵</kbd> newline
-                    </span>
-                    <button
-                      className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.08] text-white/50 transition hover:bg-white/[0.14] hover:text-white disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-white/15"
-                      disabled={!isInteractive || composerValue.trim().length === 0}
-                      title="Send (Enter)"
-                      type="submit"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                    </button>
+          {isInteractive ? (
+            <div className="shrink-0 border-t border-white/[0.06] bg-[#0e0e0e]">
+              {agentActivity && onStop ? (
+                <div className="mx-auto flex max-w-[720px] items-center justify-end px-5 pt-2.5 pb-0">
+                  <button
+                    className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-white/40 transition hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-white/70"
+                    onClick={onStop}
+                    title="Stop generating (Esc)"
+                    type="button"
+                  >
+                    <StopCircle className="h-3 w-3" />
+                    <span className="font-geist text-[11px] font-medium">Stop</span>
+                  </button>
+                </div>
+              ) : null}
+              <form
+                className="mx-auto max-w-[720px] px-5 py-3"
+                onSubmit={handleSubmit}
+              >
+                <div className="overflow-hidden rounded-xl border bg-[#141414] transition border-white/[0.08] focus-within:border-white/20 focus-within:ring-1 focus-within:ring-white/10">
+                  <textarea
+                    ref={textareaRef}
+                    className="min-h-[44px] max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1.5 font-geist text-[13px] leading-relaxed text-white placeholder:text-white/25 focus:outline-none"
+                    onChange={handleTextareaInput}
+                    onKeyDown={handleKeyDown}
+                    placeholder={`Ask ${providerLabel} to make changes...`}
+                    rows={1}
+                    value={composerValue}
+                  />
+                  <div className="flex items-center justify-between px-3 pb-2">
+                    <div className="flex items-center gap-1">
+                      <ChatModelSelector
+                        onStartNewChat={onStartNewChat}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="hidden font-geist text-[10px] text-white/15 sm:inline">
+                        <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1 py-0.5 font-mono text-[9px]">↵</kbd> send
+                        <span className="mx-1.5">·</span>
+                        <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1 py-0.5 font-mono text-[9px]">⇧↵</kbd> newline
+                      </span>
+                      <button
+                        className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.08] text-white/50 transition hover:bg-white/[0.14] hover:text-white disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-white/15"
+                        disabled={composerValue.trim().length === 0}
+                        title="Send (Enter)"
+                        type="submit"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
+              </form>
+            </div>
+          ) : (
+            <div className="shrink-0 border-t border-white/[0.06] bg-[#0e0e0e]">
+              <div className="mx-auto flex max-w-[720px] items-center justify-between px-5 py-3">
+                <span className="font-geist text-[12px] text-white/30">
+                  This conversation has ended.
+                </span>
+                {onStartNewChat ? (
+                  <button
+                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 font-geist text-[12px] font-medium text-white/50 transition hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-white/70"
+                    onClick={onStartNewChat}
+                    type="button"
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    New conversation
+                  </button>
+                ) : null}
               </div>
-            </form>
-          </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -503,15 +515,28 @@ const SUGGESTIONS = [
 
 function ChatSessionEmptyState({
   isInteractive,
+  onStartNewChat,
   onSuggestionClick
 }: {
   isInteractive: boolean;
+  onStartNewChat?: () => void;
   onSuggestionClick: (text: string) => void;
 }) {
   if (!isInteractive) {
     return (
       <div className="grid h-full min-h-[300px] place-items-center">
-        <p className="font-geist text-[13px] text-white/30">Session is not active.</p>
+        <div className="flex flex-col items-center gap-3">
+          <p className="font-geist text-[13px] text-white/30">Session is not active.</p>
+          {onStartNewChat ? (
+            <button
+              className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 py-2 font-geist text-[12.5px] font-medium text-white/50 transition hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-white/70"
+              onClick={onStartNewChat}
+              type="button"
+            >
+              Start new conversation
+            </button>
+          ) : null}
+        </div>
       </div>
     );
   }
