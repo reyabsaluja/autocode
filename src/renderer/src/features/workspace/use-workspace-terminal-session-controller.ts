@@ -282,6 +282,16 @@ export function useWorkspaceTerminalSessionController({
     sendInputMutation.mutate({ text });
   }, [sendInputMutation]);
 
+  const handleChatStop = useCallback(() => {
+    const current = selectedSessionRef.current;
+
+    if (!current || !isActiveSessionStatus(current.status)) {
+      return;
+    }
+
+    deleteSessionMutation.mutate(current.id);
+  }, [deleteSessionMutation]);
+
   const emptyStateMode = useMemo<'idle' | 'selectSession' | 'starting'>(() => {
     if (startSessionMutation.isPending) {
       return 'starting';
@@ -314,11 +324,13 @@ export function useWorkspaceTerminalSessionController({
     errorMessage: terminalErrorMessage,
     isInteractive: isActiveSessionStatus(selectedSession?.status),
     onSend: handleChatSend,
+    onStop: handleChatStop,
     sessionId: selectedSession?.id ?? null
   }), [
     emptyStateMode,
     entries,
     handleChatSend,
+    handleChatStop,
     selectedSession?.id,
     selectedSession?.status,
     terminalErrorMessage

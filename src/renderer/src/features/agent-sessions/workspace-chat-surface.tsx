@@ -10,7 +10,8 @@ import {
   Loader2,
   MessageSquare,
   Send,
-  Square
+  Square,
+  StopCircle
 } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
@@ -92,6 +93,7 @@ interface WorkspaceChatSurfaceProps {
   errorMessage: string | null;
   isInteractive: boolean;
   onSend: (text: string) => void;
+  onStop?: () => void;
   sessionId: number | null;
 }
 
@@ -147,6 +149,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
   errorMessage,
   isInteractive,
   onSend,
+  onStop,
   sessionId
 }: WorkspaceChatSurfaceProps) {
   const [composerValue, setComposerValue] = useState('');
@@ -175,6 +178,27 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
   }, [waitingForResponse, isAgentResponding]);
 
   const showThinkingIndicator = waitingForResponse || isAgentResponding;
+
+  const agentActivity = useMemo(() => {
+    if (waitingForResponse) return 'Starting...';
+    if (!isAgentResponding) return null;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i]!;
+      if (!item.isStreaming) continue;
+      switch (item.kind) {
+        case 'thinking': return 'Reasoning';
+        case 'assistant': return 'Writing';
+        case 'tool': {
+          const verb = item.toolData ? getToolVerb(item.toolData) : 'Running';
+          const label = item.toolData ? getToolLabel(item.toolData) : 'tool';
+          return `${verb} ${label}`;
+        }
+        case 'tool-group': return 'Running tools';
+        default: return 'Working';
+      }
+    }
+    return 'Working';
+  }, [items, isAgentResponding, waitingForResponse]);
 
   useEffect(() => {
     setComposerValue('');
@@ -278,6 +302,27 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
           </div>
 
           <div className="shrink-0 border-t border-white/[0.06] bg-[#0e0e0e]">
+            {agentActivity ? (
+              <div className="mx-auto flex max-w-[720px] items-center gap-2 px-5 pt-2.5 pb-0">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Loader2 className="h-3 w-3 shrink-0 animate-spin text-white/25" />
+                  <span className="thinking-shimmer truncate font-geist text-[12px]">
+                    {agentActivity}
+                  </span>
+                </div>
+                {onStop ? (
+                  <button
+                    className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-white/30 transition hover:bg-white/[0.06] hover:text-white/60"
+                    onClick={onStop}
+                    title="Stop generating"
+                    type="button"
+                  >
+                    <StopCircle className="h-3.5 w-3.5" />
+                    <span className="font-geist text-[11px] font-medium">Stop</span>
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <form
               className="mx-auto flex max-w-[720px] items-end gap-2.5 px-5 py-3"
               onSubmit={handleSubmit}
