@@ -35,6 +35,7 @@ type ChatItemKind =
   | 'system'
   | 'thinking'
   | 'tool'
+  | 'tool-group'
   | 'todo-list'
   | 'turn-info';
 
@@ -45,8 +46,13 @@ interface ChatItem {
   itemId?: string;
   isStreaming?: boolean;
   toolData?: ToolData;
+  toolGroup?: ToolGroupData;
   todoItems?: Array<{ text: string; completed: boolean }>;
   turnUsage?: TurnUsage;
+}
+
+interface ToolGroupData {
+  tools: Array<{ data: ToolData; isStreaming?: boolean }>;
 }
 
 interface ToolData {
@@ -279,6 +285,8 @@ const ChatItemView = memo(function ChatItemView({ item }: { item: ChatItem }) {
       return <ThinkingMessage text={item.text} isStreaming={item.isStreaming} />;
     case 'tool':
       return <ToolMessage data={item.toolData!} isStreaming={item.isStreaming} />;
+    case 'tool-group':
+      return <ToolGroupMessage group={item.toolGroup!} isStreaming={item.isStreaming} />;
     case 'todo-list':
       return <TodoListMessage items={item.todoItems!} />;
     case 'turn-info':
@@ -422,6 +430,86 @@ function ToolMessage({ data, isStreaming }: { data: ToolData; isStreaming?: bool
       ) : null}
     </div>
   );
+}
+
+function ToolGroupMessage({ group, isStreaming }: { group: ToolGroupData; isStreaming?: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const { tools } = group;
+  const doneCount = tools.filter((t) => !t.isStreaming).length;
+  const failedCount = tools.filter(
+    (t) => t.data.exitCode !== undefined && t.data.exitCode !== 0
+  ).length;
+
+  const summary = buildToolGroupSummary(tools);
+
+  return (
+    <div>
+      <button
+        className="group/tg flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.03]"
+        onClick={() => setIsExpanded(!isExpanded)}
+        type="button"
+      >
+        {isStreaming ? (
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-white/30" />
+        ) : failedCount > 0 ? (
+          <CircleAlert className="h-3.5 w-3.5 shrink-0 text-rose-400/60" />
+        ) : (
+          <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400/50" />
+        )}
+        <span className="flex-1 truncate font-geist text-[12.5px] text-white/45">
+          {summary}
+          {isStreaming ? (
+            <span className="ml-1.5 text-white/25">{doneCount}/{tools.length}</span>
+          ) : null}
+        </span>
+        {isExpanded ? (
+          <ChevronDown className="h-3 w-3 shrink-0 text-white/20" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0 text-white/15 opacity-0 transition group-hover/tg:opacity-100" />
+        )}
+      </button>
+      {isExpanded ? (
+        <div className="ml-3 border-l border-white/[0.05] pl-1">
+          {tools.map((t, i) => (
+            <ToolMessage key={i} data={t.data} isStreaming={t.isStreaming} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function buildToolGroupSummary(
+  tools: Array<{ data: ToolData; isStreaming?: boolean }>
+): string {
+  const commands = tools.filter((t) => t.data.type === 'command');
+  const fileChanges = tools.filter((t) => t.data.type === 'file_change');
+  const searches = tools.filter((t) => t.data.type === 'web_search');
+  const mcps = tools.filter((t) => t.data.type === 'mcp');
+
+  const parts: string[] = [];
+
+  if (commands.length > 0) {
+    parts.push(`Ran ${commands.length} command${commands.length > 1 ? 's' : ''}`);
+  }
+  if (fileChanges.length > 0) {
+    const totalFiles = fileChanges.reduce(
+      (sum, t) => sum + (t.data.changes?.length ?? 1), 0
+    );
+    parts.push(`Edited ${totalFiles} file${totalFiles > 1 ? 's' : ''}`);
+  }
+  if (searches.length > 0) {
+    parts.push(`Searched ${searches.length} time${searches.length > 1 ? 's' : ''}`);
+  }
+  if (mcps.length > 0) {
+    parts.push(`Called ${mcps.length} tool${mcps.length > 1 ? 's' : ''}`);
+  }
+
+  if (parts.length === 0) {
+    return `${tools.length} tool call${tools.length > 1 ? 's' : ''}`;
+  }
+
+  return parts.join(', ');
 }
 
 function TodoListMessage({ items }: { items: Array<{ text: string; completed: boolean }> }) {
@@ -669,7 +757,46 @@ function buildChatItems(entries: AgentSessionTranscriptEntry[]): ChatItem[] {
 
   markThinkingDone(items);
 
-  return items;
+  return groupConsecutiveTools(items);
+}
+
+function groupConsecutiveTools(items: ChatItem[]): ChatItem[] {
+  const result: ChatItem[] = [];
+  let i = 0;
+
+  while (i < items.length) {
+    if (items[i]!.kind !== 'tool') {
+      result.push(items[i]!);
+      i++;
+      continue;
+    }
+
+    const run: ChatItem[] = [];
+    while (i < items.length && items[i]!.kind === 'tool') {
+      run.push(items[i]!);
+      i++;
+    }
+
+    if (run.length === 1) {
+      result.push(run[0]!);
+    } else {
+      const anyStreaming = run.some((t) => t.isStreaming);
+      result.push({
+        id: `tool-group-${run[0]!.id}`,
+        kind: 'tool-group',
+        text: '',
+        isStreaming: anyStreaming,
+        toolGroup: {
+          tools: run.map((t) => ({
+            data: t.toolData!,
+            isStreaming: t.isStreaming
+          }))
+        }
+      });
+    }
+  }
+
+  return result;
 }
 
 function markThinkingDone(items: ChatItem[]): void {
