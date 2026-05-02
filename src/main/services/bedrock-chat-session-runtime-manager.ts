@@ -1,6 +1,6 @@
 import { rm } from 'node:fs/promises';
 
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { query, deleteSession as deleteSdkSession } from '@anthropic-ai/claude-agent-sdk';
 import type { SDKMessage, Query, Options } from '@anthropic-ai/claude-agent-sdk';
 
 import type {
@@ -27,6 +27,7 @@ interface BedrockChatSessionRuntime {
   model: string;
   activeQuery: Query | null;
   abortController: AbortController | null;
+  sdkSessionId: string | null;
 }
 
 export function createBedrockChatSessionRuntimeManager({
@@ -64,7 +65,8 @@ export function createBedrockChatSessionRuntimeManager({
       cwd: input.cwd,
       model: input.model || BEDROCK_MODEL,
       activeQuery: null,
-      abortController: null
+      abortController: null,
+      sdkSessionId: null
     });
 
     const runningSession = agentSessionRepository.markRunning(
@@ -149,11 +151,6 @@ export function createBedrockChatSessionRuntimeManager({
     const abortController = new AbortController();
     runtime.abortController = abortController;
 
-    const sessionRecord = agentSessionRepository.findInternalById(sessionId);
-    const awsCredentials = sessionRecord
-      ? undefined
-      : undefined;
-
     const options: Options = {
       abortController,
       cwd: runtime.cwd,
@@ -162,7 +159,9 @@ export function createBedrockChatSessionRuntimeManager({
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       includePartialMessages: true,
-      persistSession: false
+      ...(runtime.sdkSessionId
+        ? { resume: runtime.sdkSessionId }
+        : {})
     };
 
     let activeQuery: Query | null = null;
@@ -196,7 +195,8 @@ export function createBedrockChatSessionRuntimeManager({
             addInputTokens: (n) => { inputTokens += n; },
             addOutputTokens: (n) => { outputTokens += n; },
             registerToolUse: (id, name, input) => { toolUseMap.set(id, { name, input }); },
-            getToolUse: (id) => toolUseMap.get(id)
+            getToolUse: (id) => toolUseMap.get(id),
+            captureSessionId: (id) => { runtime.sdkSessionId = id; }
           }
         );
       }
@@ -247,6 +247,7 @@ export function createBedrockChatSessionRuntimeManager({
     addOutputTokens: (n: number) => void;
     registerToolUse: (id: string, name: string, input: Record<string, unknown>) => void;
     getToolUse: (id: string) => ToolUseMeta | undefined;
+    captureSessionId: (id: string) => void;
   }
 
   async function handleSDKMessage(
@@ -373,7 +374,8 @@ export function createBedrockChatSessionRuntimeManager({
       case 'system': {
         const sysMsg = message as any;
 
-        if (sysMsg.subtype === 'init') {
+        if (sysMsg.subtype === 'init' && sysMsg.session_id) {
+          tracker.captureSessionId(sysMsg.session_id);
           break;
         }
 
@@ -495,6 +497,10 @@ export function createBedrockChatSessionRuntimeManager({
 
     if (runtime?.abortController) {
       runtime.abortController.abort();
+    }
+
+    if (runtime?.sdkSessionId) {
+      deleteSdkSession(runtime.sdkSessionId).catch(() => {});
     }
 
     runtimes.delete(sessionId);
