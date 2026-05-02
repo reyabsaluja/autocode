@@ -344,7 +344,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
 
   return (
     <ChatActionsContext.Provider value={chatActions}>
-    <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-surface-0">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-[#101010]">
       {errorMessage ? (
         <div className="border-b border-rose-500/20 bg-rose-500/[0.06] px-4 py-2 font-geist text-[12px] text-rose-200">
           {errorMessage}
