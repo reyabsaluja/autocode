@@ -4,6 +4,7 @@ import { PanelLeft } from 'lucide-react';
 import type { WorkspaceEditorHandle } from '../features/editor/workspace-editor-surface';
 import { UnsavedChangesDialog } from '../features/editor/unsaved-changes-dialog';
 import { useAddProjectMutation, useProjectsQuery } from '../features/projects/project-hooks';
+import { SettingsPage } from '../features/settings/settings-page';
 import { WorkspaceDetails } from '../features/tasks/workspace-details';
 import { autocodeApi } from '../lib/autocode-api';
 import { WorkspaceSidebar } from '../features/workspace/workspace-sidebar';
@@ -12,6 +13,7 @@ import { useWorkspaceSessionController } from './use-workspace-session-controlle
 export function App() {
   const editorRef = useRef<WorkspaceEditorHandle | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const projectsQuery = useProjectsQuery();
   const addProjectMutation = useAddProjectMutation();
   const [projectActionError, setProjectActionError] = useState<string | null>(null);
@@ -102,6 +104,7 @@ export function App() {
           onSelectProject={workspaceSession.requestProjectSelection}
           onSelectTask={workspaceSession.requestTaskSelection}
           onSubmitManualPath={handleManualRepositoryAdd}
+          onOpenSettings={() => setShowSettings(true)}
           onToggleSidebar={() => setIsSidebarOpen(false)}
         />
       ) : (
@@ -118,17 +121,21 @@ export function App() {
       )}
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <WorkspaceDetails
-          ref={editorRef}
-          isForkingTask={workspaceSession.createTaskMutation.isPending}
-          isSidebarOpen={isSidebarOpen}
-          isLoadingTasks={workspaceSession.taskWorkspacesQuery.isLoading}
-          onForkTaskWorkspace={workspaceSession.forkSelectedTaskWorkspace}
-          onRequestTaskSelection={workspaceSession.requestTaskSelection}
-          project={workspaceSession.selectedProject}
-          taskWorkspace={workspaceSession.selectedTaskWorkspace}
-          taskWorkspaces={workspaceSession.taskWorkspaces}
-        />
+        {showSettings ? (
+          <SettingsPage onClose={() => setShowSettings(false)} />
+        ) : (
+          <WorkspaceDetails
+            ref={editorRef}
+            isForkingTask={workspaceSession.createTaskMutation.isPending}
+            isSidebarOpen={isSidebarOpen}
+            isLoadingTasks={workspaceSession.taskWorkspacesQuery.isLoading}
+            onForkTaskWorkspace={workspaceSession.forkSelectedTaskWorkspace}
+            onRequestTaskSelection={workspaceSession.requestTaskSelection}
+            project={workspaceSession.selectedProject}
+            taskWorkspace={workspaceSession.selectedTaskWorkspace}
+            taskWorkspaces={workspaceSession.taskWorkspaces}
+          />
+        )}
       </main>
 
       <UnsavedChangesDialog

@@ -12,7 +12,6 @@ import {
   Pencil,
   RotateCcw,
   Send,
-  Sparkles,
   Square,
   StopCircle
 } from 'lucide-react';
@@ -21,7 +20,15 @@ import { code } from '@streamdown/code';
 import { math } from '@streamdown/math';
 import { useStickToBottom } from 'use-stick-to-bottom';
 
-import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
+import type { AgentProvider, AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
+import {
+  useChatProviderStore,
+  MODEL_REGISTRY,
+  getModelEntry,
+  type ChatProvider,
+  type ReasoningEffort
+} from '../../stores/chat-provider-store';
+import { ClaudePresetIcon, CodexPresetIcon } from '../../lib/provider-preset-icons';
 
 interface ChatActions {
   onResend: (text: string) => void;
@@ -106,7 +113,9 @@ interface WorkspaceChatSurfaceProps {
   errorMessage: string | null;
   isInteractive: boolean;
   onSend: (text: string) => void;
+  onStartNewChat?: () => void;
   onStop?: () => void;
+  provider?: AgentProvider;
   sessionId: number | null;
 }
 
@@ -162,10 +171,15 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
   errorMessage,
   isInteractive,
   onSend,
+  onStartNewChat,
   onStop,
+  provider,
   sessionId
 }: WorkspaceChatSurfaceProps) {
   const [composerValue, setComposerValue] = useState('');
+  const { chatModel } = useChatProviderStore();
+  const modelEntry = getModelEntry(chatModel);
+  const providerLabel = modelEntry?.label ?? chatModel;
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -189,6 +203,12 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
       setWaitingForResponse(false);
     }
   }, [waitingForResponse, isAgentResponding]);
+
+  useEffect(() => {
+    if (errorMessage && waitingForResponse) {
+      setWaitingForResponse(false);
+    }
+  }, [errorMessage, waitingForResponse]);
 
   const showThinkingIndicator = waitingForResponse || isAgentResponding;
 
@@ -269,6 +289,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
 
   const chatActions = useMemo<ChatActions>(() => ({
     onResend: (text: string) => {
+      if (!isInteractive) return;
       onSend(text);
       setWaitingForResponse(true);
     },
@@ -276,7 +297,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
       setComposerValue(text);
       textareaRef.current?.focus();
     }
-  }), [onSend]);
+  }), [isInteractive, onSend]);
 
   return (
     <ChatActionsContext.Provider value={chatActions}>
@@ -331,25 +352,17 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
           </div>
 
           <div className="shrink-0 border-t border-white/[0.06] bg-[#0e0e0e]">
-            {agentActivity ? (
-              <div className="mx-auto flex max-w-[720px] items-center gap-2 px-5 pt-2.5 pb-0">
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <Loader2 className="h-3 w-3 shrink-0 animate-spin text-white/25" />
-                  <span className="thinking-shimmer truncate font-geist text-[12px]">
-                    {agentActivity}
-                  </span>
-                </div>
-                {onStop ? (
-                  <button
-                    className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-white/40 transition hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-white/70"
-                    onClick={onStop}
-                    title="Stop generating (Esc)"
-                    type="button"
-                  >
-                    <StopCircle className="h-3 w-3" />
-                    <span className="font-geist text-[11px] font-medium">Stop</span>
-                  </button>
-                ) : null}
+            {agentActivity && onStop ? (
+              <div className="mx-auto flex max-w-[720px] items-center justify-end px-5 pt-2.5 pb-0">
+                <button
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-white/40 transition hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-white/70"
+                  onClick={onStop}
+                  title="Stop generating (Esc)"
+                  type="button"
+                >
+                  <StopCircle className="h-3 w-3" />
+                  <span className="font-geist text-[11px] font-medium">Stop</span>
+                </button>
               </div>
             ) : null}
             <form
@@ -369,7 +382,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
                   onKeyDown={handleKeyDown}
                   placeholder={
                     isInteractive
-                      ? 'Ask Codex to make changes...'
+                      ? `Ask ${providerLabel} to make changes...`
                       : 'Chat session is not active'
                   }
                   rows={1}
@@ -377,10 +390,9 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
                 />
                 <div className="flex items-center justify-between px-3 pb-2">
                   <div className="flex items-center gap-1">
-                    <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 font-geist text-[11px] text-white/20">
-                      <Sparkles className="h-3 w-3" />
-                      Codex
-                    </span>
+                    <ChatModelSelector
+                      onStartNewChat={onStartNewChat}
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="hidden font-geist text-[10px] text-white/15 sm:inline">
@@ -428,7 +440,7 @@ function ChatEmptyState({ mode }: { mode: 'idle' | 'selectSession' | 'starting' 
           <>
             <MessageSquare className="mx-auto mb-4 h-8 w-8 text-white/15" />
             <p className="font-geist text-[14px] font-medium text-white/72">
-              Start a chat tab to work with Codex in this worktree.
+              Start a chat tab to work with an AI agent in this worktree.
             </p>
           </>
         )}
@@ -549,8 +561,6 @@ function UserMessage({ text }: { text: string }) {
 }
 
 function AssistantMessage({ text, isStreaming }: { text: string; isStreaming?: boolean }) {
-  if (!text.trim()) return null;
-
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -559,6 +569,8 @@ function AssistantMessage({ text, isStreaming }: { text: string; isStreaming?: b
       setTimeout(() => setCopied(false), 1500);
     });
   }, [text]);
+
+  if (!text.trim()) return null;
 
   return (
     <div className="group/assistant">
@@ -943,32 +955,42 @@ function buildChatItems(entries: AgentSessionTranscriptEntry[]): ChatItem[] {
         break;
 
       case 'assistant-delta':
-        upsertByKey(key, () => ({
+        upsertByKey(key, (existing) => ({
           id: `assistant-${key}`,
           kind: 'assistant',
-          text: entry.text,
+          text: (existing?.text ?? '') + entry.text,
           itemId: entry.itemId,
           isStreaming: true
         }));
         break;
 
       case 'assistant-done':
-        upsertByKey(key, () => ({
+        upsertByKey(key, (existing) => ({
           id: `assistant-${key}`,
           kind: 'assistant',
-          text: entry.text,
+          text: existing?.text ?? entry.text,
           itemId: entry.itemId,
           isStreaming: false
         }));
         break;
 
       case 'thinking':
-        upsertByKey(key, () => ({
+        upsertByKey(key, (existing) => ({
           id: `thinking-${key}`,
           kind: 'thinking',
-          text: entry.text,
+          text: (existing?.text ?? '') + entry.text,
           itemId: entry.itemId,
           isStreaming: true
+        }));
+        break;
+
+      case 'thinking-done':
+        upsertByKey(key, (existing) => ({
+          id: `thinking-${key}`,
+          kind: 'thinking',
+          text: existing?.text ?? '',
+          itemId: entry.itemId,
+          isStreaming: false
         }));
         break;
 
@@ -1102,4 +1124,202 @@ function safeJsonParse<T>(text: string): T | null {
   } catch {
     return null;
   }
+}
+
+const EFFORT_LEVELS: { id: ReasoningEffort; label: string }[] = [
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Med' },
+  { id: 'high', label: 'High' },
+];
+
+const claudeModels = MODEL_REGISTRY.filter((m) => m.group === 'claude-code');
+const codexModels = MODEL_REGISTRY.filter((m) => m.group === 'codex');
+
+function ChatModelSelector({
+  onStartNewChat
+}: {
+  onStartNewChat?: () => void;
+}) {
+  const { chatModel, chatProvider, reasoningEffort, setChatModel, setReasoningEffort } = useChatProviderStore();
+  const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+
+  const currentEntry = getModelEntry(chatModel);
+  const currentLabel = currentEntry?.label ?? chatModel;
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+
+    function handleEsc(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [isOpen]);
+
+  function open() {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPos({ left: rect.left, bottom: window.innerHeight - rect.top + 4 });
+    setIsOpen(true);
+  }
+
+  function handleModelSelect(modelId: string) {
+    const entry = getModelEntry(modelId);
+    if (!entry) return;
+
+    const previousModel = chatModel;
+    setChatModel(modelId);
+    setIsOpen(false);
+
+    if (modelId !== previousModel) {
+      onStartNewChat?.();
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-geist text-[11px] text-white/30 transition hover:bg-white/[0.06] hover:text-white/50"
+        onClick={() => isOpen ? setIsOpen(false) : open()}
+        type="button"
+      >
+        {currentEntry?.group === 'claude-code' ? (
+          <ClaudePresetIcon className="h-3 w-3" />
+        ) : (
+          <CodexPresetIcon className="h-3 w-3" />
+        )}
+        {currentLabel}
+        <span className="rounded bg-white/[0.06] px-1 py-px text-[9px] text-white/25">
+          {EFFORT_LEVELS.find((e) => e.id === reasoningEffort)?.label ?? 'High'}
+        </span>
+        <ChevronDown className={`h-2.5 w-2.5 transition ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && pos ? (
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9999] w-72 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1a1a1a] shadow-2xl"
+          style={{ left: pos.left, bottom: pos.bottom }}
+        >
+          <div className="max-h-[400px] overflow-y-auto">
+            <ModelGroup
+              icon={<ClaudePresetIcon className="h-3 w-3" />}
+              label="Claude Code"
+              models={claudeModels}
+              selectedModelId={chatModel}
+              onSelect={handleModelSelect}
+              startIndex={1}
+            />
+            <div className="mx-2 border-t border-white/[0.06]" />
+            <ModelGroup
+              icon={<CodexPresetIcon className="h-3 w-3" />}
+              label="Codex"
+              models={codexModels}
+              selectedModelId={chatModel}
+              onSelect={handleModelSelect}
+              startIndex={claudeModels.length + 1}
+            />
+          </div>
+
+          <div className="border-t border-white/[0.06] px-2.5 py-2">
+            <div className="flex items-center gap-2">
+              <span className="font-geist text-[10px] font-medium uppercase tracking-wider text-white/25">
+                Effort
+              </span>
+              <div className="flex items-center gap-0.5 rounded-md border border-white/[0.06] bg-white/[0.03] p-0.5">
+                {EFFORT_LEVELS.map((level) => (
+                  <button
+                    key={level.id}
+                    className={`rounded px-2 py-0.5 font-geist text-[10px] font-medium transition ${
+                      reasoningEffort === level.id
+                        ? 'bg-white/[0.10] text-white/70'
+                        : 'text-white/30 hover:text-white/50'
+                    }`}
+                    onClick={() => setReasoningEffort(level.id)}
+                    type="button"
+                  >
+                    {level.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function ModelGroup({
+  icon,
+  label,
+  models,
+  selectedModelId,
+  onSelect,
+  startIndex
+}: {
+  icon: React.ReactNode;
+  label: string;
+  models: typeof MODEL_REGISTRY;
+  selectedModelId: string;
+  onSelect: (id: string) => void;
+  startIndex: number;
+}) {
+  return (
+    <div className="py-1">
+      <div className="flex items-center gap-1.5 px-3 py-1.5">
+        {icon}
+        <span className="font-geist text-[10px] font-medium uppercase tracking-wider text-white/30">
+          {label}
+        </span>
+      </div>
+      {models.map((model, index) => (
+        <button
+          key={model.id}
+          className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition ${
+            selectedModelId === model.id
+              ? 'bg-white/[0.07] text-white/80'
+              : 'text-white/50 hover:bg-white/[0.04] hover:text-white/70'
+          }`}
+          onClick={() => onSelect(model.id)}
+          type="button"
+        >
+          <span className="flex-1 font-geist text-[12px] font-medium">
+            {model.label}
+            {model.isNew ? (
+              <span className="ml-1.5 inline-block rounded bg-white/[0.08] px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-white/40">
+                new
+              </span>
+            ) : null}
+          </span>
+          {selectedModelId === model.id ? (
+            <Check className="h-3.5 w-3.5 shrink-0 text-white/40" />
+          ) : null}
+          <span className="w-4 shrink-0 text-right font-mono text-[10px] text-white/15">
+            {startIndex + index}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 }

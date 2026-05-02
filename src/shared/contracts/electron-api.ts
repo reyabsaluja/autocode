@@ -8,7 +8,8 @@ import type {
   ResizeAgentSessionInput,
   SendAgentSessionInput,
   StartAgentSessionInput,
-  StartAgentSessionResult
+  StartAgentSessionResult,
+  StopAgentSessionInput
 } from './agent-sessions';
 import type {
   AddProjectInput,
@@ -72,6 +73,7 @@ export interface AutocodeApi {
     resize: (input: ResizeAgentSessionInput) => Promise<void>;
     sendInput: (input: SendAgentSessionInput) => Promise<void>;
     start: (input: StartAgentSessionInput) => Promise<StartAgentSessionResult>;
+    stop: (input: StopAgentSessionInput) => Promise<void>;
     subscribe: (
       taskId: number,
       callback: (event: AgentSessionEvent) => void

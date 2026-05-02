@@ -10,6 +10,7 @@ import {
   Loader2,
   PanelLeft,
   Plus,
+  Settings,
   Trash2
 } from 'lucide-react';
 
@@ -44,6 +45,7 @@ interface WorkspaceSidebarProps {
   onDeleteProject: (project: Project) => void;
   onDeleteTask: (workspace: TaskWorkspace) => void;
   onManualPathChange: (value: string) => void;
+  onOpenSettings: () => void;
   onSelectProject: (projectId: number | null) => void;
   onSelectTask: (taskId: number | null) => void;
   onSubmitManualPath: () => Promise<void>;
@@ -70,6 +72,7 @@ export function WorkspaceSidebar({
   onDeleteProject,
   onDeleteTask,
   onManualPathChange,
+  onOpenSettings,
   onSelectProject,
   onSelectTask,
   onSubmitManualPath,
@@ -370,6 +373,17 @@ export function WorkspaceSidebar({
             <span className="font-geist text-[14px] text-white/40">No repository selected</span>
           </div>
         )}
+      </div>
+
+      <div className="shrink-0 border-t border-white/[0.10] px-3 py-2">
+        <button
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-white/40 transition hover:bg-white/[0.08] hover:text-white/70"
+          onClick={onOpenSettings}
+          type="button"
+        >
+          <Settings className="h-3.5 w-3.5" />
+          <span className="font-geist text-[12px]">Settings</span>
+        </button>
       </div>
 
       {projectContextMenu ? (

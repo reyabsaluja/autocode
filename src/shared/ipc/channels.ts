@@ -5,7 +5,8 @@ export const agentSessionChannels = {
   readTranscriptTail: 'agentSessions:readTranscriptTail',
   resize: 'agentSessions:resize',
   sendInput: 'agentSessions:sendInput',
-  start: 'agentSessions:start'
+  start: 'agentSessions:start',
+  stop: 'agentSessions:stop'
 } as const;
 
 export const projectChannels = {

@@ -9,6 +9,7 @@ const CODEX_COMMAND = 'codex';
 const CLAUDE_CODE_COMMAND = 'claude';
 
 const PROVIDER_DISPLAY_NAMES: Record<AgentProvider, string> = {
+  'claude-bedrock': 'Claude (Bedrock)',
   'claude-code': 'Claude Code',
   'codex': 'Codex',
   'terminal': 'Terminal'
@@ -64,6 +65,31 @@ export function buildInitialInputForProvider(
   return buildInitialPrompt(title, description);
 }
 
+export function mergeCustomEnvVars(
+  baseEnv: Record<string, string>,
+  customEnvVars: string
+): Record<string, string> {
+  const env = { ...baseEnv };
+
+  for (const line of customEnvVars.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    if (trimmed.startsWith('unset ')) {
+      delete env[trimmed.slice(6).trim()];
+      continue;
+    }
+
+    const withoutExport = trimmed.startsWith('export ') ? trimmed.slice(7) : trimmed;
+    const eqIdx = withoutExport.indexOf('=');
+    if (eqIdx > 0) {
+      env[withoutExport.slice(0, eqIdx)] = withoutExport.slice(eqIdx + 1);
+    }
+  }
+
+  return env;
+}
+
 export function normalizeAgentSpawnError(
   error: unknown,
   provider: AgentProvider
@@ -107,6 +133,8 @@ function resolveCommandNameForProvider(provider: AgentProvider): string {
       return CODEX_COMMAND;
     case 'claude-code':
       return CLAUDE_CODE_COMMAND;
+    case 'claude-bedrock':
+      return 'chat:claude-bedrock';
     case 'terminal':
       return process.env.SHELL ?? '/bin/zsh';
   }
@@ -137,6 +165,8 @@ async function resolveExecutableForProviderUncached(provider: AgentProvider): Pr
       return resolveCliExecutablePath(CODEX_COMMAND, 'Codex CLI');
     case 'claude-code':
       return resolveCliExecutablePath(CLAUDE_CODE_COMMAND, 'Claude Code CLI');
+    case 'claude-bedrock':
+      return 'chat:claude-bedrock';
     case 'terminal':
       return resolveShellExecutablePath();
   }

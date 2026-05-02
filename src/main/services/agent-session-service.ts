@@ -8,7 +8,8 @@ import type {
   ReadAgentSessionTranscriptTailResult,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
-  StartAgentSessionInput
+  StartAgentSessionInput,
+  StopAgentSessionInput
 } from '../../shared/contracts/agent-sessions';
 import type {
   AgentProvider,
@@ -24,10 +25,12 @@ import {
   buildInitialInputForProvider,
   getAgentProviderCommand,
   getAgentProviderDisplayName,
+  mergeCustomEnvVars,
   resolveAgentProviderRuntime
 } from './agent-session-provider';
 import { createAgentSessionRuntimeManager } from './agent-session-runtime-manager';
 import { createChatSessionRuntimeManager } from './chat-session-runtime-manager';
+import { createBedrockChatSessionRuntimeManager } from './bedrock-chat-session-runtime-manager';
 import {
   readAgentSessionTranscriptTail,
   resolveAgentSessionTranscriptPath
@@ -53,9 +56,22 @@ export function createAgentSessionService(
     publishEvent,
     publishWorkspaceInspectionChange
   });
+  const bedrockChatRuntimeManager = createBedrockChatSessionRuntimeManager({
+    agentSessionRepository,
+    publishEvent,
+    publishWorkspaceInspectionChange
+  });
 
   function isChatSession(session: AgentSession | null): boolean {
     return session?.surface === 'chat';
+  }
+
+  function isBedrockChatSession(session: AgentSession | null): boolean {
+    return session?.surface === 'chat' && session?.provider === 'claude-bedrock';
+  }
+
+  function getChatRuntimeForSession(session: AgentSession | null) {
+    return isBedrockChatSession(session) ? bedrockChatRuntimeManager : chatRuntimeManager;
   }
 
   return {
@@ -63,7 +79,7 @@ export function createAgentSessionService(
       const session = agentSessionRepository.findById(input.sessionId);
 
       if (isChatSession(session)) {
-        await chatRuntimeManager.deleteSession(input.sessionId);
+        await getChatRuntimeForSession(session).deleteSession(input.sessionId);
         return;
       }
 
@@ -77,7 +93,7 @@ export function createAgentSessionService(
       for (let index = 0; index < sessions.length; index += 1) {
         const session = sessions[index]!;
         deletions[index] = isChatSession(session)
-          ? chatRuntimeManager.deleteSession(session.id)
+          ? getChatRuntimeForSession(session).deleteSession(session.id)
           : runtimeManager.deleteSession(session.id);
       }
 
@@ -104,6 +120,7 @@ export function createAgentSessionService(
       await mkdir(sessionsRoot, { recursive: true });
       repairInterruptedSessionTranscriptPaths(new Date().toISOString());
       await chatRuntimeManager.reconcileInterruptedChatSessions();
+      await bedrockChatRuntimeManager.reconcileInterruptedChatSessions();
       await runtimeManager.reconcileInterruptedSessions();
     },
 
@@ -121,11 +138,26 @@ export function createAgentSessionService(
       const session = agentSessionRepository.findById(input.sessionId);
 
       if (isChatSession(session)) {
-        await chatRuntimeManager.sendChatMessage(input.sessionId, input.text);
+        await getChatRuntimeForSession(session).sendChatMessage(input.sessionId, input.text);
         return;
       }
 
       await runtimeManager.writeToRuntime(input.sessionId, input.text);
+    },
+
+    async stop(input: StopAgentSessionInput): Promise<void> {
+      const session = agentSessionRepository.findById(input.sessionId);
+
+      if (!session) {
+        return;
+      }
+
+      if (isChatSession(session)) {
+        await getChatRuntimeForSession(session).stopChatSession(input.sessionId);
+        return;
+      }
+
+      await runtimeManager.writeToRuntime(input.sessionId, '\x03');
     },
 
     async start(input: StartAgentSessionInput): Promise<AgentSession> {
@@ -133,7 +165,9 @@ export function createAgentSessionService(
       const timestamp = new Date().toISOString();
       const surface: AgentSessionSurface = input.surface ?? 'terminal';
       const command =
-        surface === 'chat' ? 'chat:codex-sdk' : getAgentProviderCommand(input.provider);
+        surface === 'chat'
+          ? (input.provider === 'claude-bedrock' ? 'chat:claude-bedrock' : 'chat:codex-sdk')
+          : getAgentProviderCommand(input.provider);
       const transcriptPath = resolveAgentSessionTranscriptPath(sessionsRoot, randomUUID());
       let placeholderSession: AgentSession;
 
@@ -169,9 +203,15 @@ export function createAgentSessionService(
       }
 
       if (surface === 'chat') {
+        const targetChatRuntime =
+          input.provider === 'claude-bedrock' ? bedrockChatRuntimeManager : chatRuntimeManager;
+
         try {
-          const runningSession = await chatRuntimeManager.startChatSession({
+          const runningSession = await targetChatRuntime.startChatSession({
+            awsCredentials: input.awsCredentials,
             cwd: context.worktreePath,
+            model: input.model,
+            reasoningEffort: input.reasoningEffort,
             sessionId: placeholderSession.id,
             timestamp: new Date().toISOString(),
             transcriptPath
@@ -203,6 +243,10 @@ export function createAgentSessionService(
           transcriptPath
         });
         throw new Error(message);
+      }
+
+      if (input.customEnvVars) {
+        providerRuntime.env = mergeCustomEnvVars(providerRuntime.env, input.customEnvVars);
       }
 
       const { pid } = await runtimeManager.startRuntime({

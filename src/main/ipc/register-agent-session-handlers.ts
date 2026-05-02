@@ -18,7 +18,10 @@ import {
   sendAgentSessionResultSchema,
   type StartAgentSessionInput,
   startAgentSessionInputSchema,
-  startAgentSessionResultSchema
+  startAgentSessionResultSchema,
+  type StopAgentSessionInput,
+  stopAgentSessionInputSchema,
+  stopAgentSessionResultSchema
 } from '../../shared/contracts/agent-sessions';
 import { agentSessionChannels } from '../../shared/ipc/channels';
 import { createAgentSessionService } from '../services/agent-session-service';
@@ -67,5 +70,12 @@ export function registerAgentSessionHandlers(agentSessionService: AgentSessionSe
       agentSessionService.readTranscriptTail(input),
     inputSchema: readAgentSessionTranscriptTailInputSchema,
     outputSchema: readAgentSessionTranscriptTailResultSchema
+  });
+
+  handleValidatedIpc(agentSessionChannels.stop, {
+    handler: async (_event: IpcMainInvokeEvent, input: StopAgentSessionInput) =>
+      agentSessionService.stop(input),
+    inputSchema: stopAgentSessionInputSchema,
+    outputSchema: stopAgentSessionResultSchema
   });
 }

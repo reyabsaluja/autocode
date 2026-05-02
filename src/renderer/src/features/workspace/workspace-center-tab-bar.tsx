@@ -129,7 +129,6 @@ export function WorkspaceCenterTabBar({
                 <SessionProviderIcon
                   provider={session.provider}
                   surface={session.surface}
-                  isActive={isActiveSessionStatus(session.status)}
                 />
               )}
               isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
@@ -511,6 +510,7 @@ function NewTabOptionIcon({ className, option }: { className?: string; option: N
 function PresetMark({ className, provider }: { className?: string; provider: AgentProvider }) {
   switch (provider) {
     case 'claude-code':
+    case 'claude-bedrock':
       return <ClaudePresetIcon className={className} />;
     case 'codex':
       return <CodexPresetIcon className={className} />;
@@ -524,6 +524,7 @@ function ProviderIcon({ provider }: { provider: AgentProvider }) {
     case 'codex':
       return <CodexGlyph />;
     case 'claude-code':
+    case 'claude-bedrock':
       return <Bot className="h-3 w-3" />;
     case 'terminal':
       return <Terminal className="h-3 w-3" />;
@@ -542,7 +543,6 @@ function SessionProviderIcon({
 }: {
   provider: AgentProvider;
   surface: AgentSessionSurface;
-  isActive: boolean;
 }) {
   if (surface === 'chat') {
     return <MessageSquare className="h-3.5 w-3.5" />;
@@ -552,6 +552,7 @@ function SessionProviderIcon({
     case 'codex':
       return <CodexPresetIcon className="h-3.5 w-3.5" />;
     case 'claude-code':
+    case 'claude-bedrock':
       return <ClaudePresetIcon className="h-3.5 w-3.5" />;
     case 'terminal':
       return null;

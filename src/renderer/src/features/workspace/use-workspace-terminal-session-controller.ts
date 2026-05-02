@@ -10,7 +10,8 @@ import {
   useAgentSessionStream,
   useAgentSessionTranscriptTailQuery,
   useAgentSessionsQuery,
-  useStartAgentSessionMutation
+  useStartAgentSessionMutation,
+  useStopAgentSessionMutation
 } from '../agent-sessions/agent-session-hooks';
 import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 import { useCreateTaskWorkspaceMutation } from '../tasks/task-hooks';
@@ -21,10 +22,13 @@ import {
   getProviderDisplayName,
   getSessionTabDisplayName,
   isActiveSessionStatus,
+  NEW_TAB_CHAT_OPTION,
   TERMINAL_TAB_ID,
   type NewTabOption,
   type WorkspaceCenterTransitionRequest
 } from './workspace-inspector-shared';
+import { useChatProviderStore } from '../../stores/chat-provider-store';
+import { useProviderSettingsStore } from '../../stores/provider-settings-store';
 
 const EMPTY_ENTRIES: AgentSessionTranscriptEntry[] = [];
 
@@ -84,6 +88,7 @@ export function useWorkspaceTerminalSessionController({
   const startSessionMutation = useStartAgentSessionMutation(taskId);
   const deleteSessionMutation = useDeleteAgentSessionMutation(taskId);
   const sendInputMutation = useAgentSessionInputMutation(selectedSession?.id ?? null);
+  const stopSessionMutation = useStopAgentSessionMutation();
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSession?.id ?? null);
   const transcriptQuery = useAgentSessionTranscriptTailQuery(
     selectedSession?.id ?? null,
@@ -92,6 +97,7 @@ export function useWorkspaceTerminalSessionController({
   const terminalErrorMessage =
     isolatedLaunchError ??
     formatWorkspaceInspectorError(startSessionMutation.error) ??
+    formatWorkspaceInspectorError(sendInputMutation.error) ??
     formatWorkspaceInspectorError(deleteSessionMutation.error) ??
     formatWorkspaceInspectorError(transcriptQuery.error) ??
     formatWorkspaceInspectorError(sessionsQuery.error);
@@ -167,9 +173,16 @@ export function useWorkspaceTerminalSessionController({
   }
 
   async function startSession(option: NewTabOption) {
+    const chatState = useChatProviderStore.getState();
+    const effectiveProvider = option.kind === 'chat' ? chatState.chatProvider : option.provider;
+    const providerSettings = useProviderSettingsStore.getState();
     const session = await startSessionMutation.mutateAsync({
       ...terminalSize,
-      provider: option.provider,
+      awsCredentials: effectiveProvider === 'claude-bedrock' ? chatState.awsCredentials : undefined,
+      customEnvVars: providerSettings.claudeCodeEnvVars || undefined,
+      model: option.kind === 'chat' ? chatState.chatModel : undefined,
+      provider: effectiveProvider,
+      reasoningEffort: option.kind === 'chat' ? chatState.reasoningEffort : undefined,
       surface: option.surface
     });
     setSelectedSessionId(session.id);
@@ -289,8 +302,8 @@ export function useWorkspaceTerminalSessionController({
       return;
     }
 
-    deleteSessionMutation.mutate(current.id);
-  }, [deleteSessionMutation]);
+    stopSessionMutation.mutate(current.id);
+  }, [stopSessionMutation]);
 
   const emptyStateMode = useMemo<'idle' | 'selectSession' | 'starting'>(() => {
     if (startSessionMutation.isPending) {
@@ -318,20 +331,35 @@ export function useWorkspaceTerminalSessionController({
     terminalErrorMessage
   ]);
 
+  const handleStartNewChat = useCallback(() => {
+    const current = selectedSessionRef.current;
+
+    if (current && current.surface === 'chat' && isActiveSessionStatus(current.status)) {
+      stopSessionMutation.mutate(current.id);
+    }
+
+    showTerminal();
+    void startSession(NEW_TAB_CHAT_OPTION);
+  }, [showTerminal, stopSessionMutation, startSessionMutation, terminalSize]);
+
   const chatSurfaceProps = useMemo(() => ({
     emptyStateMode,
     entries,
     errorMessage: terminalErrorMessage,
     isInteractive: isActiveSessionStatus(selectedSession?.status),
     onSend: handleChatSend,
+    onStartNewChat: handleStartNewChat,
     onStop: handleChatStop,
+    provider: selectedSession?.provider,
     sessionId: selectedSession?.id ?? null
   }), [
     emptyStateMode,
     entries,
     handleChatSend,
     handleChatStop,
+    handleStartNewChat,
     selectedSession?.id,
+    selectedSession?.provider,
     selectedSession?.status,
     terminalErrorMessage
   ]);

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const agentProviderValues = ['codex', 'claude-code', 'terminal'] as const;
+export const agentProviderValues = ['codex', 'claude-code', 'claude-bedrock', 'terminal'] as const;
 export const agentSessionSurfaceValues = ['terminal', 'chat'] as const;
 export const agentSessionStatusValues = [
   'starting',
@@ -17,6 +17,7 @@ export const agentSessionTranscriptStreamValues = [
   'assistant-delta',
   'assistant-done',
   'thinking',
+  'thinking-done',
   'tool-start',
   'tool-update',
   'tool-done',

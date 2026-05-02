@@ -17,8 +17,18 @@ export const listAgentSessionsByTaskInputSchema = z.object({
 });
 
 export const startAgentSessionInputSchema = z.object({
+  awsCredentials: z
+    .object({
+      accessKeyId: z.string(),
+      region: z.string(),
+      secretAccessKey: z.string()
+    })
+    .optional(),
   cols: terminalDimensionSchema,
+  customEnvVars: z.string().optional(),
+  model: z.string().optional(),
   provider: agentProviderSchema,
+  reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
   rows: terminalDimensionSchema,
   surface: agentSessionSurfaceSchema.default('terminal'),
   taskId: taskIdSchema
@@ -27,6 +37,10 @@ export const startAgentSessionInputSchema = z.object({
 export const sendAgentSessionInputSchema = z.object({
   sessionId: sessionIdSchema,
   text: z.string().min(1)
+});
+
+export const stopAgentSessionInputSchema = z.object({
+  sessionId: sessionIdSchema
 });
 
 export const resizeAgentSessionInputSchema = z.object({
@@ -48,6 +62,7 @@ export const agentSessionListSchema = z.array(agentSessionSchema);
 export const listAgentSessionsByTaskResultSchema = agentSessionListSchema;
 export const startAgentSessionResultSchema = agentSessionSchema;
 export const sendAgentSessionResultSchema = z.void();
+export const stopAgentSessionResultSchema = z.void();
 export const resizeAgentSessionResultSchema = z.void();
 export const deleteAgentSessionResultSchema = z.void();
 export const readAgentSessionTranscriptTailResultSchema = z.object({
@@ -59,6 +74,7 @@ export const agentSessionEventResultSchema = agentSessionEventSchema;
 export type ListAgentSessionsByTaskInput = z.infer<typeof listAgentSessionsByTaskInputSchema>;
 export type StartAgentSessionInput = z.infer<typeof startAgentSessionInputSchema>;
 export type SendAgentSessionInput = z.infer<typeof sendAgentSessionInputSchema>;
+export type StopAgentSessionInput = z.infer<typeof stopAgentSessionInputSchema>;
 export type ResizeAgentSessionInput = z.infer<typeof resizeAgentSessionInputSchema>;
 export type DeleteAgentSessionInput = z.infer<typeof deleteAgentSessionInputSchema>;
 export type ReadAgentSessionTranscriptTailInput = z.infer<

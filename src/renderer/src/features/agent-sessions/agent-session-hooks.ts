@@ -130,6 +130,14 @@ export function useAgentSessionInputMutation(sessionId: number | null) {
   });
 }
 
+export function useStopAgentSessionMutation() {
+  return useMutation({
+    mutationFn: (sessionId: number) => {
+      return autocodeApi.agentSessions.stop({ sessionId });
+    }
+  });
+}
+
 export function useAgentSessionResizeMutation(sessionId: number | null) {
   return useMutation({
     mutationFn: (input: Omit<ResizeAgentSessionInput, 'sessionId'>) => {

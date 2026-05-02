@@ -22,6 +22,7 @@ type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 interface ChatSessionRuntime {
   codex: Codex;
   cwd: string;
+  itemTextSnapshots: Map<string, string>;
   thread: Thread;
   turnAbort: AbortController | null;
 }
@@ -42,11 +43,15 @@ export function createChatSessionRuntimeManager({
     deleteSession,
     reconcileInterruptedChatSessions,
     sendChatMessage,
-    startChatSession
+    startChatSession,
+    stopChatSession
   };
 
   async function startChatSession(input: {
+    awsCredentials?: { accessKeyId: string; secretAccessKey: string; region: string };
     cwd: string;
+    model?: string;
+    reasoningEffort?: string;
     sessionId: number;
     timestamp: string;
     transcriptPath: string;
@@ -55,6 +60,8 @@ export function createChatSessionRuntimeManager({
 
     const codex = new Codex();
     const thread = codex.startThread({
+      model: input.model,
+      modelReasoningEffort: input.reasoningEffort as any,
       skipGitRepoCheck: true,
       workingDirectory: input.cwd
     });
@@ -62,6 +69,7 @@ export function createChatSessionRuntimeManager({
     runtimes.set(input.sessionId, {
       codex,
       cwd: input.cwd,
+      itemTextSnapshots: new Map(),
       thread,
       turnAbort: null
     });
@@ -126,7 +134,7 @@ export function createChatSessionRuntimeManager({
       const streamed = await runtime.thread.runStreamed(trimmed, { signal: abort.signal });
 
       for await (const event of streamed.events) {
-        await handleThreadEvent(sessionId, transcriptPath, event);
+        await handleThreadEvent(sessionId, transcriptPath, event, runtime);
       }
     } catch (error) {
       const message =
@@ -143,9 +151,10 @@ export function createChatSessionRuntimeManager({
   async function handleThreadEvent(
     sessionId: number,
     transcriptPath: string,
-    event: ThreadEvent
+    event: ThreadEvent,
+    runtime: ChatSessionRuntime
   ): Promise<void> {
-    const translated = translateThreadEvent(event);
+    const translated = translateThreadEvent(event, runtime);
 
     if (!translated) {
       return;
@@ -180,7 +189,8 @@ export function createChatSessionRuntimeManager({
   };
 
   function translateThreadEvent(
-    event: ThreadEvent
+    event: ThreadEvent,
+    runtime: ChatSessionRuntime
   ): TranslatedEntry | TranslatedEntry[] | null {
     switch (event.type) {
       case 'turn.started':
@@ -207,36 +217,47 @@ export function createChatSessionRuntimeManager({
         return { stream: 'system', text: `Codex error: ${event.message}` };
 
       case 'item.started':
-        return translateItemStarted(event.item);
+        return translateItemStarted(event.item, runtime);
 
       case 'item.updated':
-        return translateItemUpdated(event.item);
+        return translateItemUpdated(event.item, runtime);
 
       case 'item.completed':
-        return translateItemCompleted(event.item);
+        return translateItemCompleted(event.item, runtime);
 
       default:
         return null;
     }
   }
 
+  function computeTextDelta(runtime: ChatSessionRuntime, itemId: string, cumulativeText: string): string {
+    const previous = runtime.itemTextSnapshots.get(itemId) ?? '';
+    runtime.itemTextSnapshots.set(itemId, cumulativeText);
+    return cumulativeText.slice(previous.length);
+  }
+
   function translateItemStarted(
-    item: ThreadItem
+    item: ThreadItem,
+    runtime: ChatSessionRuntime
   ): TranslatedEntry | TranslatedEntry[] | null {
     switch (item.type) {
-      case 'agent_message':
+      case 'agent_message': {
+        const delta = computeTextDelta(runtime, item.id, item.text);
         return {
           stream: 'assistant-delta',
-          text: item.text,
+          text: delta,
           itemId: item.id
         };
+      }
 
-      case 'reasoning':
+      case 'reasoning': {
+        const delta = computeTextDelta(runtime, item.id, item.text);
         return {
           stream: 'thinking',
-          text: item.text,
+          text: delta,
           itemId: item.id
         };
+      }
 
       case 'command_execution':
         return {
@@ -295,22 +316,27 @@ export function createChatSessionRuntimeManager({
   }
 
   function translateItemUpdated(
-    item: ThreadItem
+    item: ThreadItem,
+    runtime: ChatSessionRuntime
   ): TranslatedEntry | TranslatedEntry[] | null {
     switch (item.type) {
-      case 'agent_message':
+      case 'agent_message': {
+        const delta = computeTextDelta(runtime, item.id, item.text);
         return {
           stream: 'assistant-delta',
-          text: item.text,
+          text: delta,
           itemId: item.id
         };
+      }
 
-      case 'reasoning':
+      case 'reasoning': {
+        const delta = computeTextDelta(runtime, item.id, item.text);
         return {
           stream: 'thinking',
-          text: item.text,
+          text: delta,
           itemId: item.id
         };
+      }
 
       case 'command_execution':
         return {
@@ -338,20 +364,23 @@ export function createChatSessionRuntimeManager({
   }
 
   function translateItemCompleted(
-    item: ThreadItem
+    item: ThreadItem,
+    runtime: ChatSessionRuntime
   ): TranslatedEntry | TranslatedEntry[] | null {
+    runtime.itemTextSnapshots.delete(item.id);
+
     switch (item.type) {
       case 'agent_message':
         return {
           stream: 'assistant-done',
-          text: item.text,
+          text: '',
           itemId: item.id
         };
 
       case 'reasoning':
         return {
-          stream: 'thinking',
-          text: item.text,
+          stream: 'thinking-done',
+          text: '',
           itemId: item.id
         };
 
@@ -422,6 +451,18 @@ export function createChatSessionRuntimeManager({
     }
   }
 
+  async function stopChatSession(sessionId: number): Promise<void> {
+    const runtime = runtimes.get(sessionId);
+
+    if (!runtime) {
+      return;
+    }
+
+    if (runtime.turnAbort) {
+      runtime.turnAbort.abort();
+    }
+  }
+
   async function deleteSession(sessionId: number): Promise<void> {
     const runtime = runtimes.get(sessionId);
     const session = agentSessionRepository.findInternalById(sessionId);
@@ -458,7 +499,7 @@ export function createChatSessionRuntimeManager({
     const activeSessions = agentSessionRepository.listActiveSessionRecords();
 
     for (const session of activeSessions) {
-      if (session.surface !== 'chat') {
+      if (session.surface !== 'chat' || session.provider === 'claude-bedrock') {
         continue;
       }
 

@@ -15,7 +15,7 @@ export interface NewTabOption {
 }
 
 export const NEW_TAB_CHAT_OPTION: NewTabOption = {
-  id: 'chat:codex',
+  id: 'chat:default',
   kind: 'chat',
   label: 'chat',
   provider: 'codex',
@@ -50,6 +50,8 @@ export function getProviderDisplayName(provider: AgentProvider): string {
       return 'Codex';
     case 'claude-code':
       return 'Claude';
+    case 'claude-bedrock':
+      return 'Claude (Bedrock)';
     case 'terminal':
       return 'Terminal';
   }
