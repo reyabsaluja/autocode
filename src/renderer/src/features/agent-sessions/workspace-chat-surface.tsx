@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type HTMLAttributes } from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes } from 'react';
 import {
   Brain,
   Check,
@@ -9,6 +9,8 @@ import {
   ListTodo,
   Loader2,
   MessageSquare,
+  Pencil,
+  RotateCcw,
   Send,
   Sparkles,
   Square,
@@ -20,6 +22,16 @@ import { math } from '@streamdown/math';
 import { useStickToBottom } from 'use-stick-to-bottom';
 
 import type { AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
+
+interface ChatActions {
+  onResend: (text: string) => void;
+  onEdit: (text: string) => void;
+}
+
+const ChatActionsContext = createContext<ChatActions>({
+  onResend: () => {},
+  onEdit: () => {}
+});
 
 const streamdownPlugins = { code, math };
 
@@ -255,7 +267,19 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
     []
   );
 
+  const chatActions = useMemo<ChatActions>(() => ({
+    onResend: (text: string) => {
+      onSend(text);
+      setWaitingForResponse(true);
+    },
+    onEdit: (text: string) => {
+      setComposerValue(text);
+      textareaRef.current?.focus();
+    }
+  }), [onSend]);
+
   return (
+    <ChatActionsContext.Provider value={chatActions}>
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.06] bg-surface-0">
       {errorMessage ? (
         <div className="border-b border-rose-500/20 bg-rose-500/[0.06] px-4 py-2 font-geist text-[12px] text-rose-200">
@@ -380,6 +404,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
         </>
       )}
     </div>
+    </ChatActionsContext.Provider>
   );
 });
 
@@ -487,10 +512,37 @@ const ChatItemView = memo(function ChatItemView({ item }: { item: ChatItem }) {
 });
 
 function UserMessage({ text }: { text: string }) {
+  const { onResend, onEdit } = useContext(ChatActionsContext);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [text]);
+
   return (
-    <div className="flex justify-end">
+    <div className="group/user flex flex-col items-end gap-1">
       <div className="max-w-[85%] rounded-2xl rounded-br-md bg-white/[0.10] px-4 py-3 font-geist text-[13px] leading-relaxed text-white whitespace-pre-wrap">
         {text}
+      </div>
+      <div className="flex items-center gap-0.5 opacity-0 transition group-hover/user:opacity-100">
+        <MessageActionButton
+          icon={copied ? <Check className="h-3 w-3 text-emerald-400/60" /> : <Copy className="h-3 w-3" />}
+          label={copied ? 'Copied' : 'Copy'}
+          onClick={handleCopy}
+        />
+        <MessageActionButton
+          icon={<Pencil className="h-3 w-3" />}
+          label="Edit"
+          onClick={() => onEdit(text)}
+        />
+        <MessageActionButton
+          icon={<RotateCcw className="h-3 w-3" />}
+          label="Retry"
+          onClick={() => onResend(text)}
+        />
       </div>
     </div>
   );
@@ -499,8 +551,17 @@ function UserMessage({ text }: { text: string }) {
 function AssistantMessage({ text, isStreaming }: { text: string; isStreaming?: boolean }) {
   if (!text.trim()) return null;
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [text]);
+
   return (
-    <div className="group">
+    <div className="group/assistant">
       <div className="chat-markdown prose prose-invert max-w-none font-geist text-[13.5px] leading-[1.7] text-white/90">
         <Streamdown
           plugins={streamdownPlugins}
@@ -510,6 +571,15 @@ function AssistantMessage({ text, isStreaming }: { text: string; isStreaming?: b
           {text}
         </Streamdown>
       </div>
+      {!isStreaming ? (
+        <div className="mt-1 flex items-center gap-0.5 opacity-0 transition group-hover/assistant:opacity-100">
+          <MessageActionButton
+            icon={copied ? <Check className="h-3 w-3 text-emerald-400/60" /> : <Copy className="h-3 w-3" />}
+            label={copied ? 'Copied' : 'Copy'}
+            onClick={handleCopy}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -734,14 +804,35 @@ function TodoListMessage({ items }: { items: Array<{ text: string; completed: bo
 
 function TurnInfoMessage({ usage }: { usage: TurnUsage }) {
   return (
-    <div className="flex items-center justify-center gap-3 py-1">
-      <span className="font-geist text-[10px] text-white/20">
-        {usage.inputTokens.toLocaleString()} in
-        {usage.cachedInputTokens > 0 ? ` (${usage.cachedInputTokens.toLocaleString()} cached)` : ''}
-        {' \u00b7 '}
-        {usage.outputTokens.toLocaleString()} out
+    <div className="flex items-center gap-3 -my-1">
+      <div className="h-px flex-1 bg-white/[0.04]" />
+      <span className="shrink-0 font-mono text-[9px] tracking-wide text-white/15">
+        {usage.inputTokens.toLocaleString()} in · {usage.outputTokens.toLocaleString()} out
       </span>
+      <div className="h-px flex-1 bg-white/[0.04]" />
     </div>
+  );
+}
+
+function MessageActionButton({
+  icon,
+  label,
+  onClick
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="flex items-center gap-1 rounded-md px-1.5 py-1 text-white/20 transition hover:bg-white/[0.05] hover:text-white/45"
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      {icon}
+      <span className="font-geist text-[10px]">{label}</span>
+    </button>
   );
 }
 
