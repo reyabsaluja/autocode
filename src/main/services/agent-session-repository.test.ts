@@ -73,6 +73,7 @@ describe('agent session repository', () => {
       command: 'codex',
       createdAt: timestamp,
       provider: 'codex',
+      surface: 'terminal',
       taskId: task.id,
       transcriptPath: '/tmp/session-1.ndjson',
       worktreeId: worktree.id
@@ -83,6 +84,7 @@ describe('agent session repository', () => {
         command: 'claude',
         createdAt: '2026-04-02T12:00:01.000Z',
         provider: 'claude-code',
+        surface: 'terminal',
         taskId: task.id,
         transcriptPath: '/tmp/session-2.ndjson',
         worktreeId: worktree.id

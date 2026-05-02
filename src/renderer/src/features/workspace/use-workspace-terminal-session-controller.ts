@@ -19,8 +19,10 @@ import {
   DEFAULT_TERMINAL_SIZE,
   formatWorkspaceInspectorError,
   getProviderDisplayName,
+  getSessionTabDisplayName,
   isActiveSessionStatus,
   TERMINAL_TAB_ID,
+  type NewTabOption,
   type WorkspaceCenterTransitionRequest
 } from './workspace-inspector-shared';
 
@@ -132,53 +134,62 @@ export function useWorkspaceTerminalSessionController({
     });
   }
 
-  function requestStartSession(provider: AgentProvider) {
-    const shouldOfferIsolation = provider !== 'terminal' && activeAiSessions.length > 0;
+  function requestStartSession(option: NewTabOption) {
+    const isChat = option.kind === 'chat';
+    const shouldOfferIsolation =
+      !isChat && option.provider !== 'terminal' && activeAiSessions.length > 0;
+    const displayName = getSessionTabDisplayName(option.provider, option.surface);
 
     runWithCenterTransition({
       body: shouldOfferIsolation
         ? 'Save or discard your changes to the current file before launching another AI agent.'
         : 'Save or discard your changes to the current file before starting a new session.',
-      key: `session:start:${taskId}:${provider}:${sessions.length}`,
+      key: `session:start:${taskId}:${option.id}:${sessions.length}`,
       run: () => {
         setIsolatedLaunchError(null);
 
         if (shouldOfferIsolation) {
           const confirmed = window.confirm(
-            `Agent tabs in this task share one git worktree.\n\nSelect OK to create a new isolated task workspace for ${getProviderDisplayName(provider)} from "${taskWorkspace.task.title}"'s current branch.\n\nUncommitted changes stay in the current workspace.\n\nSelect Cancel to keep ${getProviderDisplayName(provider)} in the current shared workspace.`
+            `Agent tabs in this task share one git worktree.\n\nSelect OK to create a new isolated task workspace for ${displayName} from "${taskWorkspace.task.title}"'s current branch.\n\nUncommitted changes stay in the current workspace.\n\nSelect Cancel to keep ${displayName} in the current shared workspace.`
           );
 
           if (confirmed) {
-            void launchIsolatedSession(provider);
+            void launchIsolatedSession(option);
             return;
           }
         }
 
         showTerminal();
-        void startSession(provider);
+        void startSession(option);
       },
       title: 'Unsaved file edits'
     });
   }
 
-  async function startSession(provider: AgentProvider) {
-    const session = await startSessionMutation.mutateAsync({ ...terminalSize, provider });
+  async function startSession(option: NewTabOption) {
+    const session = await startSessionMutation.mutateAsync({
+      ...terminalSize,
+      provider: option.provider,
+      surface: option.surface
+    });
     setSelectedSessionId(session.id);
   }
 
-  async function launchIsolatedSession(provider: AgentProvider) {
+  async function launchIsolatedSession(option: NewTabOption) {
     setIsLaunchingIsolatedSession(true);
+    const displayName = getSessionTabDisplayName(option.provider, option.surface);
 
     try {
       const workspace = await createTaskWorkspaceMutation.mutateAsync({
         baseTaskId: taskWorkspace.task.id,
         description: taskWorkspace.task.description ?? '',
-        title: buildIsolatedAgentTaskTitle(taskWorkspace.task.title, provider)
+        title: buildIsolatedAgentTaskTitle(taskWorkspace.task.title, option.provider)
       });
 
       await autocodeApi.agentSessions.start({
         ...terminalSize,
-        provider,
+        provider: option.provider,
+        surface: option.surface,
         taskId: workspace.task.id
       });
 
@@ -187,7 +198,7 @@ export function useWorkspaceTerminalSessionController({
       setIsolatedLaunchError(
         error instanceof Error
           ? error.message
-          : `Autocode could not start ${getProviderDisplayName(provider)} in a new isolated task workspace.`
+          : `Autocode could not start ${displayName} in a new isolated task workspace.`
       );
     } finally {
       setIsLaunchingIsolatedSession(false);
@@ -261,12 +272,26 @@ export function useWorkspaceTerminalSessionController({
 
   const entries = transcriptQuery.data?.entries ?? EMPTY_ENTRIES;
 
+  const handleChatSend = useCallback((text: string) => {
+    const current = selectedSessionRef.current;
+
+    if (!current || !isActiveSessionStatus(current.status)) {
+      return;
+    }
+
+    sendInputMutation.mutate({ text });
+  }, [sendInputMutation]);
+
+  const emptyStateMode = useMemo<'idle' | 'selectSession' | 'starting'>(() => {
+    if (startSessionMutation.isPending) {
+      return 'starting';
+    }
+
+    return sessions.length > 0 ? 'selectSession' : 'idle';
+  }, [sessions.length, startSessionMutation.isPending]);
+
   const terminalSurfaceProps = useMemo(() => ({
-    emptyStateMode: startSessionMutation.isPending
-      ? ('starting' as const)
-      : sessions.length > 0
-        ? ('selectSession' as const)
-        : ('idle' as const),
+    emptyStateMode,
     entries,
     errorMessage: terminalErrorMessage,
     isInteractive: isActiveSessionStatus(selectedSession?.status),
@@ -274,17 +299,33 @@ export function useWorkspaceTerminalSessionController({
     onResize: handleTerminalResize,
     sessionId: selectedSession?.id ?? null
   }), [
+    emptyStateMode,
     entries,
     handleTerminalData,
     handleTerminalResize,
     selectedSession?.id,
     selectedSession?.status,
-    sessions.length,
-    startSessionMutation.isPending,
+    terminalErrorMessage
+  ]);
+
+  const chatSurfaceProps = useMemo(() => ({
+    emptyStateMode,
+    entries,
+    errorMessage: terminalErrorMessage,
+    isInteractive: isActiveSessionStatus(selectedSession?.status),
+    onSend: handleChatSend,
+    sessionId: selectedSession?.id ?? null
+  }), [
+    emptyStateMode,
+    entries,
+    handleChatSend,
+    selectedSession?.id,
+    selectedSession?.status,
     terminalErrorMessage
   ]);
 
   return {
+    chatSurfaceProps,
     deleteSessionMutation,
     requestDeleteSession,
     requestStartSession,

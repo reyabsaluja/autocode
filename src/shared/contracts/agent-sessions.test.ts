@@ -31,6 +31,7 @@ describe('agent session contracts', () => {
         provider: 'codex',
         startedAt: '2026-04-01T12:00:00.000Z',
         status: 'running',
+        surface: 'terminal',
         taskId: 7,
         updatedAt: '2026-04-01T12:00:01.000Z',
         worktreeId: 9

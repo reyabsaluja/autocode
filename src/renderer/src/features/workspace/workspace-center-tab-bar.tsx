@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   FileCode2,
+  MessageSquare,
   Plus,
   RotateCcw,
   Settings,
@@ -14,20 +15,17 @@ import {
   X
 } from 'lucide-react';
 
-import type { AgentProvider, AgentSession } from '@shared/domain/agent-session';
-import type { WorkspaceFileTab } from './workspace-inspector-shared';
+import type { AgentProvider, AgentSession, AgentSessionSurface } from '@shared/domain/agent-session';
+import type { NewTabOption, WorkspaceFileTab } from './workspace-inspector-shared';
 import {
   basename,
   getProviderDisplayName,
+  getSessionTabDisplayName,
   isActiveSessionStatus,
+  NEW_TAB_CHAT_OPTION,
   TERMINAL_TAB_ID
 } from './workspace-inspector-shared';
 
-function formatPresetLabel(name: string): string {
-  const t = name.trim();
-  if (!t) return t;
-  return t.toLowerCase();
-}
 import { ClaudePresetIcon, CodexPresetIcon } from '../../lib/provider-preset-icons';
 import { useProviderPreferencesStore } from '../../stores/provider-preferences-store';
 import { useSessionLabel } from '../../stores/session-label-store';
@@ -40,7 +38,7 @@ interface WorkspaceCenterTabBarProps {
   onDeleteSession: (sessionId: number) => void;
   onRequestFileTabActivation: (path: string) => void;
   onRequestSessionSelection: (sessionId: number) => void;
-  onRequestStartSession: (provider: AgentProvider) => void;
+  onRequestStartSession: (option: NewTabOption) => void;
   selectedSessionId: number | null;
   sessions: AgentSession[];
   startSessionPending: boolean;
@@ -72,14 +70,27 @@ export function WorkspaceCenterTabBar({
 
     return nextVisibleProviders;
   }, [providers]);
-  const providerSessionIndexById = useMemo(() => {
-    const nextProviderIndex = new Map<AgentProvider, number>();
+  const newTabOptions = useMemo<NewTabOption[]>(() => {
+    const options: NewTabOption[] = visibleProviders.map((entry) => ({
+      id: `terminal:${entry.id}`,
+      kind: 'terminal' as const,
+      label: getProviderDisplayName(entry.id).toLowerCase(),
+      provider: entry.id,
+      surface: 'terminal' as AgentSessionSurface
+    }));
+
+    options.push(NEW_TAB_CHAT_OPTION);
+    return options;
+  }, [visibleProviders]);
+  const sessionTabIndexById = useMemo(() => {
+    const nextTabIndex = new Map<string, number>();
     const indexById = new Map<number, number>();
 
     for (let index = sessions.length - 1; index >= 0; index -= 1) {
       const session = sessions[index]!;
-      const nextIndex = (nextProviderIndex.get(session.provider) ?? 0) + 1;
-      nextProviderIndex.set(session.provider, nextIndex);
+      const key = `${session.surface}:${session.provider}`;
+      const nextIndex = (nextTabIndex.get(key) ?? 0) + 1;
+      nextTabIndex.set(key, nextIndex);
       indexById.set(session.id, nextIndex);
     }
 
@@ -87,9 +98,9 @@ export function WorkspaceCenterTabBar({
   }, [sessions]);
   const [isNewTabMenuOpen, setIsNewTabMenuOpen] = useState(false);
 
-  const handleNewTabSelect = useCallback((provider: AgentProvider) => {
+  const handleNewTabSelect = useCallback((option: NewTabOption) => {
     setIsNewTabMenuOpen(false);
-    onRequestStartSession(provider);
+    onRequestStartSession(option);
   }, [onRequestStartSession]);
 
   useEffect(() => {
@@ -108,8 +119,8 @@ export function WorkspaceCenterTabBar({
     <div className="shrink-0 bg-[#141414]">
       <div className="flex h-[42px] items-stretch gap-0 border-b border-white/[0.06]">
         {sessions.map((session) => {
-          const providerIndex = providerSessionIndexById.get(session.id) ?? 1;
-          const fallbackLabel = `${getProviderDisplayName(session.provider)} ${providerIndex}`;
+          const tabIndex = sessionTabIndexById.get(session.id) ?? 1;
+          const fallbackLabel = `${getSessionTabDisplayName(session.provider, session.surface)} ${tabIndex}`;
           return (
             <SessionCenterTab
               closeLabel={`Delete ${fallbackLabel}`}
@@ -117,6 +128,7 @@ export function WorkspaceCenterTabBar({
               icon={(
                 <SessionProviderIcon
                   provider={session.provider}
+                  surface={session.surface}
                   isActive={isActiveSessionStatus(session.status)}
                 />
               )}
@@ -160,19 +172,19 @@ export function WorkspaceCenterTabBar({
           onClose={() => setIsNewTabMenuOpen(false)}
           onSelect={handleNewTabSelect}
           onToggle={() => setIsNewTabMenuOpen((open) => !open)}
-          visibleProviders={visibleProviders}
+          options={newTabOptions}
         />
       </div>
 
       <div className="flex h-[32px] items-center gap-0.5 border-b border-white/[0.06] px-2">
         <ProviderSettingsButton />
 
-        {visibleProviders.map((entry) => (
+        {newTabOptions.map((option) => (
           <QuickLaunchButton
-            key={entry.id}
+            key={option.id}
             disabled={startSessionPending}
-            provider={entry.id}
-            onClick={() => onRequestStartSession(entry.id)}
+            option={option}
+            onClick={() => onRequestStartSession(option)}
           />
         ))}
       </div>
@@ -195,11 +207,11 @@ function SessionCenterTab({
 
 function QuickLaunchButton({
   disabled,
-  provider,
+  option,
   onClick
 }: {
   disabled: boolean;
-  provider: AgentProvider;
+  option: NewTabOption;
   onClick: () => void;
 }) {
   return (
@@ -212,13 +224,11 @@ function QuickLaunchButton({
       )}
       disabled={disabled}
       onClick={onClick}
-      title={`New ${formatPresetLabel(getProviderDisplayName(provider))} session`}
+      title={`New ${option.label} tab`}
       type="button"
     >
-      {provider !== 'terminal' ? (
-        <PresetMark className="h-3.5 w-3.5 shrink-0" provider={provider} />
-      ) : null}
-      {formatPresetLabel(getProviderDisplayName(provider))}
+      <NewTabOptionIcon className="h-3.5 w-3.5 shrink-0" option={option} />
+      {option.label}
     </button>
   );
 }
@@ -413,14 +423,14 @@ function NewTabButton({
   onClose,
   onSelect,
   onToggle,
-  visibleProviders
+  options
 }: {
   disabled: boolean;
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (provider: AgentProvider) => void;
+  onSelect: (option: NewTabOption) => void;
   onToggle: () => void;
-  visibleProviders: Array<{ id: AgentProvider; visible: boolean }>;
+  options: NewTabOption[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -466,18 +476,16 @@ function NewTabButton({
       {isOpen ? (
         <div className="absolute left-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1c1c1c] shadow-2xl">
           <div className="py-1">
-            {visibleProviders.map((entry) => (
+            {options.map((option) => (
               <button
-                key={entry.id}
+                key={option.id}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition hover:bg-white/[0.06]"
-                onClick={() => onSelect(entry.id)}
+                onClick={() => onSelect(option)}
                 type="button"
               >
-                {entry.id !== 'terminal' ? (
-                  <PresetMark className="h-3.5 w-3.5 shrink-0" provider={entry.id} />
-                ) : null}
+                <NewTabOptionIcon className="h-3.5 w-3.5 shrink-0" option={option} />
                 <span className="font-geist text-[12px] font-medium text-white/70">
-                  {formatPresetLabel(getProviderDisplayName(entry.id))}
+                  {option.label}
                 </span>
               </button>
             ))}
@@ -486,6 +494,18 @@ function NewTabButton({
       ) : null}
     </div>
   );
+}
+
+function NewTabOptionIcon({ className, option }: { className?: string; option: NewTabOption }) {
+  if (option.kind === 'chat') {
+    return <MessageSquare className={className} />;
+  }
+
+  if (option.provider === 'terminal') {
+    return <Terminal className={className} />;
+  }
+
+  return <PresetMark className={className} provider={option.provider} />;
 }
 
 function PresetMark({ className, provider }: { className?: string; provider: AgentProvider }) {
@@ -516,7 +536,18 @@ function CodexGlyph() {
   );
 }
 
-function SessionProviderIcon({ provider }: { provider: AgentProvider; isActive: boolean }) {
+function SessionProviderIcon({
+  provider,
+  surface
+}: {
+  provider: AgentProvider;
+  surface: AgentSessionSurface;
+  isActive: boolean;
+}) {
+  if (surface === 'chat') {
+    return <MessageSquare className="h-3.5 w-3.5" />;
+  }
+
   switch (provider) {
     case 'codex':
       return <CodexPresetIcon className="h-3.5 w-3.5" />;

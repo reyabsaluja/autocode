@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import type { TaskWorkspace } from '@shared/domain/task-workspace';
 
+import { WorkspaceChatSurface } from '../agent-sessions/workspace-chat-surface';
 import { WorkspaceTerminalSurface } from '../agent-sessions/workspace-terminal-surface';
 import { UnsavedChangesDialog } from '../editor/unsaved-changes-dialog';
 import {
@@ -76,9 +77,15 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
 
             <div className="relative z-0 min-h-0 min-w-0 flex-1 overflow-hidden isolate">
               {fileController.activeCenterTab === TERMINAL_TAB_ID ? (
-                <WorkspaceTerminalSurface
-                  {...sessionController.terminalSurfaceProps}
-                />
+                sessionController.selectedSession?.surface === 'chat' ? (
+                  <WorkspaceChatSurface
+                    {...sessionController.chatSurfaceProps}
+                  />
+                ) : (
+                  <WorkspaceTerminalSurface
+                    {...sessionController.terminalSurfaceProps}
+                  />
+                )
               ) : (
                 <WorkspaceEditorSurface
                   ref={editorRef}

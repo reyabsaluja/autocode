@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const agentProviderValues = ['codex', 'claude-code', 'terminal'] as const;
+export const agentSessionSurfaceValues = ['terminal', 'chat'] as const;
 export const agentSessionStatusValues = [
   'starting',
   'running',
@@ -8,9 +9,24 @@ export const agentSessionStatusValues = [
   'failed',
   'terminated'
 ] as const;
-export const agentSessionTranscriptStreamValues = ['stdout', 'stderr', 'stdin', 'system'] as const;
+export const agentSessionTranscriptStreamValues = [
+  'stdout',
+  'stderr',
+  'stdin',
+  'system',
+  'assistant-delta',
+  'assistant-done',
+  'thinking',
+  'tool-start',
+  'tool-update',
+  'tool-done',
+  'turn-start',
+  'turn-done',
+  'todo-list'
+] as const;
 
 export const agentProviderSchema = z.enum(agentProviderValues);
+export const agentSessionSurfaceSchema = z.enum(agentSessionSurfaceValues);
 export const agentSessionStatusSchema = z.enum(agentSessionStatusValues);
 export const agentSessionTranscriptStreamSchema = z.enum(agentSessionTranscriptStreamValues);
 
@@ -19,6 +35,7 @@ export const agentSessionSchema = z.object({
   taskId: z.number().int().positive(),
   worktreeId: z.number().int().positive(),
   provider: agentProviderSchema,
+  surface: agentSessionSurfaceSchema,
   command: z.string().min(1),
   pid: z.number().int().positive().nullable(),
   exitCode: z.number().int().nullable(),
@@ -33,6 +50,7 @@ export const agentSessionSchema = z.object({
 
 export const agentSessionTranscriptEntrySchema = z.object({
   at: z.string().datetime(),
+  itemId: z.string().optional(),
   seq: z.number().int().positive(),
   stream: agentSessionTranscriptStreamSchema,
   text: z.string()
@@ -56,6 +74,7 @@ export const agentSessionEventSchema = z.discriminatedUnion('type', [
 ]);
 
 export type AgentProvider = z.infer<typeof agentProviderSchema>;
+export type AgentSessionSurface = z.infer<typeof agentSessionSurfaceSchema>;
 export type AgentSessionStatus = z.infer<typeof agentSessionStatusSchema>;
 export type AgentSessionTranscriptStream = z.infer<typeof agentSessionTranscriptStreamSchema>;
 export type AgentSession = z.infer<typeof agentSessionSchema>;

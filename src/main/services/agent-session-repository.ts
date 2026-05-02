@@ -1,6 +1,11 @@
 import { desc, eq, inArray } from 'drizzle-orm';
 
-import type { AgentProvider, AgentSession, AgentSessionStatus } from '../../shared/domain/agent-session';
+import type {
+  AgentProvider,
+  AgentSession,
+  AgentSessionStatus,
+  AgentSessionSurface
+} from '../../shared/domain/agent-session';
 import type { AppDatabase } from '../database/client';
 import { agentSessionsTable } from '../database/schema';
 
@@ -8,6 +13,7 @@ export interface CreateAgentSessionInput {
   command: string;
   createdAt: string;
   provider: AgentProvider;
+  surface: AgentSessionSurface;
   taskId: number;
   transcriptPath: string;
   worktreeId: number;
@@ -39,6 +45,7 @@ export function createAgentSessionRepository(db: AppDatabase) {
           provider: input.provider,
           startedAt: null,
           status: 'starting',
+          surface: input.surface,
           taskId: input.taskId,
           transcriptPath: input.transcriptPath,
           updatedAt: input.createdAt,
@@ -190,6 +197,7 @@ function toAgentSession(record: AgentSessionRecord): AgentSession {
     provider: record.provider,
     startedAt: record.startedAt,
     status: record.status,
+    surface: record.surface,
     taskId: record.taskId,
     updatedAt: record.updatedAt,
     worktreeId: record.worktreeId

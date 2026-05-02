@@ -1,10 +1,26 @@
-import type { AgentProvider, AgentSessionStatus } from '@shared/domain/agent-session';
+import type { AgentProvider, AgentSessionStatus, AgentSessionSurface } from '@shared/domain/agent-session';
 
 export interface WorkspaceFileTab {
   mode: 'diff' | 'editor';
   path: string;
   selectionMode: 'changes' | 'files';
 }
+
+export interface NewTabOption {
+  id: string;
+  kind: 'terminal' | 'chat';
+  label: string;
+  provider: AgentProvider;
+  surface: AgentSessionSurface;
+}
+
+export const NEW_TAB_CHAT_OPTION: NewTabOption = {
+  id: 'chat:codex',
+  kind: 'chat',
+  label: 'chat',
+  provider: 'codex',
+  surface: 'chat'
+};
 
 export interface WorkspaceCenterTransitionRequest {
   body: string;
@@ -37,6 +53,17 @@ export function getProviderDisplayName(provider: AgentProvider): string {
     case 'terminal':
       return 'Terminal';
   }
+}
+
+export function getSessionTabDisplayName(
+  provider: AgentProvider,
+  surface: AgentSessionSurface
+): string {
+  if (surface === 'chat') {
+    return 'Chat';
+  }
+
+  return getProviderDisplayName(provider);
 }
 
 export function isActiveSessionStatus(

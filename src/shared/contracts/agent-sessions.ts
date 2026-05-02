@@ -4,6 +4,7 @@ import {
   agentProviderSchema,
   agentSessionEventSchema,
   agentSessionSchema,
+  agentSessionSurfaceSchema,
   agentSessionTranscriptEntrySchema
 } from '../domain/agent-session';
 
@@ -19,6 +20,7 @@ export const startAgentSessionInputSchema = z.object({
   cols: terminalDimensionSchema,
   provider: agentProviderSchema,
   rows: terminalDimensionSchema,
+  surface: agentSessionSurfaceSchema.default('terminal'),
   taskId: taskIdSchema
 });
 

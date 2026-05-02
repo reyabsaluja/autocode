@@ -4,8 +4,10 @@ import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-o
 import {
   agentProviderValues,
   agentSessionStatusValues,
+  agentSessionSurfaceValues,
   type AgentProvider,
-  type AgentSessionStatus
+  type AgentSessionStatus,
+  type AgentSessionSurface
 } from '../../shared/domain/agent-session';
 import { taskStatusValues, type TaskStatus } from '../../shared/domain/task';
 import { worktreeStatusValues, type WorktreeStatus } from '../../shared/domain/worktree';
@@ -85,6 +87,7 @@ export const agentSessionsTable = sqliteTable(
       .notNull()
       .references(() => worktreesTable.id, { onDelete: 'cascade' }),
     provider: text('provider').$type<AgentProvider>().notNull(),
+    surface: text('surface').$type<AgentSessionSurface>().notNull().default('terminal'),
     status: text('status').$type<AgentSessionStatus>().notNull(),
     command: text('command').notNull(),
     pid: integer('pid'),
@@ -108,6 +111,10 @@ export const agentSessionsTable = sqliteTable(
     statusCheck: check(
       'agent_sessions_status_check',
       sql`${table.status} in (${sql.raw(agentSessionStatusValues.map((status) => `'${status}'`).join(', '))})`
+    ),
+    surfaceCheck: check(
+      'agent_sessions_surface_check',
+      sql`${table.surface} in (${sql.raw(agentSessionSurfaceValues.map((surface) => `'${surface}'`).join(', '))})`
     )
   })
 );

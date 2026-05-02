@@ -34,14 +34,21 @@ export function formatAgentSessionTranscriptEntry(
   seq: number,
   stream: AgentSessionTranscriptStream,
   text: string,
-  timestamp: string
+  timestamp: string,
+  itemId?: string
 ): AgentSessionTranscriptEntry {
-  return {
+  const entry: AgentSessionTranscriptEntry = {
     at: timestamp,
     seq,
     stream,
     text
   };
+
+  if (itemId) {
+    entry.itemId = itemId;
+  }
+
+  return entry;
 }
 
 export async function readAgentSessionTranscriptTail(

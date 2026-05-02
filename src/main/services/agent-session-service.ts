@@ -10,7 +10,12 @@ import type {
   SendAgentSessionInput,
   StartAgentSessionInput
 } from '../../shared/contracts/agent-sessions';
-import type { AgentProvider, AgentSession, AgentSessionEvent } from '../../shared/domain/agent-session';
+import type {
+  AgentProvider,
+  AgentSession,
+  AgentSessionEvent,
+  AgentSessionSurface
+} from '../../shared/domain/agent-session';
 import type { AppDatabase } from '../database/client';
 import { resolveAutocodeSessionsRoot } from '../database/paths';
 import { createWorkspaceRuntime } from './workspace-runtime';
@@ -22,6 +27,7 @@ import {
   resolveAgentProviderRuntime
 } from './agent-session-provider';
 import { createAgentSessionRuntimeManager } from './agent-session-runtime-manager';
+import { createChatSessionRuntimeManager } from './chat-session-runtime-manager';
 import {
   readAgentSessionTranscriptTail,
   resolveAgentSessionTranscriptPath
@@ -42,9 +48,25 @@ export function createAgentSessionService(
     publishEvent,
     publishWorkspaceInspectionChange
   });
+  const chatRuntimeManager = createChatSessionRuntimeManager({
+    agentSessionRepository,
+    publishEvent,
+    publishWorkspaceInspectionChange
+  });
+
+  function isChatSession(session: AgentSession | null): boolean {
+    return session?.surface === 'chat';
+  }
 
   return {
     async delete(input: DeleteAgentSessionInput): Promise<void> {
+      const session = agentSessionRepository.findById(input.sessionId);
+
+      if (isChatSession(session)) {
+        await chatRuntimeManager.deleteSession(input.sessionId);
+        return;
+      }
+
       await runtimeManager.deleteSession(input.sessionId);
     },
 
@@ -53,7 +75,10 @@ export function createAgentSessionService(
       const deletions = new Array<Promise<void>>(sessions.length);
 
       for (let index = 0; index < sessions.length; index += 1) {
-        deletions[index] = runtimeManager.deleteSession(sessions[index]!.id);
+        const session = sessions[index]!;
+        deletions[index] = isChatSession(session)
+          ? chatRuntimeManager.deleteSession(session.id)
+          : runtimeManager.deleteSession(session.id);
       }
 
       await Promise.all(deletions);
@@ -78,21 +103,37 @@ export function createAgentSessionService(
     async reconcileInterruptedSessions(): Promise<void> {
       await mkdir(sessionsRoot, { recursive: true });
       repairInterruptedSessionTranscriptPaths(new Date().toISOString());
+      await chatRuntimeManager.reconcileInterruptedChatSessions();
       await runtimeManager.reconcileInterruptedSessions();
     },
 
     async resize(input: ResizeAgentSessionInput): Promise<void> {
+      const session = agentSessionRepository.findById(input.sessionId);
+
+      if (isChatSession(session)) {
+        return;
+      }
+
       await runtimeManager.resizeRuntime(input.sessionId, input.cols, input.rows);
     },
 
     async sendInput(input: SendAgentSessionInput): Promise<void> {
+      const session = agentSessionRepository.findById(input.sessionId);
+
+      if (isChatSession(session)) {
+        await chatRuntimeManager.sendChatMessage(input.sessionId, input.text);
+        return;
+      }
+
       await runtimeManager.writeToRuntime(input.sessionId, input.text);
     },
 
     async start(input: StartAgentSessionInput): Promise<AgentSession> {
       const context = await workspaceRuntime.observeWorkspaceContext(input.taskId);
       const timestamp = new Date().toISOString();
-      const command = getAgentProviderCommand(input.provider);
+      const surface: AgentSessionSurface = input.surface ?? 'terminal';
+      const command =
+        surface === 'chat' ? 'chat:codex-sdk' : getAgentProviderCommand(input.provider);
       const transcriptPath = resolveAgentSessionTranscriptPath(sessionsRoot, randomUUID());
       let placeholderSession: AgentSession;
 
@@ -100,6 +141,7 @@ export function createAgentSessionService(
         placeholderSession = createPendingSession(
           timestamp,
           input.provider,
+          surface,
           input.taskId,
           context.worktree.id,
           command,
@@ -124,6 +166,24 @@ export function createAgentSessionService(
         });
 
         throw error instanceof Error ? new Error(message, { cause: error }) : new Error(message);
+      }
+
+      if (surface === 'chat') {
+        try {
+          const runningSession = await chatRuntimeManager.startChatSession({
+            cwd: context.worktreePath,
+            sessionId: placeholderSession.id,
+            timestamp: new Date().toISOString(),
+            transcriptPath
+          });
+
+          runtimeManager.publishSnapshot(runningSession);
+          return runningSession;
+        } catch (error) {
+          throw error instanceof Error
+            ? error
+            : new Error('Autocode could not start the chat session.');
+        }
       }
 
       let providerRuntime: Awaited<ReturnType<typeof resolveAgentProviderRuntime>>;
@@ -200,6 +260,7 @@ export function createAgentSessionService(
   function createPendingSession(
     createdAt: string,
     provider: AgentProvider,
+    surface: AgentSessionSurface,
     taskId: number,
     worktreeId: number,
     command: string,
@@ -209,6 +270,7 @@ export function createAgentSessionService(
       command,
       createdAt,
       provider,
+      surface,
       taskId,
       transcriptPath,
       worktreeId
