@@ -25,7 +25,9 @@ type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 interface BedrockChatSessionRuntime {
   cwd: string;
   customEnvVars: string | undefined;
+  disablePromptCaching: boolean;
   model: string;
+  systemPrompt: string | undefined;
   activeQuery: Query | null;
   abortController: AbortController | null;
   sdkSessionId: string | null;
@@ -48,16 +50,26 @@ export function createBedrockChatSessionRuntimeManager({
     reconcileInterruptedChatSessions,
     sendChatMessage,
     startChatSession,
-    stopChatSession
+    stopChatSession,
+    updateSystemPrompt
   };
+
+  function updateSystemPrompt(sessionId: number, systemPrompt: string | undefined): void {
+    const runtime = runtimes.get(sessionId);
+    if (runtime) {
+      runtime.systemPrompt = systemPrompt;
+    }
+  }
 
   async function startChatSession(input: {
     awsCredentials?: { accessKeyId: string; secretAccessKey: string; region: string };
     customEnvVars?: string;
     cwd: string;
+    disablePromptCaching?: boolean;
     model?: string;
     reasoningEffort?: string;
     sessionId: number;
+    systemPrompt?: string;
     timestamp: string;
     transcriptPath: string;
   }): Promise<AgentSession> {
@@ -66,7 +78,9 @@ export function createBedrockChatSessionRuntimeManager({
     runtimes.set(input.sessionId, {
       cwd: input.cwd,
       customEnvVars: input.customEnvVars,
+      disablePromptCaching: input.disablePromptCaching ?? false,
       model: input.model || BEDROCK_MODEL,
+      systemPrompt: input.systemPrompt,
       activeQuery: null,
       abortController: null,
       sdkSessionId: null
@@ -92,7 +106,7 @@ export function createBedrockChatSessionRuntimeManager({
     const env: Record<string, string | undefined> = {
       ...process.env,
       CLAUDE_CODE_USE_BEDROCK: '1',
-      DISABLE_PROMPT_CACHING: '1'
+      ...(runtime.disablePromptCaching ? { DISABLE_PROMPT_CACHING: '1' } : {})
     };
 
     if (runtime.customEnvVars) {
@@ -164,6 +178,7 @@ export function createBedrockChatSessionRuntimeManager({
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       includePartialMessages: true,
+      ...(runtime.systemPrompt ? { systemPrompt: runtime.systemPrompt } : {}),
       ...(runtime.sdkSessionId
         ? { resume: runtime.sdkSessionId }
         : {})
@@ -181,6 +196,8 @@ export function createBedrockChatSessionRuntimeManager({
       let currentThinkingItemId: string | null = null;
       let inputTokens = 0;
       let outputTokens = 0;
+      let cacheReadInputTokens = 0;
+      let cacheCreationInputTokens = 0;
       const toolUseMap = new Map<string, ToolUseMeta>();
 
       for await (const message of activeQuery) {
@@ -199,6 +216,9 @@ export function createBedrockChatSessionRuntimeManager({
             setCurrentThinkingItemId: (id) => { currentThinkingItemId = id; },
             addInputTokens: (n) => { inputTokens += n; },
             addOutputTokens: (n) => { outputTokens += n; },
+            addCacheReadInputTokens: (n) => { cacheReadInputTokens += n; },
+            addCacheCreationInputTokens: (n) => { cacheCreationInputTokens += n; },
+            resetUsage: () => { inputTokens = 0; outputTokens = 0; cacheReadInputTokens = 0; cacheCreationInputTokens = 0; },
             registerToolUse: (id, name, input) => { toolUseMap.set(id, { name, input }); },
             getToolUse: (id) => toolUseMap.get(id),
             captureSessionId: (id) => { runtime.sdkSessionId = id; }
@@ -216,7 +236,7 @@ export function createBedrockChatSessionRuntimeManager({
         'turn-done',
         JSON.stringify({
           inputTokens,
-          cachedInputTokens: 0,
+          cachedInputTokens: cacheReadInputTokens,
           outputTokens,
           reasoningOutputTokens: 0
         })
@@ -250,6 +270,9 @@ export function createBedrockChatSessionRuntimeManager({
     setCurrentThinkingItemId: (id: string | null) => void;
     addInputTokens: (n: number) => void;
     addOutputTokens: (n: number) => void;
+    addCacheReadInputTokens: (n: number) => void;
+    addCacheCreationInputTokens: (n: number) => void;
+    resetUsage: () => void;
     registerToolUse: (id: string, name: string, input: Record<string, unknown>) => void;
     getToolUse: (id: string) => ToolUseMeta | undefined;
     captureSessionId: (id: string) => void;
@@ -268,6 +291,13 @@ export function createBedrockChatSessionRuntimeManager({
         if (assistantMsg.message.usage) {
           tracker.addInputTokens(assistantMsg.message.usage.input_tokens);
           tracker.addOutputTokens(assistantMsg.message.usage.output_tokens);
+          const usage = assistantMsg.message.usage as unknown as Record<string, unknown>;
+          tracker.addCacheReadInputTokens(
+            (typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0)
+          );
+          tracker.addCacheCreationInputTokens(
+            (typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0)
+          );
         }
 
         for (const block of assistantMsg.message.content) {
@@ -375,8 +405,11 @@ export function createBedrockChatSessionRuntimeManager({
         const resultMsg = message as any;
 
         if (resultMsg.usage) {
+          tracker.resetUsage();
           tracker.addInputTokens(resultMsg.usage.input_tokens ?? 0);
           tracker.addOutputTokens(resultMsg.usage.output_tokens ?? 0);
+          tracker.addCacheReadInputTokens(resultMsg.usage.cache_read_input_tokens ?? 0);
+          tracker.addCacheCreationInputTokens(resultMsg.usage.cache_creation_input_tokens ?? 0);
         }
 
         break;
