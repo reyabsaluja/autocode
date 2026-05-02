@@ -24,6 +24,7 @@ type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 
 interface BedrockChatSessionRuntime {
   cwd: string;
+  customEnvVars: string | undefined;
   model: string;
   activeQuery: Query | null;
   abortController: AbortController | null;
@@ -52,6 +53,7 @@ export function createBedrockChatSessionRuntimeManager({
 
   async function startChatSession(input: {
     awsCredentials?: { accessKeyId: string; secretAccessKey: string; region: string };
+    customEnvVars?: string;
     cwd: string;
     model?: string;
     reasoningEffort?: string;
@@ -63,6 +65,7 @@ export function createBedrockChatSessionRuntimeManager({
 
     runtimes.set(input.sessionId, {
       cwd: input.cwd,
+      customEnvVars: input.customEnvVars,
       model: input.model || BEDROCK_MODEL,
       activeQuery: null,
       abortController: null,
@@ -85,28 +88,30 @@ export function createBedrockChatSessionRuntimeManager({
     return runningSession;
   }
 
-  function buildEnv(
-    runtime: BedrockChatSessionRuntime,
-    awsCredentials?: { accessKeyId: string; secretAccessKey: string; region: string }
-  ): Record<string, string | undefined> {
+  function buildEnv(runtime: BedrockChatSessionRuntime): Record<string, string | undefined> {
     const env: Record<string, string | undefined> = {
       ...process.env,
       CLAUDE_CODE_USE_BEDROCK: '1',
       DISABLE_PROMPT_CACHING: '1'
     };
 
-    if (awsCredentials?.region) {
-      env.AWS_REGION = awsCredentials.region;
-    }
-    if (awsCredentials?.accessKeyId) {
-      env.AWS_ACCESS_KEY_ID = awsCredentials.accessKeyId;
-    }
-    if (awsCredentials?.secretAccessKey) {
-      env.AWS_SECRET_ACCESS_KEY = awsCredentials.secretAccessKey;
-    }
+    if (runtime.customEnvVars) {
+      for (const line of runtime.customEnvVars.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
 
-    delete env.ANTHROPIC_API_KEY;
-    delete env.ANTHROPIC_AUTH_TOKEN;
+        if (trimmed.startsWith('unset ')) {
+          delete env[trimmed.slice(6).trim()];
+          continue;
+        }
+
+        const withoutExport = trimmed.startsWith('export ') ? trimmed.slice(7) : trimmed;
+        const eqIdx = withoutExport.indexOf('=');
+        if (eqIdx > 0) {
+          env[withoutExport.slice(0, eqIdx)] = withoutExport.slice(eqIdx + 1);
+        }
+      }
+    }
 
     return env;
   }

@@ -209,6 +209,7 @@ export function createAgentSessionService(
         try {
           const runningSession = await targetChatRuntime.startChatSession({
             awsCredentials: input.awsCredentials,
+            customEnvVars: input.customEnvVars,
             cwd: context.worktreePath,
             model: input.model,
             reasoningEffort: input.reasoningEffort,
