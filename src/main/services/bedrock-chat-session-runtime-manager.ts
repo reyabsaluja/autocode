@@ -272,10 +272,16 @@ export function createBedrockChatSessionRuntimeManager({
 
         for (const block of assistantMsg.message.content) {
           if (block.type === 'text') {
+            const currentStreamId = tracker.getCurrentAssistantItemId();
+
+            if (currentStreamId && currentStreamId.startsWith('bedrock-stream-')) {
+              break;
+            }
+
             const itemId = `bedrock-msg-${message.uuid}`;
 
-            if (tracker.getCurrentAssistantItemId() && tracker.getCurrentAssistantItemId() !== itemId) {
-              await writeTranscriptEntry(sessionId, transcriptPath, 'assistant-done', '', tracker.getCurrentAssistantItemId()!);
+            if (currentStreamId && currentStreamId !== itemId) {
+              await writeTranscriptEntry(sessionId, transcriptPath, 'assistant-done', '', currentStreamId);
             }
 
             tracker.setCurrentAssistantItemId(itemId);
