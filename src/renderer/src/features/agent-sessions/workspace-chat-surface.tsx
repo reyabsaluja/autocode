@@ -78,6 +78,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
   sessionId
 }: WorkspaceChatSurfaceProps) {
   const [composerValue, setComposerValue] = useState('');
+  const [waitingForResponse, setWaitingForResponse] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const { scrollRef, contentRef, isAtBottom, scrollToBottom } = useStickToBottom({
@@ -96,6 +97,14 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
   }, [items]);
 
   useEffect(() => {
+    if (waitingForResponse && isAgentResponding) {
+      setWaitingForResponse(false);
+    }
+  }, [waitingForResponse, isAgentResponding]);
+
+  const showThinkingIndicator = waitingForResponse || isAgentResponding;
+
+  useEffect(() => {
     setComposerValue('');
   }, [sessionId]);
 
@@ -112,6 +121,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
 
       if (!trimmed || !isInteractive) return;
 
+      setWaitingForResponse(true);
       onSend(trimmed);
       setComposerValue('');
 
@@ -173,7 +183,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
                     {items.map((item) => (
                       <ChatItemView key={item.id} item={item} />
                     ))}
-                    {isAgentResponding ? <ThinkingIndicator /> : null}
+                    {showThinkingIndicator ? <ThinkingIndicator /> : null}
                   </div>
                 )}
               </div>
@@ -456,13 +466,38 @@ function TurnInfoMessage({ usage }: { usage: TurnUsage }) {
   );
 }
 
+const THINKING_VERBS = [
+  'Thinking',
+  'Reasoning',
+  'Planning next moves',
+  'Working',
+  'Analyzing',
+  'Processing',
+];
+
 function ThinkingIndicator() {
+  const [verbIndex, setVerbIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setVerbIndex((i) => (i + 1) % THINKING_VERBS.length);
+        setFade(true);
+      }, 200);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="flex items-center gap-2 py-1">
-      <span className="flex gap-1">
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/25 [animation-delay:0ms]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/25 [animation-delay:150ms]" />
-        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/25 [animation-delay:300ms]" />
+    <div className="flex items-center py-2">
+      <span
+        className={`thinking-shimmer text-[13px] font-medium transition-opacity duration-200 ${
+          fade ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        {THINKING_VERBS[verbIndex]}
       </span>
     </div>
   );
