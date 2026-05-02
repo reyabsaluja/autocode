@@ -10,6 +10,7 @@ import {
   Loader2,
   MessageSquare,
   Send,
+  Sparkles,
   Square,
   StopCircle
 } from 'lucide-react';
@@ -236,8 +237,12 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
         event.preventDefault();
         handleSubmit();
       }
+      if (event.key === 'Escape' && agentActivity && onStop) {
+        event.preventDefault();
+        onStop();
+      }
     },
-    [handleSubmit]
+    [agentActivity, handleSubmit, onStop]
   );
 
   const handleTextareaInput = useCallback(
@@ -312,43 +317,64 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
                 </div>
                 {onStop ? (
                   <button
-                    className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-white/30 transition hover:bg-white/[0.06] hover:text-white/60"
+                    className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-white/40 transition hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-white/70"
                     onClick={onStop}
-                    title="Stop generating"
+                    title="Stop generating (Esc)"
                     type="button"
                   >
-                    <StopCircle className="h-3.5 w-3.5" />
+                    <StopCircle className="h-3 w-3" />
                     <span className="font-geist text-[11px] font-medium">Stop</span>
                   </button>
                 ) : null}
               </div>
             ) : null}
             <form
-              className="mx-auto flex max-w-[720px] items-end gap-2.5 px-5 py-3"
+              className="mx-auto max-w-[720px] px-5 py-3"
               onSubmit={handleSubmit}
             >
-              <textarea
-                ref={textareaRef}
-                className="min-h-[44px] max-h-[200px] flex-1 resize-none rounded-xl border border-white/[0.08] bg-[#141414] px-4 py-3 font-geist text-[13px] leading-relaxed text-white placeholder:text-white/25 focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10"
-                disabled={!isInteractive}
-                onChange={handleTextareaInput}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  isInteractive
-                    ? 'Ask Codex to make changes... (Enter to send)'
-                    : 'Chat session is not active'
-                }
-                rows={1}
-                value={composerValue}
-              />
-              <button
-                className="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-xl bg-white/[0.10] text-white transition hover:bg-white/[0.16] disabled:cursor-not-allowed disabled:bg-white/[0.04] disabled:text-white/20"
-                disabled={!isInteractive || composerValue.trim().length === 0}
-                title="Send (Enter)"
-                type="submit"
-              >
-                <Send className="h-4 w-4" />
-              </button>
+              <div className={`overflow-hidden rounded-xl border bg-[#141414] transition ${
+                isInteractive
+                  ? 'border-white/[0.08] focus-within:border-white/20 focus-within:ring-1 focus-within:ring-white/10'
+                  : 'border-white/[0.04]'
+              }`}>
+                <textarea
+                  ref={textareaRef}
+                  className="min-h-[44px] max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1.5 font-geist text-[13px] leading-relaxed text-white placeholder:text-white/25 focus:outline-none"
+                  disabled={!isInteractive}
+                  onChange={handleTextareaInput}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isInteractive
+                      ? 'Ask Codex to make changes...'
+                      : 'Chat session is not active'
+                  }
+                  rows={1}
+                  value={composerValue}
+                />
+                <div className="flex items-center justify-between px-3 pb-2">
+                  <div className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 font-geist text-[11px] text-white/20">
+                      <Sparkles className="h-3 w-3" />
+                      Codex
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="hidden font-geist text-[10px] text-white/15 sm:inline">
+                      <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1 py-0.5 font-mono text-[9px]">↵</kbd> send
+                      <span className="mx-1.5">·</span>
+                      <kbd className="rounded border border-white/[0.08] bg-white/[0.04] px-1 py-0.5 font-mono text-[9px]">⇧↵</kbd> newline
+                    </span>
+                    <button
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.08] text-white/50 transition hover:bg-white/[0.14] hover:text-white disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-white/15"
+                      disabled={!isInteractive || composerValue.trim().length === 0}
+                      title="Send (Enter)"
+                      type="submit"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </form>
           </div>
         </>
