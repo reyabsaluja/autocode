@@ -36,6 +36,7 @@ interface WorkspaceCenterTabBarProps {
   fileTabs: WorkspaceFileTab[];
   onCloseFileTab: (path: string) => void;
   onDeleteSession: (sessionId: number) => void;
+  onRenameSession: (sessionId: number, title: string) => void;
   onRequestFileTabActivation: (path: string) => void;
   onRequestSessionSelection: (sessionId: number) => void;
   onRequestStartSession: (option: NewTabOption) => void;
@@ -49,6 +50,7 @@ export function WorkspaceCenterTabBar({
   fileTabs,
   onCloseFileTab,
   onDeleteSession,
+  onRenameSession,
   onRequestFileTabActivation,
   onRequestSessionSelection,
   onRequestStartSession,
@@ -133,12 +135,16 @@ export function WorkspaceCenterTabBar({
               )}
               isActive={activeCenterTab === TERMINAL_TAB_ID && selectedSessionId === session.id}
               key={session.id}
+              persistedTitle={session.title}
               sessionId={session.id}
               onClick={() => {
                 onRequestSessionSelection(session.id);
               }}
               onClose={() => {
                 onDeleteSession(session.id);
+              }}
+              onRename={(title) => {
+                onRenameSession(session.id, title);
               }}
             />
           );
@@ -193,15 +199,79 @@ export function WorkspaceCenterTabBar({
 
 function SessionCenterTab({
   fallbackLabel,
+  persistedTitle,
   sessionId,
+  onRename,
   ...props
-}: Omit<Parameters<typeof CenterTab>[0], 'label'> & {
+}: Omit<Parameters<typeof CenterTab>[0], 'label' | 'onDoubleClick'> & {
   fallbackLabel: string;
+  onRename: (title: string) => void;
+  persistedTitle: string | null;
   sessionId: number;
 }) {
   const dynamicLabel = useSessionLabel(sessionId);
+  const displayLabel = persistedTitle ?? dynamicLabel ?? fallbackLabel;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  return <CenterTab {...props} label={dynamicLabel ?? fallbackLabel} />;
+  const commitRename = useCallback(() => {
+    const trimmed = editValue.trim();
+    setIsEditing(false);
+    if (trimmed && trimmed !== displayLabel) {
+      onRename(trimmed);
+    }
+  }, [editValue, displayLabel, onRename]);
+
+  const handleDoubleClick = useCallback(() => {
+    setEditValue(displayLabel);
+    setIsEditing(true);
+  }, [displayLabel]);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  if (isEditing) {
+    return (
+      <div
+        className={clsx(
+          'group flex min-w-0 items-center gap-1 px-3 transition',
+          props.isActive
+            ? 'bg-white/[0.10] text-white'
+            : 'text-white/40 hover:bg-white/[0.06] hover:text-white/70'
+        )}
+      >
+        <span className="shrink-0">{props.icon}</span>
+        <input
+          ref={inputRef}
+          className="max-w-[140px] min-w-[40px] bg-transparent font-geist text-[12px] font-medium leading-tight text-white outline-none"
+          maxLength={120}
+          onBlur={commitRename}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              commitRename();
+            } else if (e.key === 'Escape') {
+              setIsEditing(false);
+            }
+          }}
+          value={editValue}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <CenterTab
+      {...props}
+      label={displayLabel}
+      onDoubleClick={handleDoubleClick}
+    />
+  );
 }
 
 function QuickLaunchButton({
@@ -365,7 +435,8 @@ function CenterTab({
   isActive,
   label,
   onClick,
-  onClose
+  onClose,
+  onDoubleClick
 }: {
   closeLabel?: string;
   icon: ReactNode;
@@ -373,6 +444,7 @@ function CenterTab({
   label: string;
   onClick: () => void;
   onClose?: () => void;
+  onDoubleClick?: () => void;
 }) {
   return (
     <div
@@ -389,6 +461,7 @@ function CenterTab({
           onClose ? 'min-w-0 flex-1 overflow-hidden' : null
         )}
         onClick={onClick}
+        onDoubleClick={onDoubleClick}
         type="button"
       >
         <span className="shrink-0">{icon}</span>

@@ -23,6 +23,7 @@ export const autocodeApi: AutocodeApi = {
     delete: (input) => getAutocodeApi().agentSessions.delete(input),
     listByTask: (input) => getAutocodeApi().agentSessions.listByTask(input),
     readTranscriptTail: (input) => getAutocodeApi().agentSessions.readTranscriptTail(input),
+    rename: (input) => getAutocodeApi().agentSessions.rename(input),
     resize: (input) => getAutocodeApi().agentSessions.resize(input),
     sendInput: (input) => getAutocodeApi().agentSessions.sendInput(input),
     start: (input) => getAutocodeApi().agentSessions.start(input),

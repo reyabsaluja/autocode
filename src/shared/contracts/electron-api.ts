@@ -5,6 +5,7 @@ import type {
   ListAgentSessionsByTaskResult,
   ReadAgentSessionTranscriptTailInput,
   ReadAgentSessionTranscriptTailResult,
+  RenameAgentSessionInput,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
   StartAgentSessionInput,
@@ -59,7 +60,7 @@ import type {
   WorkspaceFileWriteInput,
   WorkspaceFileWriteResult
 } from './workspace-files';
-import type { AgentSessionEvent } from '../domain/agent-session';
+import type { AgentSession, AgentSessionEvent } from '../domain/agent-session';
 import type { Project } from '../domain/project';
 import type { TaskWorkspace } from '../domain/task-workspace';
 
@@ -70,6 +71,7 @@ export interface AutocodeApi {
     readTranscriptTail: (
       input: ReadAgentSessionTranscriptTailInput
     ) => Promise<ReadAgentSessionTranscriptTailResult>;
+    rename: (input: RenameAgentSessionInput) => Promise<AgentSession>;
     resize: (input: ResizeAgentSessionInput) => Promise<void>;
     sendInput: (input: SendAgentSessionInput) => Promise<void>;
     start: (input: StartAgentSessionInput) => Promise<StartAgentSessionResult>;

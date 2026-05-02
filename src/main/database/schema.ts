@@ -89,6 +89,7 @@ export const agentSessionsTable = sqliteTable(
     provider: text('provider').$type<AgentProvider>().notNull(),
     surface: text('surface').$type<AgentSessionSurface>().notNull().default('terminal'),
     status: text('status').$type<AgentSessionStatus>().notNull(),
+    title: text('title'),
     command: text('command').notNull(),
     pid: integer('pid'),
     exitCode: integer('exit_code'),

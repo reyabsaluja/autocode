@@ -10,6 +10,9 @@ import {
   type ReadAgentSessionTranscriptTailInput,
   readAgentSessionTranscriptTailInputSchema,
   readAgentSessionTranscriptTailResultSchema,
+  type RenameAgentSessionInput,
+  renameAgentSessionInputSchema,
+  renameAgentSessionResultSchema,
   type ResizeAgentSessionInput,
   resizeAgentSessionInputSchema,
   resizeAgentSessionResultSchema,
@@ -63,6 +66,13 @@ export function registerAgentSessionHandlers(agentSessionService: AgentSessionSe
       agentSessionService.resize(input),
     inputSchema: resizeAgentSessionInputSchema,
     outputSchema: resizeAgentSessionResultSchema
+  });
+
+  handleValidatedIpc(agentSessionChannels.rename, {
+    handler: async (_event: IpcMainInvokeEvent, input: RenameAgentSessionInput) =>
+      agentSessionService.rename(input),
+    inputSchema: renameAgentSessionInputSchema,
+    outputSchema: renameAgentSessionResultSchema
   });
 
   handleValidatedIpc(agentSessionChannels.readTranscriptTail, {

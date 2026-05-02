@@ -10,6 +10,7 @@ import {
   useAgentSessionStream,
   useAgentSessionTranscriptTailQuery,
   useAgentSessionsQuery,
+  useRenameAgentSessionMutation,
   useStartAgentSessionMutation,
   useStopAgentSessionMutation
 } from '../agent-sessions/agent-session-hooks';
@@ -88,6 +89,7 @@ export function useWorkspaceTerminalSessionController({
   }, [selectedSessionId, sessions]);
   const startSessionMutation = useStartAgentSessionMutation(taskId);
   const deleteSessionMutation = useDeleteAgentSessionMutation(taskId);
+  const renameSessionMutation = useRenameAgentSessionMutation(taskId);
   const sendInputMutation = useAgentSessionInputMutation(selectedSession?.id ?? null);
   const stopSessionMutation = useStopAgentSessionMutation();
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSession?.id ?? null);
@@ -104,6 +106,12 @@ export function useWorkspaceTerminalSessionController({
     formatWorkspaceInspectorError(sessionsQuery.error);
 
   useAgentSessionStream(taskId);
+
+  const autoTitledSessionIds = useRef(new Set<number>());
+
+  function requestRenameSession(sessionId: number, title: string) {
+    renameSessionMutation.mutate({ sessionId, title });
+  }
 
   useEffect(() => {
     setSelectedSessionId(null);
@@ -286,6 +294,22 @@ export function useWorkspaceTerminalSessionController({
 
   const entries = transcriptQuery.data?.entries ?? EMPTY_ENTRIES;
 
+  useEffect(() => {
+    if (!selectedSession || selectedSession.title) return;
+    if (selectedSession.surface !== 'chat') return;
+    if (autoTitledSessionIds.current.has(selectedSession.id)) return;
+
+    const firstUserEntry = entries.find((e) => e.stream === 'stdin');
+    if (!firstUserEntry) return;
+
+    const raw = firstUserEntry.text.replace(/\n$/, '').trim();
+    if (!raw) return;
+
+    autoTitledSessionIds.current.add(selectedSession.id);
+    const title = raw.length > 60 ? `${raw.slice(0, 57)}...` : raw;
+    renameSessionMutation.mutate({ sessionId: selectedSession.id, title });
+  }, [entries, selectedSession, renameSessionMutation]);
+
   const handleChatSend = useCallback((text: string) => {
     const current = selectedSessionRef.current;
 
@@ -369,6 +393,7 @@ export function useWorkspaceTerminalSessionController({
     chatSurfaceProps,
     deleteSessionMutation,
     requestDeleteSession,
+    requestRenameSession,
     requestStartSession,
     requestSessionSelection,
     resizeSessionMutation,

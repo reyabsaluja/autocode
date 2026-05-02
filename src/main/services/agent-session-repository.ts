@@ -47,6 +47,7 @@ export function createAgentSessionRepository(db: AppDatabase) {
           status: 'starting',
           surface: input.surface,
           taskId: input.taskId,
+          title: null,
           transcriptPath: input.transcriptPath,
           updatedAt: input.createdAt,
           worktreeId: input.worktreeId
@@ -164,6 +165,20 @@ export function createAgentSessionRepository(db: AppDatabase) {
       return toAgentSession(session);
     },
 
+    rename(sessionId: number, title: string, timestamp: string): AgentSession {
+      const session = db
+        .update(agentSessionsTable)
+        .set({
+          title,
+          updatedAt: timestamp
+        })
+        .where(eq(agentSessionsTable.id, sessionId))
+        .returning()
+        .get();
+
+      return toAgentSession(session);
+    },
+
     finalize(input: FinalizeAgentSessionInput): AgentSession {
       const session = db
         .update(agentSessionsTable)
@@ -199,6 +214,7 @@ function toAgentSession(record: AgentSessionRecord): AgentSession {
     status: record.status,
     surface: record.surface,
     taskId: record.taskId,
+    title: record.title ?? null,
     updatedAt: record.updatedAt,
     worktreeId: record.worktreeId
   };

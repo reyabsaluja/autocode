@@ -9,6 +9,8 @@ import {
   listAgentSessionsByTaskResultSchema,
   readAgentSessionTranscriptTailInputSchema,
   readAgentSessionTranscriptTailResultSchema,
+  renameAgentSessionInputSchema,
+  renameAgentSessionResultSchema,
   resizeAgentSessionInputSchema,
   resizeAgentSessionResultSchema,
   sendAgentSessionInputSchema,
@@ -98,6 +100,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: readAgentSessionTranscriptTailInputSchema,
         outputSchema: readAgentSessionTranscriptTailResultSchema
+      }),
+    rename: (input) =>
+      invokeValidatedIpc(agentSessionChannels.rename, {
+        input,
+        inputSchema: renameAgentSessionInputSchema,
+        outputSchema: renameAgentSessionResultSchema
       }),
     resize: (input) =>
       invokeValidatedIpc(agentSessionChannels.resize, {

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type {
   ReadAgentSessionTranscriptTailResult,
+  RenameAgentSessionInput,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
   StartAgentSessionInput
@@ -134,6 +135,20 @@ export function useStopAgentSessionMutation() {
   return useMutation({
     mutationFn: (sessionId: number) => {
       return autocodeApi.agentSessions.stop({ sessionId });
+    }
+  });
+}
+
+export function useRenameAgentSessionMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: RenameAgentSessionInput) =>
+      autocodeApi.agentSessions.rename(input),
+    onSuccess: (session) => {
+      if (taskId !== null) {
+        setTaskAgentSession(queryClient, taskId, session);
+      }
     }
   });
 }

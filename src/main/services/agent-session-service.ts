@@ -6,6 +6,7 @@ import type {
   ListAgentSessionsByTaskInput,
   ReadAgentSessionTranscriptTailInput,
   ReadAgentSessionTranscriptTailResult,
+  RenameAgentSessionInput,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
   StartAgentSessionInput,
@@ -102,6 +103,16 @@ export function createAgentSessionService(
 
     listByTask(input: ListAgentSessionsByTaskInput): AgentSession[] {
       return agentSessionRepository.listByTask(input.taskId);
+    },
+
+    rename(input: RenameAgentSessionInput): AgentSession {
+      const session = agentSessionRepository.rename(
+        input.sessionId,
+        input.title,
+        new Date().toISOString()
+      );
+      publishEvent({ type: 'snapshot', session });
+      return session;
     },
 
     async readTranscriptTail(

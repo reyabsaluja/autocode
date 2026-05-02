@@ -3,6 +3,7 @@ export const agentSessionChannels = {
   event: 'agentSessions:event',
   listByTask: 'agentSessions:listByTask',
   readTranscriptTail: 'agentSessions:readTranscriptTail',
+  rename: 'agentSessions:rename',
   resize: 'agentSessions:resize',
   sendInput: 'agentSessions:sendInput',
   start: 'agentSessions:start',

@@ -38,6 +38,7 @@ export const agentSessionSchema = z.object({
   provider: agentProviderSchema,
   surface: agentSessionSurfaceSchema,
   command: z.string().min(1),
+  title: z.string().nullable(),
   pid: z.number().int().positive().nullable(),
   exitCode: z.number().int().nullable(),
   lastError: z.string().nullable(),

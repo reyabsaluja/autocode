@@ -67,6 +67,7 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
               fileTabs={fileController.fileTabs}
               onCloseFileTab={fileController.requestCloseFileTab}
               onDeleteSession={sessionController.requestDeleteSession}
+              onRenameSession={sessionController.requestRenameSession}
               onRequestFileTabActivation={fileController.requestFileTabActivation}
               onRequestSessionSelection={sessionController.requestSessionSelection}
               onRequestStartSession={sessionController.requestStartSession}

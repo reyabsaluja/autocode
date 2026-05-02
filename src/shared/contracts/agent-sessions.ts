@@ -53,6 +53,11 @@ export const deleteAgentSessionInputSchema = z.object({
   sessionId: sessionIdSchema
 });
 
+export const renameAgentSessionInputSchema = z.object({
+  sessionId: sessionIdSchema,
+  title: z.string().min(1).max(120)
+});
+
 export const readAgentSessionTranscriptTailInputSchema = z.object({
   maxEntries: z.number().int().min(1).max(5_000).default(500),
   sessionId: sessionIdSchema
@@ -65,6 +70,7 @@ export const sendAgentSessionResultSchema = z.void();
 export const stopAgentSessionResultSchema = z.void();
 export const resizeAgentSessionResultSchema = z.void();
 export const deleteAgentSessionResultSchema = z.void();
+export const renameAgentSessionResultSchema = agentSessionSchema;
 export const readAgentSessionTranscriptTailResultSchema = z.object({
   entries: z.array(agentSessionTranscriptEntrySchema),
   lastEventSeq: z.number().int().nonnegative()
@@ -77,6 +83,7 @@ export type SendAgentSessionInput = z.infer<typeof sendAgentSessionInputSchema>;
 export type StopAgentSessionInput = z.infer<typeof stopAgentSessionInputSchema>;
 export type ResizeAgentSessionInput = z.infer<typeof resizeAgentSessionInputSchema>;
 export type DeleteAgentSessionInput = z.infer<typeof deleteAgentSessionInputSchema>;
+export type RenameAgentSessionInput = z.infer<typeof renameAgentSessionInputSchema>;
 export type ReadAgentSessionTranscriptTailInput = z.infer<
   typeof readAgentSessionTranscriptTailInputSchema
 >;
