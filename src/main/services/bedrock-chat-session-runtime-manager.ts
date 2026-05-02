@@ -275,7 +275,7 @@ export function createBedrockChatSessionRuntimeManager({
             const currentStreamId = tracker.getCurrentAssistantItemId();
 
             if (currentStreamId && currentStreamId.startsWith('bedrock-stream-')) {
-              break;
+              continue;
             }
 
             const itemId = `bedrock-msg-${message.uuid}`;
