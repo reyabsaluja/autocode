@@ -245,11 +245,13 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
             >
               <div ref={contentRef} className="mx-auto max-w-[720px] px-5 py-6">
                 {items.length === 0 ? (
-                  <div className="grid h-full min-h-[200px] place-items-center">
-                    <p className="font-geist text-[13px] text-white/40">
-                      Send a message to start working with Codex.
-                    </p>
-                  </div>
+                  <ChatSessionEmptyState
+                    isInteractive={isInteractive}
+                    onSuggestionClick={(text) => {
+                      setComposerValue(text);
+                      textareaRef.current?.focus();
+                    }}
+                  />
                 ) : (
                   <div className="flex flex-col gap-5">
                     {items.map((item) => (
@@ -334,6 +336,57 @@ function ChatEmptyState({ mode }: { mode: 'idle' | 'selectSession' | 'starting' 
             </p>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+const SUGGESTIONS = [
+  { label: 'Review the codebase', prompt: 'Do a thorough code review and give me actionable things to improve' },
+  { label: 'Fix a bug', prompt: 'Help me find and fix a bug in ' },
+  { label: 'Write tests', prompt: 'Write comprehensive tests for ' },
+  { label: 'Refactor', prompt: 'Refactor the code in ' },
+  { label: 'Explain the architecture', prompt: 'Explain the architecture of this project and how the key pieces fit together' },
+  { label: 'Add a feature', prompt: 'Help me implement ' },
+];
+
+function ChatSessionEmptyState({
+  isInteractive,
+  onSuggestionClick
+}: {
+  isInteractive: boolean;
+  onSuggestionClick: (text: string) => void;
+}) {
+  if (!isInteractive) {
+    return (
+      <div className="grid h-full min-h-[300px] place-items-center">
+        <p className="font-geist text-[13px] text-white/30">Session is not active.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full min-h-[400px] flex-col items-center justify-center gap-8">
+      <div className="text-center">
+        <h2 className="font-geist text-[18px] font-medium text-white/80">
+          What do you want to work on?
+        </h2>
+        <p className="mt-1.5 font-geist text-[13px] text-white/30">
+          Ask anything, or pick a suggestion below.
+        </p>
+      </div>
+
+      <div className="flex max-w-[480px] flex-wrap justify-center gap-2">
+        {SUGGESTIONS.map((s) => (
+          <button
+            key={s.label}
+            className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2 font-geist text-[12.5px] text-white/45 transition hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-white/70"
+            onClick={() => onSuggestionClick(s.prompt)}
+            type="button"
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
     </div>
   );
