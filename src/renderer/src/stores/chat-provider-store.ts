@@ -57,8 +57,8 @@ const DEFAULT_AWS_CREDENTIALS: AwsCredentials = {
 export const useChatProviderStore = create<ChatProviderState>()(
   persist(
     (set) => ({
-      chatProvider: 'codex',
-      chatModel: 'o4-mini',
+      chatProvider: 'claude-bedrock',
+      chatModel: 'us.anthropic.claude-sonnet-4-6',
       reasoningEffort: 'high',
       awsCredentials: DEFAULT_AWS_CREDENTIALS,
 
