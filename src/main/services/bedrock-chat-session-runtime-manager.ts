@@ -24,6 +24,7 @@ const BEDROCK_MODEL = 'us.anthropic.claude-opus-4-7';
 type AgentSessionEventPublisher = (event: AgentSessionEvent) => void;
 
 interface BedrockChatSessionRuntime {
+  awsCredentials: { accessKeyId: string; secretAccessKey: string; region: string } | undefined;
   cwd: string;
   customEnvVars: string | undefined;
   disablePromptCaching: boolean;
@@ -79,6 +80,7 @@ export function createBedrockChatSessionRuntimeManager({
     await ensureAgentSessionTranscriptFile(input.transcriptPath);
 
     runtimes.set(input.sessionId, {
+      awsCredentials: input.awsCredentials,
       cwd: input.cwd,
       customEnvVars: input.customEnvVars,
       disablePromptCaching: input.disablePromptCaching ?? false,
@@ -109,7 +111,12 @@ export function createBedrockChatSessionRuntimeManager({
     const env: Record<string, string | undefined> = {
       ...process.env,
       CLAUDE_CODE_USE_BEDROCK: '1',
-      ...(runtime.disablePromptCaching ? { DISABLE_PROMPT_CACHING: '1' } : {})
+      ...(runtime.disablePromptCaching ? { DISABLE_PROMPT_CACHING: '1' } : {}),
+      ...(runtime.awsCredentials ? {
+        AWS_ACCESS_KEY_ID: runtime.awsCredentials.accessKeyId,
+        AWS_SECRET_ACCESS_KEY: runtime.awsCredentials.secretAccessKey,
+        AWS_REGION: runtime.awsCredentials.region
+      } : {})
     };
 
     if (runtime.customEnvVars) {
