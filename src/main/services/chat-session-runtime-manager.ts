@@ -68,7 +68,7 @@ export function createChatSessionRuntimeManager({
     );
     const thread = codex.startThread({
       model: input.model,
-      modelReasoningEffort: input.reasoningEffort as any,
+      modelReasoningEffort: input.reasoningEffort,
       skipGitRepoCheck: true,
       workingDirectory: input.cwd
     });
