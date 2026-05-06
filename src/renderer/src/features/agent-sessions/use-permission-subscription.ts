@@ -3,12 +3,25 @@ import { useEffect } from 'react';
 import { autocodeApi } from '../../lib/autocode-api';
 import { usePermissionStore } from '../../stores/permission-store';
 
-export function usePermissionSubscription() {
-  const addRequest = usePermissionStore((s) => s.addRequest);
+let activeSubscribers = 0;
+let unsubscribe: (() => void) | null = null;
 
+export function usePermissionSubscription() {
   useEffect(() => {
-    return autocodeApi.agentSessions.subscribePermissionRequests((request) => {
-      addRequest(request);
-    });
-  }, [addRequest]);
+    activeSubscribers += 1;
+
+    if (activeSubscribers === 1) {
+      unsubscribe = autocodeApi.agentSessions.subscribePermissionRequests((request) => {
+        usePermissionStore.getState().addRequest(request);
+      });
+    }
+
+    return () => {
+      activeSubscribers -= 1;
+      if (activeSubscribers === 0 && unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    };
+  }, []);
 }
