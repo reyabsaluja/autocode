@@ -132,7 +132,15 @@ export function createBedrockChatSessionRuntimeManager({
         const withoutExport = trimmed.startsWith('export ') ? trimmed.slice(7) : trimmed;
         const eqIdx = withoutExport.indexOf('=');
         if (eqIdx > 0) {
-          env[withoutExport.slice(0, eqIdx)] = withoutExport.slice(eqIdx + 1);
+          let value = withoutExport.slice(eqIdx + 1);
+          if (
+            value.length >= 2 &&
+            ((value[0] === '"' && value[value.length - 1] === '"') ||
+             (value[0] === "'" && value[value.length - 1] === "'"))
+          ) {
+            value = value.slice(1, -1);
+          }
+          env[withoutExport.slice(0, eqIdx)] = value;
         }
       }
     }
@@ -147,9 +155,12 @@ export function createBedrockChatSessionRuntimeManager({
       throw new Error('This chat session is no longer active.');
     }
 
-    if (runtime.activeQuery) {
+    if (runtime.activeQuery || runtime.abortController) {
       throw new Error('Claude is still responding to the previous message.');
     }
+
+    const abortController = new AbortController();
+    runtime.abortController = abortController;
 
     const trimmed = text.replace(/\s+$/, '');
 
@@ -176,9 +187,6 @@ export function createBedrockChatSessionRuntimeManager({
 
       emitEntries(sessionId, [entry]);
     });
-
-    const abortController = new AbortController();
-    runtime.abortController = abortController;
 
     const options: Options = {
       abortController,
@@ -262,9 +270,13 @@ export function createBedrockChatSessionRuntimeManager({
           : 'Claude (Bedrock) failed to respond to this chat turn.';
       await writeSystemMessage(sessionId, transcriptPath, message);
     } finally {
-      runtime.activeQuery = null;
-      runtime.abortController = null;
-      publishWorkspaceInspectionChange?.(internalSession.taskId);
+      if (runtimes.has(sessionId)) {
+        runtime.activeQuery = null;
+        runtime.abortController = null;
+      }
+      if (agentSessionRepository.findById(sessionId)) {
+        publishWorkspaceInspectionChange?.(internalSession.taskId);
+      }
     }
   }
 
@@ -541,6 +553,9 @@ export function createBedrockChatSessionRuntimeManager({
     if (runtime.abortController) {
       runtime.abortController.abort();
     }
+
+    runtimes.delete(sessionId);
+    sessionQueues.delete(sessionId);
   }
 
   async function deleteSession(sessionId: number): Promise<void> {
