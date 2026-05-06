@@ -25,10 +25,14 @@ export const autocodeApi: AutocodeApi = {
     readTranscriptTail: (input) => getAutocodeApi().agentSessions.readTranscriptTail(input),
     rename: (input) => getAutocodeApi().agentSessions.rename(input),
     resize: (input) => getAutocodeApi().agentSessions.resize(input),
+    respondToPermission: (input) => getAutocodeApi().agentSessions.respondToPermission(input),
     sendInput: (input) => getAutocodeApi().agentSessions.sendInput(input),
+    setSystemPrompt: (input) => getAutocodeApi().agentSessions.setSystemPrompt(input),
     start: (input) => getAutocodeApi().agentSessions.start(input),
     stop: (input) => getAutocodeApi().agentSessions.stop(input),
-    subscribe: (taskId, callback) => getAutocodeApi().agentSessions.subscribe(taskId, callback)
+    subscribe: (taskId, callback) => getAutocodeApi().agentSessions.subscribe(taskId, callback),
+    subscribePermissionRequests: (callback) =>
+      getAutocodeApi().agentSessions.subscribePermissionRequests(callback)
   },
   projects: {
     list: () => getAutocodeApi().projects.list(),

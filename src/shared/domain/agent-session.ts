@@ -43,6 +43,7 @@ export const agentSessionSchema = z.object({
   exitCode: z.number().int().nullable(),
   lastError: z.string().nullable(),
   lastEventSeq: z.number().int().nonnegative(),
+  systemPrompt: z.string().nullable(),
   startedAt: z.string().datetime().nullable(),
   endedAt: z.string().datetime().nullable(),
   status: agentSessionStatusSchema,

@@ -95,6 +95,7 @@ export const agentSessionsTable = sqliteTable(
     exitCode: integer('exit_code'),
     lastError: text('last_error'),
     lastEventSeq: integer('last_event_seq').notNull().default(0),
+    systemPrompt: text('system_prompt'),
     transcriptPath: text('transcript_path').notNull(),
     startedAt: text('started_at'),
     endedAt: text('ended_at'),

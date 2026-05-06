@@ -2,10 +2,13 @@ export const agentSessionChannels = {
   delete: 'agentSessions:delete',
   event: 'agentSessions:event',
   listByTask: 'agentSessions:listByTask',
+  permissionRequest: 'agentSessions:permissionRequest',
+  permissionResponse: 'agentSessions:permissionResponse',
   readTranscriptTail: 'agentSessions:readTranscriptTail',
   rename: 'agentSessions:rename',
   resize: 'agentSessions:resize',
   sendInput: 'agentSessions:sendInput',
+  setSystemPrompt: 'agentSessions:setSystemPrompt',
   start: 'agentSessions:start',
   stop: 'agentSessions:stop'
 } as const;

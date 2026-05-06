@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ArrowLeft, Check, ExternalLink, Key, Terminal } from 'lucide-react';
+import { ArrowLeft, Check, ExternalLink, Key, MessageSquareText, Terminal, Zap } from 'lucide-react';
 
 import { ClaudePresetIcon, CodexPresetIcon } from '../../lib/provider-preset-icons';
 import { useProviderSettingsStore } from '../../stores/provider-settings-store';
@@ -25,20 +25,114 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[680px] px-8 py-10">
           <h1 className="font-geist text-[22px] font-semibold text-white/90">
-            Providers
+            Settings
           </h1>
           <p className="mt-1.5 font-geist text-[13px] text-white/35">
-            Configure API keys and environment variables for Claude Code and Codex.
+            Configure system prompts, API keys, and environment variables.
           </p>
 
           <div className="mt-10">
-            <ClaudeCodeSection />
+            <SystemPromptSection />
           </div>
+
+          <div className="my-8 border-t border-white/[0.06]" />
+
+          <PromptCachingSection />
+
+          <div className="my-8 border-t border-white/[0.06]" />
+
+          <ClaudeCodeSection />
 
           <div className="my-8 border-t border-white/[0.06]" />
 
           <CodexSection />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SystemPromptSection() {
+  const { globalSystemPrompt, setGlobalSystemPrompt } = useProviderSettingsStore();
+
+  const handleChange = useCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setGlobalSystemPrompt(event.target.value);
+    },
+    [setGlobalSystemPrompt]
+  );
+
+  return (
+    <div>
+      <div className="flex items-center gap-2.5">
+        <MessageSquareText className="h-5 w-5 text-white/40" />
+        <span className="font-geist text-[16px] font-semibold text-white/80">
+          System Prompt
+        </span>
+      </div>
+
+      <p className="mt-2 font-geist text-[12px] text-white/35">
+        Default instructions applied to all new chat sessions. Can be overridden per session.
+      </p>
+
+      <div className="mt-3">
+        <textarea
+          className="min-h-[120px] w-full rounded-lg border border-white/[0.08] bg-[#0c0c0c] px-4 py-3 font-geist text-[12px] leading-relaxed text-white/70 placeholder:text-white/15 focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10"
+          onChange={handleChange}
+          placeholder="You are a helpful coding assistant. Focus on writing clean, maintainable code..."
+          spellCheck={false}
+          value={globalSystemPrompt}
+        />
+      </div>
+
+      <p className="mt-2 font-geist text-[11px] text-white/20">
+        Leave empty to use the default SDK behavior. Applied to both Claude Code and Codex sessions.
+      </p>
+    </div>
+  );
+}
+
+function PromptCachingSection() {
+  const { disablePromptCaching, setDisablePromptCaching } = useProviderSettingsStore();
+
+  return (
+    <div>
+      <div className="flex items-center gap-2.5">
+        <Zap className="h-5 w-5 text-white/40" />
+        <span className="font-geist text-[16px] font-semibold text-white/80">
+          Prompt Caching
+        </span>
+      </div>
+
+      <p className="mt-2 font-geist text-[12px] text-white/35">
+        Prompt caching reduces latency and cost by reusing context from previous turns.
+        Cached prompts are up to 90% cheaper on Bedrock.
+      </p>
+
+      <div className="mt-3 flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+        <div>
+          <p className="font-geist text-[13px] font-medium text-white/60">
+            Disable prompt caching
+          </p>
+          <p className="mt-0.5 font-geist text-[11px] text-white/25">
+            For debugging only. New sessions will send full context on every message.
+          </p>
+        </div>
+        <button
+          className={`relative h-5 w-9 shrink-0 rounded-full transition ${
+            disablePromptCaching
+              ? 'bg-rose-500/40'
+              : 'bg-white/[0.10]'
+          }`}
+          onClick={() => setDisablePromptCaching(!disablePromptCaching)}
+          type="button"
+        >
+          <div
+            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+              disablePromptCaching ? 'left-[18px]' : 'left-0.5'
+            }`}
+          />
+        </button>
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ import {
   ensureAgentSessionTranscriptFile,
   formatAgentSessionTranscriptEntry
 } from './agent-session-transcript';
+import { createPermissionService } from './permission-service';
 
 const BEDROCK_MODEL = 'us.anthropic.claude-opus-4-7';
 
@@ -35,10 +36,12 @@ interface BedrockChatSessionRuntime {
 
 export function createBedrockChatSessionRuntimeManager({
   agentSessionRepository,
+  permissionService,
   publishEvent,
   publishWorkspaceInspectionChange
 }: {
   agentSessionRepository: ReturnType<typeof createAgentSessionRepository>;
+  permissionService: ReturnType<typeof createPermissionService>;
   publishEvent: AgentSessionEventPublisher;
   publishWorkspaceInspectionChange?: (taskId: number) => void;
 }) {
@@ -175,8 +178,8 @@ export function createBedrockChatSessionRuntimeManager({
       cwd: runtime.cwd,
       model: runtime.model,
       env: buildEnv(runtime),
-      permissionMode: 'bypassPermissions',
-      allowDangerouslySkipPermissions: true,
+      permissionMode: 'default',
+      canUseTool: permissionService.createCanUseToolCallback(sessionId),
       includePartialMessages: true,
       ...(runtime.systemPrompt ? { systemPrompt: runtime.systemPrompt } : {}),
       ...(runtime.sdkSessionId
@@ -526,6 +529,8 @@ export function createBedrockChatSessionRuntimeManager({
       return;
     }
 
+    permissionService.clearSession(sessionId);
+
     if (runtime.abortController) {
       runtime.abortController.abort();
     }
@@ -538,6 +543,8 @@ export function createBedrockChatSessionRuntimeManager({
     if (!session) {
       return;
     }
+
+    permissionService.clearSession(sessionId);
 
     if (runtime?.abortController) {
       runtime.abortController.abort();

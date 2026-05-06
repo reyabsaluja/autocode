@@ -9,9 +9,11 @@ import type {
   RenameAgentSessionInput,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
+  SetSystemPromptInput,
   StartAgentSessionInput,
   StopAgentSessionInput
 } from '../../shared/contracts/agent-sessions';
+import type { PermissionResponse } from '../../shared/domain/permissions';
 import type {
   AgentProvider,
   AgentSession,
@@ -32,6 +34,7 @@ import {
 import { createAgentSessionRuntimeManager } from './agent-session-runtime-manager';
 import { createChatSessionRuntimeManager } from './chat-session-runtime-manager';
 import { createBedrockChatSessionRuntimeManager } from './bedrock-chat-session-runtime-manager';
+import { createPermissionService } from './permission-service';
 import {
   readAgentSessionTranscriptTail,
   resolveAgentSessionTranscriptPath
@@ -47,6 +50,7 @@ export function createAgentSessionService(
   const agentSessionRepository = createAgentSessionRepository(db);
   const workspaceRuntime = createWorkspaceRuntime(db);
   const sessionsRoot = resolveAutocodeSessionsRoot();
+  const permissionService = createPermissionService();
   const runtimeManager = createAgentSessionRuntimeManager({
     agentSessionRepository,
     publishEvent,
@@ -59,6 +63,7 @@ export function createAgentSessionService(
   });
   const bedrockChatRuntimeManager = createBedrockChatSessionRuntimeManager({
     agentSessionRepository,
+    permissionService,
     publishEvent,
     publishWorkspaceInspectionChange
   });
@@ -76,6 +81,10 @@ export function createAgentSessionService(
   }
 
   return {
+    respondToPermission(response: PermissionResponse): void {
+      permissionService.handlePermissionResponse(response);
+    },
+
     async delete(input: DeleteAgentSessionInput): Promise<void> {
       const session = agentSessionRepository.findById(input.sessionId);
 
@@ -111,6 +120,22 @@ export function createAgentSessionService(
         input.title,
         new Date().toISOString()
       );
+      publishEvent({ type: 'snapshot', session });
+      return session;
+    },
+
+    setSystemPrompt(input: SetSystemPromptInput): AgentSession {
+      const session = agentSessionRepository.setSystemPrompt(
+        input.sessionId,
+        input.systemPrompt,
+        new Date().toISOString()
+      );
+
+      bedrockChatRuntimeManager.updateSystemPrompt(
+        input.sessionId,
+        input.systemPrompt || undefined
+      );
+
       publishEvent({ type: 'snapshot', session });
       return session;
     },
@@ -190,7 +215,8 @@ export function createAgentSessionService(
           input.taskId,
           context.worktree.id,
           command,
-          transcriptPath
+          transcriptPath,
+          input.systemPrompt
         );
       } catch (error) {
         throw error instanceof Error
@@ -222,9 +248,11 @@ export function createAgentSessionService(
             awsCredentials: input.awsCredentials,
             customEnvVars: input.customEnvVars,
             cwd: context.worktreePath,
+            disablePromptCaching: input.disablePromptCaching,
             model: input.model,
             reasoningEffort: input.reasoningEffort,
             sessionId: placeholderSession.id,
+            systemPrompt: input.systemPrompt,
             timestamp: new Date().toISOString(),
             transcriptPath
           });
@@ -320,13 +348,15 @@ export function createAgentSessionService(
     taskId: number,
     worktreeId: number,
     command: string,
-    transcriptPath: string
+    transcriptPath: string,
+    systemPrompt?: string
   ): AgentSession {
     return agentSessionRepository.create({
       command,
       createdAt,
       provider,
       surface,
+      systemPrompt,
       taskId,
       transcriptPath,
       worktreeId

@@ -14,13 +14,15 @@ import {
   ListTodo,
   Loader2,
   MessageSquare,
+  MessageSquareText,
   Pencil,
   RotateCcw,
   Search,
   Send,
   Square,
   StopCircle,
-  Terminal
+  Terminal,
+  X
 } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
@@ -36,6 +38,8 @@ import {
   type ReasoningEffort
 } from '../../stores/chat-provider-store';
 import { ClaudePresetIcon, CodexPresetIcon } from '../../lib/provider-preset-icons';
+import { PermissionApprovalDialog } from './permission-approval-dialog';
+import { usePermissionSubscription } from './use-permission-subscription';
 
 interface ChatActions {
   onResend: (text: string) => void;
@@ -140,10 +144,12 @@ interface WorkspaceChatSurfaceProps {
   errorMessage: string | null;
   isInteractive: boolean;
   onSend: (text: string) => void;
+  onSetSystemPrompt?: (systemPrompt: string) => void;
   onStartNewChat?: () => void;
   onStop?: () => void;
   provider?: AgentProvider;
   sessionId: number | null;
+  systemPrompt?: string | null;
 }
 
 type ChatItemKind =
@@ -204,11 +210,15 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
   errorMessage,
   isInteractive,
   onSend,
+  onSetSystemPrompt,
   onStartNewChat,
   onStop,
   provider,
-  sessionId
+  sessionId,
+  systemPrompt
 }: WorkspaceChatSurfaceProps) {
+  usePermissionSubscription();
+
   const [composerValue, setComposerValue] = useState('');
   const { chatModel } = useChatProviderStore();
   const modelEntry = getModelEntry(chatModel);
@@ -395,6 +405,8 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
             ) : null}
           </div>
 
+          <PermissionApprovalDialog sessionId={sessionId} />
+
           {isInteractive ? (
             <div className="shrink-0 border-t border-white/[0.06] bg-[#0e0e0e]">
               {agentActivity && onStop ? (
@@ -429,6 +441,12 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
                       <ChatModelSelector
                         onStartNewChat={onStartNewChat}
                       />
+                      {onSetSystemPrompt ? (
+                        <SystemPromptButton
+                          onSetSystemPrompt={onSetSystemPrompt}
+                          systemPrompt={systemPrompt ?? ''}
+                        />
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="hidden font-geist text-[10px] text-white/15 sm:inline">
@@ -1236,11 +1254,19 @@ function TodoListMessage({ items }: { items: Array<{ text: string; completed: bo
 }
 
 function TurnInfoMessage({ usage }: { usage: TurnUsage }) {
+  const cached = usage.cachedInputTokens > 0;
+
   return (
     <div className="flex items-center gap-3 -my-1">
       <div className="h-px flex-1 bg-white/[0.04]" />
       <span className="shrink-0 font-mono text-[9px] tracking-wide text-white/15">
-        {usage.inputTokens.toLocaleString()} in · {usage.outputTokens.toLocaleString()} out
+        {usage.inputTokens.toLocaleString()} in
+        {cached ? (
+          <span className="text-emerald-400/30">
+            {' '}({usage.cachedInputTokens.toLocaleString()} cached)
+          </span>
+        ) : null}
+        {' '}· {usage.outputTokens.toLocaleString()} out
       </span>
       <div className="h-px flex-1 bg-white/[0.04]" />
     </div>
@@ -1590,6 +1616,124 @@ function safeJsonParse<T>(text: string): T | null {
   } catch {
     return null;
   }
+}
+
+function SystemPromptButton({
+  onSetSystemPrompt,
+  systemPrompt
+}: {
+  onSetSystemPrompt: (systemPrompt: string) => void;
+  systemPrompt: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [localPrompt, setLocalPrompt] = useState(systemPrompt);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+
+  useEffect(() => {
+    setLocalPrompt(systemPrompt);
+  }, [systemPrompt]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        popoverRef.current && !popoverRef.current.contains(event.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+        if (localPrompt !== systemPrompt) {
+          onSetSystemPrompt(localPrompt);
+        }
+      }
+    }
+
+    function handleEsc(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+        if (localPrompt !== systemPrompt) {
+          onSetSystemPrompt(localPrompt);
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [isOpen, localPrompt, systemPrompt, onSetSystemPrompt]);
+
+  function open() {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPos({ left: rect.left, bottom: window.innerHeight - rect.top + 4 });
+    setIsOpen(true);
+  }
+
+  const hasPrompt = systemPrompt.trim().length > 0;
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 font-geist text-[11px] transition hover:bg-white/[0.06] hover:text-white/50 ${
+          hasPrompt ? 'text-violet-400/50' : 'text-white/25'
+        }`}
+        onClick={() => isOpen ? setIsOpen(false) : open()}
+        title="System prompt"
+        type="button"
+      >
+        <MessageSquareText className="h-3 w-3" />
+        {hasPrompt ? (
+          <span className="max-w-[60px] truncate">{systemPrompt.slice(0, 20)}</span>
+        ) : null}
+      </button>
+
+      {isOpen && pos ? (
+        <div
+          ref={popoverRef}
+          className="fixed z-[9999] w-80 overflow-hidden rounded-lg border border-white/[0.10] bg-[#1a1a1a] shadow-2xl"
+          style={{ left: Math.min(pos.left, window.innerWidth - 340), bottom: pos.bottom }}
+        >
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-2">
+            <span className="font-geist text-[11px] font-medium text-white/50">
+              Session System Prompt
+            </span>
+            {hasPrompt ? (
+              <button
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-white/25 transition hover:bg-white/[0.06] hover:text-white/50"
+                onClick={() => {
+                  setLocalPrompt('');
+                  onSetSystemPrompt('');
+                }}
+                type="button"
+              >
+                <X className="h-3 w-3" />
+                <span className="font-geist text-[10px]">Clear</span>
+              </button>
+            ) : null}
+          </div>
+          <div className="p-3">
+            <textarea
+              autoFocus
+              className="min-h-[100px] w-full rounded-md border border-white/[0.08] bg-[#0c0c0c] px-3 py-2 font-geist text-[12px] leading-relaxed text-white/70 placeholder:text-white/15 focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10"
+              onChange={(e) => setLocalPrompt(e.target.value)}
+              placeholder="Custom instructions for this session..."
+              spellCheck={false}
+              value={localPrompt}
+            />
+            <p className="mt-1.5 font-geist text-[10px] text-white/20">
+              Overrides the global system prompt for this session. Takes effect on the next message.
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 const EFFORT_LEVELS: { id: ReasoningEffort; label: string }[] = [

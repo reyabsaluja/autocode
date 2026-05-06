@@ -8,10 +8,12 @@ import type {
   RenameAgentSessionInput,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
+  SetSystemPromptInput,
   StartAgentSessionInput,
   StartAgentSessionResult,
   StopAgentSessionInput
 } from './agent-sessions';
+import type { PermissionRequest, PermissionResponse } from '../domain/permissions';
 import type {
   AddProjectInput,
   DeleteProjectInput,
@@ -73,12 +75,17 @@ export interface AutocodeApi {
     ) => Promise<ReadAgentSessionTranscriptTailResult>;
     rename: (input: RenameAgentSessionInput) => Promise<AgentSession>;
     resize: (input: ResizeAgentSessionInput) => Promise<void>;
+    respondToPermission: (input: PermissionResponse) => Promise<void>;
     sendInput: (input: SendAgentSessionInput) => Promise<void>;
+    setSystemPrompt: (input: SetSystemPromptInput) => Promise<AgentSession>;
     start: (input: StartAgentSessionInput) => Promise<StartAgentSessionResult>;
     stop: (input: StopAgentSessionInput) => Promise<void>;
     subscribe: (
       taskId: number,
       callback: (event: AgentSessionEvent) => void
+    ) => () => void;
+    subscribePermissionRequests: (
+      callback: (request: PermissionRequest) => void
     ) => () => void;
   };
   projects: {

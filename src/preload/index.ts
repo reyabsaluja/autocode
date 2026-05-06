@@ -7,6 +7,9 @@ import {
   agentSessionEventResultSchema,
   listAgentSessionsByTaskInputSchema,
   listAgentSessionsByTaskResultSchema,
+  permissionRequestResultSchema,
+  permissionResponseInputSchema,
+  permissionResponseResultSchema,
   readAgentSessionTranscriptTailInputSchema,
   readAgentSessionTranscriptTailResultSchema,
   renameAgentSessionInputSchema,
@@ -15,6 +18,8 @@ import {
   resizeAgentSessionResultSchema,
   sendAgentSessionInputSchema,
   sendAgentSessionResultSchema,
+  setSystemPromptInputSchema,
+  setSystemPromptResultSchema,
   startAgentSessionInputSchema,
   startAgentSessionResultSchema,
   stopAgentSessionInputSchema,
@@ -113,11 +118,23 @@ const api: AutocodeApi = {
         inputSchema: resizeAgentSessionInputSchema,
         outputSchema: resizeAgentSessionResultSchema
       }),
+    respondToPermission: (input) =>
+      invokeValidatedIpc(agentSessionChannels.permissionResponse, {
+        input,
+        inputSchema: permissionResponseInputSchema,
+        outputSchema: permissionResponseResultSchema
+      }),
     sendInput: (input) =>
       invokeValidatedIpc(agentSessionChannels.sendInput, {
         input,
         inputSchema: sendAgentSessionInputSchema,
         outputSchema: sendAgentSessionResultSchema
+      }),
+    setSystemPrompt: (input) =>
+      invokeValidatedIpc(agentSessionChannels.setSystemPrompt, {
+        input,
+        inputSchema: setSystemPromptInputSchema,
+        outputSchema: setSystemPromptResultSchema
       }),
     start: (input) =>
       invokeValidatedIpc(agentSessionChannels.start, {
@@ -144,6 +161,12 @@ const api: AutocodeApi = {
 
           callback(event);
         }
+      ),
+    subscribePermissionRequests: (callback) =>
+      subscribeValidatedIpc(
+        agentSessionChannels.permissionRequest,
+        permissionRequestResultSchema,
+        callback
       )
   },
   projects: {

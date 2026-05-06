@@ -6,12 +6,14 @@ import type {
   RenameAgentSessionInput,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
+  SetSystemPromptInput,
   StartAgentSessionInput
 } from '@shared/contracts/agent-sessions';
 import type { AgentSession, AgentSessionEvent, AgentSessionTranscriptEntry } from '@shared/domain/agent-session';
 
 import { autocodeApi } from '../../lib/autocode-api';
 import { queryKeys } from '../../lib/query-keys';
+import { usePermissionStore } from '../../stores/permission-store';
 import { appendStdinForLabel, clearStdinBuffer, useSessionLabelStore } from '../../stores/session-label-store';
 
 const AGENT_SESSION_TRANSCRIPT_TAIL_MAX_ENTRIES = 500;
@@ -98,6 +100,7 @@ export function useDeleteAgentSessionMutation(taskId: number | null) {
       if (sessionId !== null) {
         queryClient.removeQueries({ queryKey: queryKeys.agentSessionTranscript(sessionId) });
         useSessionLabelStore.getState().removeLabel(sessionId);
+        usePermissionStore.getState().clearSessionRequests(sessionId);
         clearStdinBuffer(sessionId);
       }
 
@@ -145,6 +148,20 @@ export function useRenameAgentSessionMutation(taskId: number | null) {
   return useMutation({
     mutationFn: (input: RenameAgentSessionInput) =>
       autocodeApi.agentSessions.rename(input),
+    onSuccess: (session) => {
+      if (taskId !== null) {
+        setTaskAgentSession(queryClient, taskId, session);
+      }
+    }
+  });
+}
+
+export function useSetSystemPromptMutation(taskId: number | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: SetSystemPromptInput) =>
+      autocodeApi.agentSessions.setSystemPrompt(input),
     onSuccess: (session) => {
       if (taskId !== null) {
         setTaskAgentSession(queryClient, taskId, session);
@@ -223,6 +240,11 @@ function handleAgentSessionEvent(
   if (event.type === 'snapshot') {
     if (pendingDeleteSessionIds.has(event.session.id)) {
       return;
+    }
+
+    const status = event.session.status;
+    if (status === 'completed' || status === 'failed' || status === 'terminated') {
+      usePermissionStore.getState().clearSessionRequests(event.session.id);
     }
 
     setTaskAgentSession(queryClient, taskId, event.session);

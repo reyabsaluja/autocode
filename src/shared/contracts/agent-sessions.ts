@@ -7,6 +7,7 @@ import {
   agentSessionSurfaceSchema,
   agentSessionTranscriptEntrySchema
 } from '../domain/agent-session';
+import { permissionRequestSchema, permissionResponseSchema } from '../domain/permissions';
 
 const sessionIdSchema = z.number().int().positive();
 const taskIdSchema = z.number().int().positive();
@@ -26,11 +27,13 @@ export const startAgentSessionInputSchema = z.object({
     .optional(),
   cols: terminalDimensionSchema,
   customEnvVars: z.string().optional(),
+  disablePromptCaching: z.boolean().optional(),
   model: z.string().optional(),
   provider: agentProviderSchema,
   reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
   rows: terminalDimensionSchema,
   surface: agentSessionSurfaceSchema.default('terminal'),
+  systemPrompt: z.string().optional(),
   taskId: taskIdSchema
 });
 
@@ -58,6 +61,11 @@ export const renameAgentSessionInputSchema = z.object({
   title: z.string().min(1).max(120)
 });
 
+export const setSystemPromptInputSchema = z.object({
+  sessionId: sessionIdSchema,
+  systemPrompt: z.string()
+});
+
 export const readAgentSessionTranscriptTailInputSchema = z.object({
   maxEntries: z.number().int().min(1).max(5_000).default(500),
   sessionId: sessionIdSchema
@@ -71,11 +79,15 @@ export const stopAgentSessionResultSchema = z.void();
 export const resizeAgentSessionResultSchema = z.void();
 export const deleteAgentSessionResultSchema = z.void();
 export const renameAgentSessionResultSchema = agentSessionSchema;
+export const setSystemPromptResultSchema = agentSessionSchema;
 export const readAgentSessionTranscriptTailResultSchema = z.object({
   entries: z.array(agentSessionTranscriptEntrySchema),
   lastEventSeq: z.number().int().nonnegative()
 });
 export const agentSessionEventResultSchema = agentSessionEventSchema;
+export const permissionRequestResultSchema = permissionRequestSchema;
+export const permissionResponseInputSchema = permissionResponseSchema;
+export const permissionResponseResultSchema = z.void();
 
 export type ListAgentSessionsByTaskInput = z.infer<typeof listAgentSessionsByTaskInputSchema>;
 export type StartAgentSessionInput = z.infer<typeof startAgentSessionInputSchema>;
@@ -84,6 +96,7 @@ export type StopAgentSessionInput = z.infer<typeof stopAgentSessionInputSchema>;
 export type ResizeAgentSessionInput = z.infer<typeof resizeAgentSessionInputSchema>;
 export type DeleteAgentSessionInput = z.infer<typeof deleteAgentSessionInputSchema>;
 export type RenameAgentSessionInput = z.infer<typeof renameAgentSessionInputSchema>;
+export type SetSystemPromptInput = z.infer<typeof setSystemPromptInputSchema>;
 export type ReadAgentSessionTranscriptTailInput = z.infer<
   typeof readAgentSessionTranscriptTailInputSchema
 >;

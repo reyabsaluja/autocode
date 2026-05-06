@@ -14,6 +14,7 @@ export interface CreateAgentSessionInput {
   createdAt: string;
   provider: AgentProvider;
   surface: AgentSessionSurface;
+  systemPrompt?: string;
   taskId: number;
   transcriptPath: string;
   worktreeId: number;
@@ -46,6 +47,7 @@ export function createAgentSessionRepository(db: AppDatabase) {
           startedAt: null,
           status: 'starting',
           surface: input.surface,
+          systemPrompt: input.systemPrompt ?? null,
           taskId: input.taskId,
           title: null,
           transcriptPath: input.transcriptPath,
@@ -165,6 +167,20 @@ export function createAgentSessionRepository(db: AppDatabase) {
       return toAgentSession(session);
     },
 
+    setSystemPrompt(sessionId: number, systemPrompt: string, timestamp: string): AgentSession {
+      const session = db
+        .update(agentSessionsTable)
+        .set({
+          systemPrompt: systemPrompt || null,
+          updatedAt: timestamp
+        })
+        .where(eq(agentSessionsTable.id, sessionId))
+        .returning()
+        .get();
+
+      return toAgentSession(session);
+    },
+
     rename(sessionId: number, title: string, timestamp: string): AgentSession {
       const session = db
         .update(agentSessionsTable)
@@ -213,6 +229,7 @@ function toAgentSession(record: AgentSessionRecord): AgentSession {
     startedAt: record.startedAt,
     status: record.status,
     surface: record.surface,
+    systemPrompt: record.systemPrompt ?? null,
     taskId: record.taskId,
     title: record.title ?? null,
     updatedAt: record.updatedAt,

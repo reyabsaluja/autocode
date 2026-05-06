@@ -49,16 +49,23 @@ export function createChatSessionRuntimeManager({
 
   async function startChatSession(input: {
     awsCredentials?: { accessKeyId: string; secretAccessKey: string; region: string };
+    customEnvVars?: string;
     cwd: string;
+    disablePromptCaching?: boolean;
     model?: string;
     reasoningEffort?: string;
     sessionId: number;
+    systemPrompt?: string;
     timestamp: string;
     transcriptPath: string;
   }): Promise<AgentSession> {
     await ensureAgentSessionTranscriptFile(input.transcriptPath);
 
-    const codex = new Codex();
+    const codex = new Codex(
+      input.systemPrompt
+        ? { config: { instructions: input.systemPrompt } }
+        : undefined
+    );
     const thread = codex.startThread({
       model: input.model,
       modelReasoningEffort: input.reasoningEffort as any,

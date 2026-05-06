@@ -7,6 +7,8 @@ import {
   type ListAgentSessionsByTaskInput,
   listAgentSessionsByTaskInputSchema,
   listAgentSessionsByTaskResultSchema,
+  permissionResponseInputSchema,
+  permissionResponseResultSchema,
   type ReadAgentSessionTranscriptTailInput,
   readAgentSessionTranscriptTailInputSchema,
   readAgentSessionTranscriptTailResultSchema,
@@ -19,6 +21,9 @@ import {
   type SendAgentSessionInput,
   sendAgentSessionInputSchema,
   sendAgentSessionResultSchema,
+  type SetSystemPromptInput,
+  setSystemPromptInputSchema,
+  setSystemPromptResultSchema,
   type StartAgentSessionInput,
   startAgentSessionInputSchema,
   startAgentSessionResultSchema,
@@ -26,6 +31,7 @@ import {
   stopAgentSessionInputSchema,
   stopAgentSessionResultSchema
 } from '../../shared/contracts/agent-sessions';
+import type { PermissionResponse } from '../../shared/domain/permissions';
 import { agentSessionChannels } from '../../shared/ipc/channels';
 import { createAgentSessionService } from '../services/agent-session-service';
 import { handleValidatedIpc } from './handle-validated-ipc';
@@ -75,6 +81,13 @@ export function registerAgentSessionHandlers(agentSessionService: AgentSessionSe
     outputSchema: renameAgentSessionResultSchema
   });
 
+  handleValidatedIpc(agentSessionChannels.setSystemPrompt, {
+    handler: async (_event: IpcMainInvokeEvent, input: SetSystemPromptInput) =>
+      agentSessionService.setSystemPrompt(input),
+    inputSchema: setSystemPromptInputSchema,
+    outputSchema: setSystemPromptResultSchema
+  });
+
   handleValidatedIpc(agentSessionChannels.readTranscriptTail, {
     handler: async (_event: IpcMainInvokeEvent, input: ReadAgentSessionTranscriptTailInput) =>
       agentSessionService.readTranscriptTail(input),
@@ -87,5 +100,12 @@ export function registerAgentSessionHandlers(agentSessionService: AgentSessionSe
       agentSessionService.stop(input),
     inputSchema: stopAgentSessionInputSchema,
     outputSchema: stopAgentSessionResultSchema
+  });
+
+  handleValidatedIpc(agentSessionChannels.permissionResponse, {
+    handler: async (_event: IpcMainInvokeEvent, input: PermissionResponse) =>
+      agentSessionService.respondToPermission(input),
+    inputSchema: permissionResponseInputSchema,
+    outputSchema: permissionResponseResultSchema
   });
 }

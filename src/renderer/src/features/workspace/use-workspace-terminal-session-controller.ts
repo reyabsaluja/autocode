@@ -11,6 +11,7 @@ import {
   useAgentSessionTranscriptTailQuery,
   useAgentSessionsQuery,
   useRenameAgentSessionMutation,
+  useSetSystemPromptMutation,
   useStartAgentSessionMutation,
   useStopAgentSessionMutation
 } from '../agent-sessions/agent-session-hooks';
@@ -90,6 +91,7 @@ export function useWorkspaceTerminalSessionController({
   const startSessionMutation = useStartAgentSessionMutation(taskId);
   const deleteSessionMutation = useDeleteAgentSessionMutation(taskId);
   const renameSessionMutation = useRenameAgentSessionMutation(taskId);
+  const setSystemPromptMutation = useSetSystemPromptMutation(taskId);
   const sendInputMutation = useAgentSessionInputMutation(selectedSession?.id ?? null);
   const stopSessionMutation = useStopAgentSessionMutation();
   const resizeSessionMutation = useAgentSessionResizeMutation(selectedSession?.id ?? null);
@@ -189,10 +191,14 @@ export function useWorkspaceTerminalSessionController({
       ...terminalSize,
       awsCredentials: effectiveProvider === 'claude-bedrock' ? chatState.awsCredentials : undefined,
       customEnvVars: providerSettings.claudeCodeEnvVars || undefined,
+      disablePromptCaching: providerSettings.disablePromptCaching || undefined,
       model: option.kind === 'chat' ? chatState.chatModel : undefined,
       provider: effectiveProvider,
       reasoningEffort: option.kind === 'chat' ? chatState.reasoningEffort : undefined,
-      surface: option.surface
+      surface: option.surface,
+      systemPrompt: option.kind === 'chat' && providerSettings.globalSystemPrompt
+        ? providerSettings.globalSystemPrompt
+        : undefined
     });
     setSelectedSessionId(session.id);
   }
@@ -367,25 +373,35 @@ export function useWorkspaceTerminalSessionController({
     void startSession(NEW_TAB_CHAT_OPTION);
   }, [showTerminal, stopSessionMutation, startSessionMutation, terminalSize]);
 
+  const handleSetSystemPrompt = useCallback((systemPrompt: string) => {
+    const current = selectedSessionRef.current;
+    if (!current) return;
+    setSystemPromptMutation.mutate({ sessionId: current.id, systemPrompt });
+  }, [setSystemPromptMutation]);
+
   const chatSurfaceProps = useMemo(() => ({
     emptyStateMode,
     entries,
     errorMessage: terminalErrorMessage,
     isInteractive: isActiveSessionStatus(selectedSession?.status),
     onSend: handleChatSend,
+    onSetSystemPrompt: handleSetSystemPrompt,
     onStartNewChat: handleStartNewChat,
     onStop: handleChatStop,
     provider: selectedSession?.provider,
-    sessionId: selectedSession?.id ?? null
+    sessionId: selectedSession?.id ?? null,
+    systemPrompt: selectedSession?.systemPrompt ?? null
   }), [
     emptyStateMode,
     entries,
     handleChatSend,
     handleChatStop,
+    handleSetSystemPrompt,
     handleStartNewChat,
     selectedSession?.id,
     selectedSession?.provider,
     selectedSession?.status,
+    selectedSession?.systemPrompt,
     terminalErrorMessage
   ]);
 
