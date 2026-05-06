@@ -131,10 +131,12 @@ export function createAgentSessionService(
         new Date().toISOString()
       );
 
-      bedrockChatRuntimeManager.updateSystemPrompt(
-        input.sessionId,
-        input.systemPrompt || undefined
-      );
+      if (isBedrockChatSession(session)) {
+        bedrockChatRuntimeManager.updateSystemPrompt(
+          input.sessionId,
+          input.systemPrompt || undefined
+        );
+      }
 
       publishEvent({ type: 'snapshot', session });
       return session;

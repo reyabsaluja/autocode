@@ -468,6 +468,9 @@ export function createChatSessionRuntimeManager({
     if (runtime.turnAbort) {
       runtime.turnAbort.abort();
     }
+
+    runtimes.delete(sessionId);
+    sessionQueues.delete(sessionId);
   }
 
   async function deleteSession(sessionId: number): Promise<void> {
