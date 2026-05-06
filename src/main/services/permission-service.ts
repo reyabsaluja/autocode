@@ -15,12 +15,13 @@ interface PendingPermissionRequest {
   resolve: (result: PermissionResult) => void;
   sessionId: number;
   toolName: string;
+  toolUseID: string;
 }
 
-const pendingRequests = new Map<string, PendingPermissionRequest>();
-const sessionAllowlists = new Map<number, Set<string>>();
-
 export function createPermissionService() {
+  const pendingRequests = new Map<string, PendingPermissionRequest>();
+  const sessionAllowlists = new Map<number, Set<string>>();
+
   return {
     createCanUseToolCallback,
     handlePermissionResponse,
@@ -74,7 +75,7 @@ export function createPermissionService() {
       }
 
       return new Promise<PermissionResult>((resolve) => {
-        pendingRequests.set(requestId, { resolve, sessionId, toolName });
+        pendingRequests.set(requestId, { resolve, sessionId, toolName, toolUseID: options.toolUseID });
 
         const onAbort = () => {
           pendingRequests.delete(requestId);
@@ -114,11 +115,12 @@ export function createPermissionService() {
         allowlist.add(pending.toolName);
       }
 
-      pending.resolve({ behavior: 'allow' });
+      pending.resolve({ behavior: 'allow', toolUseID: pending.toolUseID });
     } else {
       pending.resolve({
         behavior: 'deny',
-        message: 'User denied tool execution.'
+        message: 'User denied tool execution.',
+        toolUseID: pending.toolUseID
       });
     }
   }
@@ -126,14 +128,19 @@ export function createPermissionService() {
   function clearSession(sessionId: number): void {
     sessionAllowlists.delete(sessionId);
 
+    const toRemove: Array<[string, PendingPermissionRequest]> = [];
     for (const [requestId, pending] of pendingRequests) {
       if (pending.sessionId === sessionId) {
-        pendingRequests.delete(requestId);
-        pending.resolve({
-          behavior: 'deny',
-          message: 'Session was terminated.'
-        });
+        toRemove.push([requestId, pending]);
       }
+    }
+
+    for (const [requestId, pending] of toRemove) {
+      pendingRequests.delete(requestId);
+      pending.resolve({
+        behavior: 'deny',
+        message: 'Session was terminated.'
+      });
     }
   }
 }
