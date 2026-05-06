@@ -25,13 +25,13 @@ export const startAgentSessionInputSchema = z.object({
       secretAccessKey: z.string()
     })
     .optional(),
-  cols: terminalDimensionSchema,
-  customEnvVars: z.string().optional(),
+  cols: terminalDimensionSchema.optional(),
+  customEnvVars: z.string().max(100_000).optional(),
   disablePromptCaching: z.boolean().optional(),
   model: z.string().optional(),
   provider: agentProviderSchema,
   reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
-  rows: terminalDimensionSchema,
+  rows: terminalDimensionSchema.optional(),
   surface: agentSessionSurfaceSchema.default('terminal'),
   systemPrompt: z.string().optional(),
   taskId: taskIdSchema
@@ -39,7 +39,7 @@ export const startAgentSessionInputSchema = z.object({
 
 export const sendAgentSessionInputSchema = z.object({
   sessionId: sessionIdSchema,
-  text: z.string().min(1)
+  text: z.string().min(1).max(1_000_000).refine((s) => s.trim().length > 0, { message: 'Message must not be whitespace-only.' })
 });
 
 export const stopAgentSessionInputSchema = z.object({
@@ -63,7 +63,7 @@ export const renameAgentSessionInputSchema = z.object({
 
 export const setSystemPromptInputSchema = z.object({
   sessionId: sessionIdSchema,
-  systemPrompt: z.string()
+  systemPrompt: z.string().max(500_000)
 });
 
 export const readAgentSessionTranscriptTailInputSchema = z.object({
