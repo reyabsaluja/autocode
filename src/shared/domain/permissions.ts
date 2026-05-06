@@ -33,7 +33,19 @@ const CRITICAL_COMMAND_PATTERNS = [
   /\bgit\s+push\s+.*--force/,
   /\bgit\s+reset\s+--hard/,
   /\bchmod\s+777\b/,
-  /\bdd\s+if=/
+  /\bdd\s+if=/,
+  /\beval\b/,
+  /\bbase64\s+(-d|--decode)\b/,
+  /\bmkfs\b/,
+  /\b:(){ :\|:& };:/,
+  />\s*\/dev\/sd[a-z]/,
+  /\bnc\b.*-[a-zA-Z]*e/,
+  /\bpython[23]?\s+-c\b.*\bexec\b/,
+  /\bnode\s+-e\b/,
+  /\bkill\s+-9\s+1\b/,
+  /\bsystemctl\s+(stop|disable|mask)\b/,
+  /\|\s*(ba)?sh\b/,
+  /\bchown\s+-R\s+.*\//
 ];
 
 const AUTO_APPROVE_TOOLS = new Set([
