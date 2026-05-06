@@ -67,11 +67,19 @@ export function createPermissionService() {
         description: options.description
       };
 
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(
+      const targetWindow = BrowserWindow.getFocusedWindow();
+      if (targetWindow) {
+        targetWindow.webContents.send(
           agentSessionChannels.permissionRequest,
           permissionRequest
         );
+      } else {
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.webContents.send(
+            agentSessionChannels.permissionRequest,
+            permissionRequest
+          );
+        }
       }
 
       return new Promise<PermissionResult>((resolve) => {
