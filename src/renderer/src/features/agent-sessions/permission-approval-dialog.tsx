@@ -43,8 +43,12 @@ export const PermissionApprovalDialog = memo(function PermissionApprovalDialog({
     removeRequest(currentRequest.requestId);
   }, [currentRequest, removeRequest]);
 
+  const sessionRequestCount = sessionId !== null
+    ? pendingRequests.filter((r) => r.sessionId === sessionId).length
+    : 0;
+
   useEffect(() => {
-    if (!currentRequest) return;
+    if (!currentRequest || sessionRequestCount !== 1) return;
 
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
@@ -63,7 +67,7 @@ export const PermissionApprovalDialog = memo(function PermissionApprovalDialog({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentRequest, handleAllow, handleDeny]);
+  }, [currentRequest, sessionRequestCount, handleAllow, handleDeny]);
 
   if (!currentRequest) return null;
 
