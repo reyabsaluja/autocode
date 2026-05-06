@@ -292,12 +292,12 @@ export function createAgentSessionService(
       }
 
       const { pid } = await runtimeManager.startRuntime({
-        cols: input.cols,
+        cols: input.cols ?? 120,
         cwd: context.worktreePath,
         env: providerRuntime.env,
         executablePath: providerRuntime.executablePath,
         provider: input.provider,
-        rows: input.rows,
+        rows: input.rows ?? 30,
         sessionId: placeholderSession.id,
         transcriptPath
       });
