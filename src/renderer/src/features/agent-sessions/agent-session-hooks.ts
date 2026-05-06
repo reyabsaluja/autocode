@@ -314,24 +314,6 @@ function appendTranscriptEntries(
   };
 }
 
-function setAgentSessionInAllTaskLists(
-  queryClient: ReturnType<typeof useQueryClient>,
-  session: AgentSession
-) {
-  for (const [queryKey, current] of queryClient.getQueriesData<AgentSession[]>({
-    queryKey: ['agent-sessions']
-  })) {
-    if (!Array.isArray(current) || queryKey.length < 2 || typeof queryKey[1] !== 'number') {
-      continue;
-    }
-
-    queryClient.setQueryData<AgentSession[]>(
-      queryKey,
-      updateAgentSessionList(current, session)
-    );
-  }
-}
-
 function setTaskAgentSession(
   queryClient: ReturnType<typeof useQueryClient>,
   taskId: number,
