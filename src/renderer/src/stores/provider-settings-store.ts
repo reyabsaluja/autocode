@@ -29,7 +29,12 @@ export const useProviderSettingsStore = create<ProviderSettingsState>()(
       setGlobalSystemPrompt: (prompt) => set({ globalSystemPrompt: prompt })
     }),
     {
-      name: 'autocode-provider-settings'
+      name: 'autocode-provider-settings',
+      partialize: (state) => ({
+        codexAuthMode: state.codexAuthMode,
+        disablePromptCaching: state.disablePromptCaching,
+        globalSystemPrompt: state.globalSystemPrompt
+      })
     }
   )
 );
