@@ -8,6 +8,7 @@ import type {
   RenameAgentSessionInput,
   ResizeAgentSessionInput,
   SendAgentSessionInput,
+  SetSystemPromptInput,
   StartAgentSessionInput,
   StartAgentSessionResult,
   StopAgentSessionInput
@@ -36,6 +37,8 @@ import type {
   WorkspaceDiffResult,
   WorkspaceDirectoryInput,
   WorkspaceDirectoryResult,
+  WorkspaceListAllPathsInput,
+  WorkspaceListAllPathsResult,
   WorkspaceIntegrateBaseInput,
   WorkspaceIntegrationResult,
   WorkspaceListBranchesInput,
@@ -74,6 +77,7 @@ export interface AutocodeApi {
     rename: (input: RenameAgentSessionInput) => Promise<AgentSession>;
     resize: (input: ResizeAgentSessionInput) => Promise<void>;
     sendInput: (input: SendAgentSessionInput) => Promise<void>;
+    setSystemPrompt: (input: SetSystemPromptInput) => Promise<AgentSession>;
     start: (input: StartAgentSessionInput) => Promise<StartAgentSessionResult>;
     stop: (input: StopAgentSessionInput) => Promise<void>;
     subscribe: (
@@ -93,6 +97,7 @@ export interface AutocodeApi {
     delete: (input: DeleteTaskInput) => Promise<DeleteTaskResult>;
   };
   workspaces: {
+    listAllPaths: (input: WorkspaceListAllPathsInput) => Promise<WorkspaceListAllPathsResult>;
     listDirectory: (input: WorkspaceDirectoryInput) => Promise<WorkspaceDirectoryResult>;
     listChanges: (input: WorkspaceChangesInput) => Promise<WorkspaceChangesResult>;
     listRecentCommits: (input: WorkspaceRecentCommitsInput) => Promise<WorkspaceRecentCommitsResult>;

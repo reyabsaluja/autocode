@@ -15,6 +15,14 @@ import {
 
 const taskIdSchema = z.number().int().positive();
 
+export const workspaceListAllPathsInputSchema = z.object({
+  taskId: taskIdSchema
+});
+
+export const workspaceListAllPathsResultSchema = z.object({
+  paths: z.array(z.string())
+});
+
 export const workspaceDirectoryInputSchema = z.object({
   relativePath: z.string().optional().default(''),
   taskId: taskIdSchema
@@ -119,6 +127,8 @@ export const workspaceIntegrationResultSchema = z.object({
   message: z.string().min(1)
 });
 
+export type WorkspaceListAllPathsInput = z.infer<typeof workspaceListAllPathsInputSchema>;
+export type WorkspaceListAllPathsResult = z.infer<typeof workspaceListAllPathsResultSchema>;
 export type WorkspaceDirectoryInput = z.infer<typeof workspaceDirectoryInputSchema>;
 export type WorkspaceChangesInput = z.infer<typeof workspaceChangesInputSchema>;
 export type WorkspaceRecentCommitsInput = z.infer<typeof workspaceRecentCommitsInputSchema>;

@@ -109,7 +109,6 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
             commitNotice={fileController.commitNotice}
             commits={fileController.commits}
             commitsLoadErrorMessage={fileController.commitsLoadErrorMessage}
-            expandedDirectories={fileController.expandedDirectories}
             isCommitting={fileController.commitMutation.isPending}
             isLoadingChanges={fileController.isLoadingChanges}
             isLoadingCommits={fileController.isLoadingCommits}
@@ -126,7 +125,6 @@ function WorkspaceInspector({ onRequestTaskSelection, taskWorkspace }: Workspace
             onSelectChange={handleSelectChange}
             onSelectFile={handleSelectFile}
             onSelectSidebarTab={fileController.setActiveSidebarTab}
-            onToggleDirectory={fileController.toggleDirectory}
             reviewStatus={fileController.reviewStatus}
             publishStatusErrorMessage={fileController.publishStatusErrorMessage}
             selectedPath={fileController.selectedPath}

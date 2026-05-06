@@ -26,6 +26,7 @@ export const autocodeApi: AutocodeApi = {
     rename: (input) => getAutocodeApi().agentSessions.rename(input),
     resize: (input) => getAutocodeApi().agentSessions.resize(input),
     sendInput: (input) => getAutocodeApi().agentSessions.sendInput(input),
+    setSystemPrompt: (input) => getAutocodeApi().agentSessions.setSystemPrompt(input),
     start: (input) => getAutocodeApi().agentSessions.start(input),
     stop: (input) => getAutocodeApi().agentSessions.stop(input),
     subscribe: (taskId, callback) => getAutocodeApi().agentSessions.subscribe(taskId, callback)
@@ -42,6 +43,7 @@ export const autocodeApi: AutocodeApi = {
     delete: (input) => getAutocodeApi().tasks.delete(input)
   },
   workspaces: {
+    listAllPaths: (input) => getAutocodeApi().workspaces.listAllPaths(input),
     listDirectory: (input) => getAutocodeApi().workspaces.listDirectory(input),
     listChanges: (input) => getAutocodeApi().workspaces.listChanges(input),
     listRecentCommits: (input) => getAutocodeApi().workspaces.listRecentCommits(input),

@@ -40,6 +40,9 @@ import {
   type WorkspaceOpenInEditorInput,
   workspaceOpenInEditorInputSchema,
   workspaceOpenInEditorResultSchema,
+  type WorkspaceListAllPathsInput,
+  workspaceListAllPathsInputSchema,
+  workspaceListAllPathsResultSchema,
   type WorkspaceUpdateBaseRefInput,
   workspaceUpdateBaseRefInputSchema,
   workspaceUpdateBaseRefResultSchema
@@ -67,6 +70,13 @@ export function registerWorkspaceHandlers(
 ): void {
   const externalEditorService = createExternalEditorService({
     openPath: (targetPath) => shell.openPath(targetPath)
+  });
+
+  handleValidatedIpc(workspaceChannels.listAllPaths, {
+    handler: async (_event: IpcMainInvokeEvent, input: WorkspaceListAllPathsInput) =>
+      workspaceService.listAllPaths(input.taskId),
+    inputSchema: workspaceListAllPathsInputSchema,
+    outputSchema: workspaceListAllPathsResultSchema
   });
 
   handleValidatedIpc(workspaceChannels.listDirectory, {

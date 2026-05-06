@@ -28,6 +28,17 @@ import {
 
 const WORKSPACE_EXPLORER_DIRECTORY_STALE_TIME_MS = 60_000;
 const WORKSPACE_EXPLORER_DIRECTORY_GC_TIME_MS = 10 * 60_000;
+const WORKSPACE_ALL_PATHS_STALE_TIME_MS = 30_000;
+
+export function useWorkspaceAllPathsQuery(taskId: number | null) {
+  return useQuery({
+    enabled: taskId !== null,
+    queryKey: taskId !== null ? ['workspace', taskId, 'allPaths'] : ['workspace', 'idle', 'allPaths'],
+    queryFn: () => autocodeApi.workspaces.listAllPaths({ taskId: taskId! }),
+    staleTime: WORKSPACE_ALL_PATHS_STALE_TIME_MS,
+    refetchOnWindowFocus: false
+  });
+}
 
 export function useWorkspaceExplorerDirectoryQuery(
   taskId: number | null,

@@ -25,7 +25,6 @@ interface WorkspaceInspectorSidebarProps {
   commitMessage: string;
   commitNotice: string | null;
   commits: WorkspaceCommitLogEntry[];
-  expandedDirectories: string[];
   isCommitting: boolean;
   isLoadingChanges: boolean;
   isLoadingCommits: boolean;
@@ -43,7 +42,6 @@ interface WorkspaceInspectorSidebarProps {
   onSelectChange: (path: string) => void;
   onSelectFile: (path: string) => void;
   onSelectSidebarTab: (tab: 'changes' | 'files') => void;
-  onToggleDirectory: (directoryPath: string) => void;
   reviewStatus: WorkspaceReviewStatus | null;
   publishStatusErrorMessage: string | null;
   selectedPath: string | null;
@@ -59,7 +57,6 @@ export function WorkspaceInspectorSidebar({
   commitNotice,
   commits,
   commitsLoadErrorMessage,
-  expandedDirectories,
   isCommitting,
   isLoadingChanges,
   isLoadingCommits,
@@ -76,7 +73,6 @@ export function WorkspaceInspectorSidebar({
   onSelectChange,
   onSelectFile,
   onSelectSidebarTab,
-  onToggleDirectory,
   reviewStatus,
   publishStatusErrorMessage,
   selectedPath,
@@ -115,8 +111,6 @@ export function WorkspaceInspectorSidebar({
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeSidebarTab === 'files' ? (
           <WorkspaceFileExplorer
-            expandedDirectories={expandedDirectories}
-            onToggleDirectory={onToggleDirectory}
             onSelectPath={onSelectFile}
             selectedPath={selectedPath}
             taskId={taskId}

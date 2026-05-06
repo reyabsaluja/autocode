@@ -15,6 +15,8 @@ import {
   resizeAgentSessionResultSchema,
   sendAgentSessionInputSchema,
   sendAgentSessionResultSchema,
+  setSystemPromptInputSchema,
+  setSystemPromptResultSchema,
   startAgentSessionInputSchema,
   startAgentSessionResultSchema,
   stopAgentSessionInputSchema,
@@ -48,6 +50,8 @@ import {
   workspaceDiffResultSchema,
   workspaceDirectoryInputSchema,
   workspaceDirectoryResultSchema,
+  workspaceListAllPathsInputSchema,
+  workspaceListAllPathsResultSchema,
   workspaceIntegrateBaseInputSchema,
   workspaceIntegrationResultSchema,
   workspaceListBranchesInputSchema,
@@ -112,6 +116,12 @@ const api: AutocodeApi = {
         input,
         inputSchema: resizeAgentSessionInputSchema,
         outputSchema: resizeAgentSessionResultSchema
+      }),
+    setSystemPrompt: (input) =>
+      invokeValidatedIpc(agentSessionChannels.setSystemPrompt, {
+        input,
+        inputSchema: setSystemPromptInputSchema,
+        outputSchema: setSystemPromptResultSchema
       }),
     sendInput: (input) =>
       invokeValidatedIpc(agentSessionChannels.sendInput, {
@@ -189,6 +199,12 @@ const api: AutocodeApi = {
       })
   },
   workspaces: {
+    listAllPaths: (input) =>
+      invokeValidatedIpc(workspaceChannels.listAllPaths, {
+        input,
+        inputSchema: workspaceListAllPathsInputSchema,
+        outputSchema: workspaceListAllPathsResultSchema
+      }),
     listDirectory: (input) =>
       invokeValidatedIpc(workspaceChannels.listDirectory, {
         input,

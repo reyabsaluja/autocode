@@ -61,6 +61,31 @@ export function createWorkspaceService(
   const { taskWorkspaceRepository } = workspaceRuntime;
 
   return {
+    async listAllPaths(taskId: number): Promise<{ paths: string[] }> {
+      const context = await workspaceRuntime.resolveWorkspaceContext(taskId);
+      const paths: string[] = [];
+      const MAX_PATHS = 10_000;
+
+      async function walk(dir: string, prefix: string) {
+        if (paths.length >= MAX_PATHS) return;
+        const entries = await readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (paths.length >= MAX_PATHS) return;
+          if (entry.name === '.git' || entry.name === 'node_modules') continue;
+          const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+          if (entry.isDirectory()) {
+            paths.push(`${rel}/`);
+            await walk(`${dir}/${entry.name}`, rel);
+          } else {
+            paths.push(rel);
+          }
+        }
+      }
+
+      await walk(context.worktreePath, '');
+      return { paths };
+    },
+
     async listDirectory(input: WorkspaceDirectoryInput): Promise<WorkspaceDirectorySnapshot> {
       const context = await workspaceRuntime.resolveWorkspaceContext(input.taskId);
       const relativePath = normalizeRelativePath(input.relativePath ?? '');

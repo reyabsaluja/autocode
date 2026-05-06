@@ -6,6 +6,7 @@ export const agentSessionChannels = {
   rename: 'agentSessions:rename',
   resize: 'agentSessions:resize',
   sendInput: 'agentSessions:sendInput',
+  setSystemPrompt: 'agentSessions:setSystemPrompt',
   start: 'agentSessions:start',
   stop: 'agentSessions:stop'
 } as const;
@@ -36,6 +37,7 @@ export const workspaceChannels = {
   readFile: 'workspaces:readFile',
   listChanges: 'workspaces:listChanges',
   listRecentCommits: 'workspaces:listRecentCommits',
+  listAllPaths: 'workspaces:listAllPaths',
   listDirectory: 'workspaces:listDirectory',
   mergeTask: 'workspaces:mergeTask',
   pushBranch: 'workspaces:pushBranch',
