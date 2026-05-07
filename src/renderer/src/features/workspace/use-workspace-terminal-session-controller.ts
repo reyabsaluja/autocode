@@ -362,15 +362,15 @@ export function useWorkspaceTerminalSessionController({
     terminalErrorMessage
   ]);
 
-  const handleStartNewChat = useCallback(() => {
+  const handleStartNewChat = useCallback(async () => {
     const current = selectedSessionRef.current;
 
     if (current && current.surface === 'chat' && isActiveSessionStatus(current.status)) {
-      stopSessionMutation.mutate(current.id);
+      await stopSessionMutation.mutateAsync(current.id);
     }
 
     showTerminal();
-    void startSession(NEW_TAB_CHAT_OPTION);
+    await startSession(NEW_TAB_CHAT_OPTION);
   }, [showTerminal, stopSessionMutation, startSessionMutation, terminalSize]);
 
   const handleSetSystemPrompt = useCallback((systemPrompt: string) => {
