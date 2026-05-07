@@ -44,10 +44,10 @@ describe('classifyToolRisk', () => {
     expect(classifyToolRisk('Bash', {})).toBe('high');
   });
 
-  test('truncates long commands before pattern matching', () => {
+  test('classifies commands exceeding 4096 chars as critical', () => {
     const longPrefix = 'a'.repeat(5000);
     const command = `${longPrefix}rm -rf /`;
-    expect(classifyToolRisk('Bash', { command })).toBe('high');
+    expect(classifyToolRisk('Bash', { command })).toBe('critical');
   });
 });
 
