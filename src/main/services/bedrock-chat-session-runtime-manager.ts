@@ -1,7 +1,15 @@
 import { rm } from 'node:fs/promises';
 
 import { query, deleteSession as deleteSdkSession } from '@anthropic-ai/claude-agent-sdk';
-import type { SDKMessage, Query, Options } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  SDKMessage,
+  SDKPartialAssistantMessage,
+  SDKResultSuccess,
+  SDKSystemMessage,
+  SDKUserMessage,
+  Query,
+  Options
+} from '@anthropic-ai/claude-agent-sdk';
 
 import type {
   AgentSession,
@@ -350,7 +358,8 @@ export function createBedrockChatSessionRuntimeManager({
           } else if (block.type === 'thinking') {
             const thinkingId = `bedrock-think-${message.uuid}`;
             tracker.setCurrentThinkingItemId(thinkingId);
-            await writeTranscriptEntry(sessionId, transcriptPath, 'thinking', (block as any).thinking ?? '', thinkingId);
+            const thinkingText = 'thinking' in block && typeof block.thinking === 'string' ? block.thinking : '';
+            await writeTranscriptEntry(sessionId, transcriptPath, 'thinking', thinkingText, thinkingId);
           } else if (block.type === 'tool_use') {
             const toolId = `bedrock-tool-${block.id}`;
             tracker.registerToolUse(block.id, block.name, block.input as Record<string, unknown>);
@@ -374,20 +383,21 @@ export function createBedrockChatSessionRuntimeManager({
       }
 
       case 'stream_event': {
-        const event = (message as any).event;
+        const streamMsg = message as SDKPartialAssistantMessage;
+        const event = streamMsg.event;
 
         if (!event) {
           break;
         }
 
         if (event.type === 'content_block_delta') {
-          const delta = event.delta;
+          const delta = 'delta' in event ? event.delta : undefined;
 
-          if (delta?.type === 'text_delta' && typeof delta.text === 'string') {
+          if (delta && delta.type === 'text_delta' && 'text' in delta && typeof delta.text === 'string') {
             const itemId = tracker.getCurrentAssistantItemId() || `bedrock-stream-${message.uuid}`;
             tracker.setCurrentAssistantItemId(itemId);
             await writeTranscriptEntry(sessionId, transcriptPath, 'assistant-delta', delta.text, itemId);
-          } else if (delta?.type === 'thinking_delta' && typeof delta.thinking === 'string') {
+          } else if (delta && delta.type === 'thinking_delta' && 'thinking' in delta && typeof delta.thinking === 'string') {
             const thinkingId = tracker.getCurrentThinkingItemId() || `bedrock-think-${message.uuid}`;
             tracker.setCurrentThinkingItemId(thinkingId);
             await writeTranscriptEntry(sessionId, transcriptPath, 'thinking', delta.thinking, thinkingId);
@@ -398,18 +408,20 @@ export function createBedrockChatSessionRuntimeManager({
       }
 
       case 'user': {
-        const userMsg = message as any;
+        const userMsg = message as SDKUserMessage;
+        const content = userMsg.message?.content;
 
-        if (Array.isArray(userMsg.message?.content)) {
-          for (const block of userMsg.message.content) {
-            if (block.type === 'tool_result') {
-              const toolId = `bedrock-tool-${block.tool_use_id}`;
-              const toolMeta = tracker.getToolUse(block.tool_use_id);
-              const resultText = typeof block.content === 'string'
-                ? block.content
-                : Array.isArray(block.content)
-                  ? block.content.map((c: any) => c.text ?? '').join('')
-                  : JSON.stringify(block.content ?? '');
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            if (typeof block === 'object' && block !== null && 'type' in block && block.type === 'tool_result') {
+              const toolResult = block as { type: 'tool_result'; tool_use_id: string; content?: unknown; is_error?: boolean };
+              const toolId = `bedrock-tool-${toolResult.tool_use_id}`;
+              const toolMeta = tracker.getToolUse(toolResult.tool_use_id);
+              const resultText = typeof toolResult.content === 'string'
+                ? toolResult.content
+                : Array.isArray(toolResult.content)
+                  ? toolResult.content.map((c) => (typeof c === 'object' && c !== null && 'text' in c ? String((c as { text: unknown }).text) : '')).join('')
+                  : JSON.stringify(toolResult.content ?? '');
 
               await writeTranscriptEntry(
                 sessionId,
@@ -420,7 +432,7 @@ export function createBedrockChatSessionRuntimeManager({
                     toolMeta?.name ?? 'unknown',
                     toolMeta?.input ?? {},
                     resultText,
-                    Boolean(block.is_error)
+                    Boolean(toolResult.is_error)
                   )
                 ),
                 toolId
@@ -433,28 +445,25 @@ export function createBedrockChatSessionRuntimeManager({
       }
 
       case 'result': {
-        const resultMsg = message as any;
+        const resultMsg = message as SDKResultSuccess;
 
         if (resultMsg.usage) {
           tracker.resetUsage();
           tracker.addInputTokens(resultMsg.usage.input_tokens ?? 0);
           tracker.addOutputTokens(resultMsg.usage.output_tokens ?? 0);
-          tracker.addCacheReadInputTokens(resultMsg.usage.cache_read_input_tokens ?? 0);
-          tracker.addCacheCreationInputTokens(resultMsg.usage.cache_creation_input_tokens ?? 0);
+          const usage = resultMsg.usage as Record<string, unknown>;
+          tracker.addCacheReadInputTokens(typeof usage.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0);
+          tracker.addCacheCreationInputTokens(typeof usage.cache_creation_input_tokens === 'number' ? usage.cache_creation_input_tokens : 0);
         }
 
         break;
       }
 
       case 'system': {
-        const sysMsg = message as any;
+        const sysMsg = message as SDKSystemMessage;
 
         if (sysMsg.subtype === 'init' && sysMsg.session_id) {
           tracker.captureSessionId(sysMsg.session_id);
-          break;
-        }
-
-        if (sysMsg.subtype === 'status') {
           break;
         }
 
