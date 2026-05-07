@@ -189,7 +189,9 @@ export function useWorkspaceTerminalSessionController({
     const providerSettings = useProviderSettingsStore.getState();
     const session = await startSessionMutation.mutateAsync({
       ...terminalSize,
-      awsCredentials: effectiveProvider === 'claude-bedrock' ? chatState.awsCredentials : undefined,
+      awsCredentials: effectiveProvider === 'claude-bedrock' && chatState.awsCredentials.accessKeyId && chatState.awsCredentials.secretAccessKey
+        ? chatState.awsCredentials
+        : undefined,
       customEnvVars: providerSettings.claudeCodeEnvVars || undefined,
       disablePromptCaching: providerSettings.disablePromptCaching || undefined,
       model: option.kind === 'chat' ? chatState.chatModel : undefined,
