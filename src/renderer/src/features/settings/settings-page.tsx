@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, ExternalLink, Key, MessageSquareText, Terminal, Zap } from 'lucide-react';
 
 import { ClaudePresetIcon, CodexPresetIcon } from '../../lib/provider-preset-icons';
@@ -54,13 +54,24 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 
 function SystemPromptSection() {
   const { globalSystemPrompt, setGlobalSystemPrompt } = useProviderSettingsStore();
+  const [localValue, setLocalValue] = useState(globalSystemPrompt);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    setLocalValue(globalSystemPrompt);
+  }, [globalSystemPrompt]);
 
   const handleChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setGlobalSystemPrompt(event.target.value);
+      const value = event.target.value;
+      setLocalValue(value);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setGlobalSystemPrompt(value), 300);
     },
     [setGlobalSystemPrompt]
   );
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   return (
     <div>
@@ -81,7 +92,7 @@ function SystemPromptSection() {
           onChange={handleChange}
           placeholder="You are a helpful coding assistant. Focus on writing clean, maintainable code..."
           spellCheck={false}
-          value={globalSystemPrompt}
+          value={localValue}
         />
       </div>
 
@@ -140,13 +151,24 @@ function PromptCachingSection() {
 
 function ClaudeCodeSection() {
   const { claudeCodeEnvVars, setClaudeCodeEnvVars } = useProviderSettingsStore();
+  const [localVars, setLocalVars] = useState(claudeCodeEnvVars);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    setLocalVars(claudeCodeEnvVars);
+  }, [claudeCodeEnvVars]);
 
   const handleChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setClaudeCodeEnvVars(event.target.value);
+      const value = event.target.value;
+      setLocalVars(value);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setClaudeCodeEnvVars(value), 300);
     },
     [setClaudeCodeEnvVars]
   );
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   return (
     <div>
@@ -174,7 +196,7 @@ function ClaudeCodeSection() {
           onChange={handleChange}
           placeholder={'unset ANTHROPIC_API_KEY\nunset ANTHROPIC_AUTH_TOKEN\n\nexport CLAUDE_CODE_USE_BEDROCK=1\nexport AWS_PROFILE=default\nexport AWS_REGION=us-east-1'}
           spellCheck={false}
-          value={claudeCodeEnvVars}
+          value={localVars}
         />
       </div>
 
