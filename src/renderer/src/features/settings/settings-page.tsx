@@ -55,7 +55,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
 function SystemPromptSection() {
   const { globalSystemPrompt, setGlobalSystemPrompt } = useProviderSettingsStore();
   const [localValue, setLocalValue] = useState(globalSystemPrompt);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     setLocalValue(globalSystemPrompt);
@@ -152,7 +152,7 @@ function PromptCachingSection() {
 function ClaudeCodeSection() {
   const { claudeCodeEnvVars, setClaudeCodeEnvVars } = useProviderSettingsStore();
   const [localVars, setLocalVars] = useState(claudeCodeEnvVars);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     setLocalVars(claudeCodeEnvVars);
