@@ -116,12 +116,33 @@ export function createBedrockChatSessionRuntimeManager({
     return runningSession;
   }
 
+  const ENV_ALLOWLIST = new Set([
+    'HOME',
+    'LANG',
+    'LC_ALL',
+    'LOGNAME',
+    'PATH',
+    'SHELL',
+    'TERM',
+    'TMPDIR',
+    'USER',
+    'XDG_CACHE_HOME',
+    'XDG_CONFIG_HOME',
+    'XDG_DATA_HOME',
+    'XDG_RUNTIME_DIR'
+  ]);
+
   function buildEnv(runtime: BedrockChatSessionRuntime): Record<string, string | undefined> {
     const env: Record<string, string | undefined> = {
-      ...process.env,
       CLAUDE_CODE_USE_BEDROCK: '1',
       ...(runtime.disablePromptCaching ? { DISABLE_PROMPT_CACHING: '1' } : {})
     };
+
+    for (const key of ENV_ALLOWLIST) {
+      if (process.env[key] !== undefined) {
+        env[key] = process.env[key];
+      }
+    }
 
     if (runtime.customEnvVars) {
       for (const line of runtime.customEnvVars.split('\n')) {
