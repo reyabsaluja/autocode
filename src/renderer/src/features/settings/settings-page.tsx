@@ -187,6 +187,7 @@ function ClaudeCodeSection() {
         <code className="rounded bg-white/[0.06] px-1 py-0.5 font-mono text-[10px] text-white/30">
           export VAR_NAME=value
         </code>
+        {' '}· Values are kept in memory only and cleared on app restart.
       </p>
     </div>
   );
@@ -280,8 +281,11 @@ function CodexSection() {
               onClick={handleSaveApiKey}
               type="button"
             >
-              Save
+              Save for this session
             </button>
+            <p className="mt-1.5 font-geist text-[10px] text-white/15">
+              API keys are kept in memory only and cleared on app restart for security.
+            </p>
           </div>
         )}
       </div>
