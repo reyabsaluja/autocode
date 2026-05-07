@@ -16,7 +16,8 @@ export const usePermissionStore = create<PermissionState>((set) => ({
       if (state.pendingRequests.some((r) => r.requestId === request.requestId)) {
         return state;
       }
-      return { pendingRequests: [...state.pendingRequests, request] };
+      const next = [...state.pendingRequests, request];
+      return { pendingRequests: next.length > 100 ? next.slice(-100) : next };
     }),
   removeRequest: (requestId) =>
     set((state) => ({
