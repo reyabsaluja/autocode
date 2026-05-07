@@ -52,6 +52,11 @@ import { usePermissionSubscription } from './use-permission-subscription';
 class MarkdownErrorBoundary extends Component<{ children: ReactNode; fallbackText: string }, { hasError: boolean }> {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidUpdate(prevProps: { fallbackText: string }) {
+    if (this.state.hasError && prevProps.fallbackText !== this.props.fallbackText) {
+      this.setState({ hasError: false });
+    }
+  }
   render() {
     if (this.state.hasError) {
       return <pre className="whitespace-pre-wrap font-mono text-[12px] text-white/60">{this.props.fallbackText}</pre>;
