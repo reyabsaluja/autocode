@@ -165,12 +165,14 @@ export function createBedrockChatSessionRuntimeManager({
     const trimmed = text.replace(/\s+$/, '');
 
     if (!trimmed) {
+      runtime.abortController = null;
       return;
     }
 
     const internalSession = agentSessionRepository.findInternalById(sessionId);
 
     if (!internalSession) {
+      runtime.abortController = null;
       throw new Error('Chat session could not be found.');
     }
 
