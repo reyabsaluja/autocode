@@ -12,9 +12,12 @@ interface PermissionState {
 export const usePermissionStore = create<PermissionState>((set) => ({
   pendingRequests: [],
   addRequest: (request) =>
-    set((state) => ({
-      pendingRequests: [...state.pendingRequests, request]
-    })),
+    set((state) => {
+      if (state.pendingRequests.some((r) => r.requestId === request.requestId)) {
+        return state;
+      }
+      return { pendingRequests: [...state.pendingRequests, request] };
+    }),
   removeRequest: (requestId) =>
     set((state) => ({
       pendingRequests: state.pendingRequests.filter((r) => r.requestId !== requestId)
