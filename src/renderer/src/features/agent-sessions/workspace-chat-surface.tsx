@@ -239,7 +239,33 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
     initial: 'smooth'
   });
 
-  const items = useMemo(() => buildChatItems(entries), [entries]);
+  const chatItemsCache = useRef<{
+    entriesLength: number;
+    items: ChatItem[];
+    itemIdIndex: Map<string, number>;
+  }>({ entriesLength: 0, items: [], itemIdIndex: new Map() });
+
+  const items = useMemo(() => {
+    const cache = chatItemsCache.current;
+    if (entries.length === 0) {
+      cache.entriesLength = 0;
+      cache.items = [];
+      cache.itemIdIndex = new Map();
+      return [];
+    }
+    if (entries.length >= cache.entriesLength && cache.entriesLength > 0) {
+      const result = buildChatItemsIncremental(entries, cache.items, cache.itemIdIndex, cache.entriesLength);
+      cache.entriesLength = entries.length;
+      cache.items = result.items;
+      cache.itemIdIndex = result.itemIdIndex;
+      return result.grouped;
+    }
+    const result = buildChatItemsFull(entries);
+    cache.entriesLength = entries.length;
+    cache.items = result.items;
+    cache.itemIdIndex = result.itemIdIndex;
+    return result.grouped;
+  }, [entries]);
   const isAgentResponding = useMemo(() => {
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i]!;
@@ -1433,10 +1459,19 @@ function getToolVerb(data: ToolData): string {
   }
 }
 
-function buildChatItems(entries: AgentSessionTranscriptEntry[]): ChatItem[] {
-  const items: ChatItem[] = [];
-  const itemIdIndex = new Map<string, number>();
+interface BuildChatItemsResult {
+  items: ChatItem[];
+  itemIdIndex: Map<string, number>;
+  grouped: ChatItem[];
+}
 
+function processEntryRange(
+  entries: AgentSessionTranscriptEntry[],
+  start: number,
+  end: number,
+  items: ChatItem[],
+  itemIdIndex: Map<string, number>
+): void {
   function upsertByKey(key: string, build: (existing: ChatItem | null) => ChatItem): void {
     const existingIdx = itemIdIndex.get(key);
 
@@ -1449,7 +1484,8 @@ function buildChatItems(entries: AgentSessionTranscriptEntry[]): ChatItem[] {
     }
   }
 
-  for (const entry of entries) {
+  for (let i = start; i < end; i++) {
+    const entry = entries[i]!;
     const stream = entry.stream;
     const key = entry.itemId ?? `seq-${entry.seq}`;
 
@@ -1574,10 +1610,27 @@ function buildChatItems(entries: AgentSessionTranscriptEntry[]): ChatItem[] {
         break;
     }
   }
+}
 
+function buildChatItemsFull(entries: AgentSessionTranscriptEntry[]): BuildChatItemsResult {
+  const items: ChatItem[] = [];
+  const itemIdIndex = new Map<string, number>();
+  processEntryRange(entries, 0, entries.length, items, itemIdIndex);
   markThinkingDone(items);
+  return { items, itemIdIndex, grouped: groupConsecutiveTools(items) };
+}
 
-  return groupConsecutiveTools(items);
+function buildChatItemsIncremental(
+  entries: AgentSessionTranscriptEntry[],
+  prevItems: ChatItem[],
+  prevIndex: Map<string, number>,
+  prevLength: number
+): BuildChatItemsResult {
+  const items = [...prevItems];
+  const itemIdIndex = new Map(prevIndex);
+  processEntryRange(entries, prevLength, entries.length, items, itemIdIndex);
+  markThinkingDone(items);
+  return { items, itemIdIndex, grouped: groupConsecutiveTools(items) };
 }
 
 function groupConsecutiveTools(items: ChatItem[]): ChatItem[] {
