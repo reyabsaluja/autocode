@@ -53,7 +53,7 @@ export function createPermissionService() {
       }
 
       const allowlist = sessionAllowlists.get(sessionId);
-      if (allowlist?.has(toolName)) {
+      if (allowlist?.has(toolName) && riskLevel !== 'critical') {
         return { behavior: 'allow', toolUseID: options.toolUseID };
       }
 
