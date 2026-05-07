@@ -573,7 +573,6 @@ export function createBedrockChatSessionRuntimeManager({
     }
 
     runtimes.delete(sessionId);
-    sessionQueues.delete(sessionId);
 
     const session = agentSessionRepository.findInternalById(sessionId);
     if (session && (session.status === 'starting' || session.status === 'running')) {
