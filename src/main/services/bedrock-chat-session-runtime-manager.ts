@@ -111,12 +111,7 @@ export function createBedrockChatSessionRuntimeManager({
     const env: Record<string, string | undefined> = {
       ...process.env,
       CLAUDE_CODE_USE_BEDROCK: '1',
-      ...(runtime.disablePromptCaching ? { DISABLE_PROMPT_CACHING: '1' } : {}),
-      ...(runtime.awsCredentials ? {
-        AWS_ACCESS_KEY_ID: runtime.awsCredentials.accessKeyId,
-        AWS_SECRET_ACCESS_KEY: runtime.awsCredentials.secretAccessKey,
-        AWS_REGION: runtime.awsCredentials.region
-      } : {})
+      ...(runtime.disablePromptCaching ? { DISABLE_PROMPT_CACHING: '1' } : {})
     };
 
     if (runtime.customEnvVars) {
@@ -143,6 +138,12 @@ export function createBedrockChatSessionRuntimeManager({
           env[withoutExport.slice(0, eqIdx)] = value;
         }
       }
+    }
+
+    if (runtime.awsCredentials) {
+      env.AWS_ACCESS_KEY_ID = runtime.awsCredentials.accessKeyId;
+      env.AWS_SECRET_ACCESS_KEY = runtime.awsCredentials.secretAccessKey;
+      env.AWS_REGION = runtime.awsCredentials.region;
     }
 
     return env;
