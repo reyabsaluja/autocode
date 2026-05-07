@@ -1329,14 +1329,18 @@ function ThinkingIndicator() {
   const [fade, setFade] = useState(true);
 
   useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
     const interval = setInterval(() => {
       setFade(false);
-      setTimeout(() => {
+      timeout = setTimeout(() => {
         setVerbIndex((i) => (i + 1) % THINKING_VERBS.length);
         setFade(true);
       }, 200);
     }, 2800);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (timeout !== null) clearTimeout(timeout);
+    };
   }, []);
 
   return (
