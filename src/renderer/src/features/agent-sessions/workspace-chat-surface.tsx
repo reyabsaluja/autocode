@@ -1449,6 +1449,13 @@ function SystemPromptButton({
   const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
 
+  const localPromptRef = useRef(localPrompt);
+  localPromptRef.current = localPrompt;
+  const systemPromptRef = useRef(systemPrompt);
+  systemPromptRef.current = systemPrompt;
+  const onSetRef = useRef(onSetSystemPrompt);
+  onSetRef.current = onSetSystemPrompt;
+
   useEffect(() => {
     setLocalPrompt(systemPrompt);
   }, [systemPrompt]);
@@ -1462,8 +1469,8 @@ function SystemPromptButton({
         buttonRef.current && !buttonRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
-        if (localPrompt !== systemPrompt) {
-          onSetSystemPrompt(localPrompt);
+        if (localPromptRef.current !== systemPromptRef.current) {
+          onSetRef.current(localPromptRef.current);
         }
       }
     }
@@ -1471,8 +1478,8 @@ function SystemPromptButton({
     function handleEsc(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setIsOpen(false);
-        if (localPrompt !== systemPrompt) {
-          onSetSystemPrompt(localPrompt);
+        if (localPromptRef.current !== systemPromptRef.current) {
+          onSetRef.current(localPromptRef.current);
         }
       }
     }
@@ -1483,7 +1490,7 @@ function SystemPromptButton({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEsc);
     };
-  }, [isOpen, localPrompt, systemPrompt, onSetSystemPrompt]);
+  }, [isOpen]);
 
   function open() {
     if (!buttonRef.current) return;
