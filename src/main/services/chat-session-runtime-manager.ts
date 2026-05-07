@@ -633,18 +633,14 @@ export function createChatSessionRuntimeManager({
 
   async function enqueueSessionWork<T>(sessionId: number, work: () => Promise<T>): Promise<T> {
     const previous = sessionQueues.get(sessionId) ?? Promise.resolve();
-    const result = previous.catch(() => undefined).then(work);
-    const tracked = result.then(
-      () => undefined,
-      () => undefined
-    );
-
-    sessionQueues.set(sessionId, tracked);
+    const next = previous.catch(() => undefined).then(work);
+    const settled = next.then(() => undefined, () => undefined);
+    sessionQueues.set(sessionId, settled);
 
     try {
-      return await result;
+      return await next;
     } finally {
-      if (sessionQueues.get(sessionId) === tracked) {
+      if (sessionQueues.get(sessionId) === settled) {
         sessionQueues.delete(sessionId);
       }
     }
