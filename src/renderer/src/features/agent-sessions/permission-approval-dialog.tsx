@@ -52,13 +52,16 @@ export const PermissionApprovalDialog = memo(function PermissionApprovalDialog({
 
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
+      const role = target.getAttribute('role');
       if (
         target.tagName === 'TEXTAREA' ||
         target.tagName === 'INPUT' ||
         target.tagName === 'SELECT' ||
         target.isContentEditable ||
         target.closest('[contenteditable="true"]') ||
-        target.getAttribute('role') === 'textbox'
+        role === 'textbox' ||
+        role === 'combobox' ||
+        role === 'searchbox'
       ) {
         return;
       }
