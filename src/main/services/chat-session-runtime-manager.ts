@@ -515,8 +515,8 @@ export function createChatSessionRuntimeManager({
       emitSnapshot(nextSession);
     }
 
-    await rm(session.transcriptPath, { force: true });
     agentSessionRepository.delete(sessionId);
+    await rm(session.transcriptPath, { force: true });
   }
 
   async function reconcileInterruptedChatSessions(): Promise<void> {
