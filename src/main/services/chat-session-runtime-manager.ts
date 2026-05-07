@@ -648,7 +648,9 @@ export function createChatSessionRuntimeManager({
 
   async function enqueueSessionWork<T>(sessionId: number, work: () => Promise<T>): Promise<T> {
     const previous = sessionQueues.get(sessionId) ?? Promise.resolve();
-    const next = previous.catch(() => undefined).then(work);
+    const next = previous.catch((err) => {
+      console.error('[codex-runtime] Prior session work failed:', err);
+    }).then(work);
     const settled = next.then(() => undefined, () => undefined);
     sessionQueues.set(sessionId, settled);
 
