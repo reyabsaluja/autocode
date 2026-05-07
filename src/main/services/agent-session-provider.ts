@@ -108,7 +108,15 @@ export function mergeCustomEnvVars(
     if (eqIdx > 0) {
       const key = withoutExport.slice(0, eqIdx);
       if (!isEnvKeyDenied(key)) {
-        env[key] = withoutExport.slice(eqIdx + 1);
+        let value = withoutExport.slice(eqIdx + 1);
+        if (
+          value.length >= 2 &&
+          ((value[0] === '"' && value[value.length - 1] === '"') ||
+           (value[0] === "'" && value[value.length - 1] === "'"))
+        ) {
+          value = value.slice(1, -1);
+        }
+        env[key] = value;
       }
     }
   }
