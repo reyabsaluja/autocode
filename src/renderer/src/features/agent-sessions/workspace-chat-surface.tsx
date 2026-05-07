@@ -289,6 +289,7 @@ export const WorkspaceChatSurface = memo(function WorkspaceChatSurface({
   }, [items, isAgentResponding, waitingForResponse]);
 
   useEffect(() => {
+    chatItemsCache.current = { entriesLength: 0, items: [], itemIdIndex: new Map() };
     setComposerValue('');
   }, [sessionId]);
 
