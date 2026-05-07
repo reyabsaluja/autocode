@@ -184,7 +184,13 @@ export function createBedrockChatSessionRuntimeManager({
     return env;
   }
 
+  const sendLocks = new Set<number>();
+
   async function sendChatMessage(sessionId: number, text: string): Promise<void> {
+    if (sendLocks.has(sessionId)) {
+      throw new Error('Claude is still responding to the previous message.');
+    }
+
     const runtime = runtimes.get(sessionId);
 
     if (!runtime) {
@@ -195,6 +201,7 @@ export function createBedrockChatSessionRuntimeManager({
       throw new Error('Claude is still responding to the previous message.');
     }
 
+    sendLocks.add(sessionId);
     const abortController = new AbortController();
     runtime.abortController = abortController;
 
@@ -308,6 +315,7 @@ export function createBedrockChatSessionRuntimeManager({
           : 'Claude (Bedrock) failed to respond to this chat turn.';
       await writeSystemMessage(sessionId, transcriptPath, message);
     } finally {
+      sendLocks.delete(sessionId);
       if (runtimes.has(sessionId)) {
         runtime.activeQuery = null;
         runtime.abortController = null;
