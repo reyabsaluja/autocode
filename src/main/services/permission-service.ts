@@ -147,7 +147,8 @@ export function createPermissionService() {
       pendingRequests.delete(requestId);
       pending.resolve({
         behavior: 'deny',
-        message: 'Session was terminated.'
+        message: 'Session was terminated.',
+        toolUseID: pending.toolUseID
       });
     }
   }
