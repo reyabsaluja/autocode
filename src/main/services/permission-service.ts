@@ -14,6 +14,7 @@ import {
 interface PendingPermissionRequest {
   resolve: (result: PermissionResult) => void;
   sessionId: number;
+  targetWebContentsId: number | null;
   toolName: string;
   toolUseID: string;
   signal?: AbortSignal;
@@ -123,6 +124,7 @@ export function createPermissionService() {
         pendingRequests.set(requestId, {
           resolve,
           sessionId,
+          targetWebContentsId: targetWindow?.webContents.id ?? null,
           toolName,
           toolUseID: options.toolUseID,
           signal: options.signal,
@@ -139,10 +141,18 @@ export function createPermissionService() {
     };
   }
 
-  function handlePermissionResponse(response: PermissionResponse): void {
+  function handlePermissionResponse(response: PermissionResponse, senderWebContentsId?: number): void {
     const pending = pendingRequests.get(response.requestId);
 
     if (!pending) {
+      return;
+    }
+
+    if (
+      senderWebContentsId !== undefined &&
+      pending.targetWebContentsId !== null &&
+      senderWebContentsId !== pending.targetWebContentsId
+    ) {
       return;
     }
 

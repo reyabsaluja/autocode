@@ -103,8 +103,8 @@ export function registerAgentSessionHandlers(agentSessionService: AgentSessionSe
   });
 
   handleValidatedIpc(agentSessionChannels.permissionResponse, {
-    handler: async (_event: IpcMainInvokeEvent, input: PermissionResponse) =>
-      agentSessionService.respondToPermission(input),
+    handler: async (event: IpcMainInvokeEvent, input: PermissionResponse) =>
+      agentSessionService.respondToPermission(input, event.sender.id),
     inputSchema: permissionResponseInputSchema,
     outputSchema: permissionResponseResultSchema
   });

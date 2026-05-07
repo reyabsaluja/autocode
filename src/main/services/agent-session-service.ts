@@ -81,8 +81,8 @@ export function createAgentSessionService(
   }
 
   return {
-    respondToPermission(response: PermissionResponse): void {
-      permissionService.handlePermissionResponse(response);
+    respondToPermission(response: PermissionResponse, senderWebContentsId?: number): void {
+      permissionService.handlePermissionResponse(response, senderWebContentsId);
     },
 
     async delete(input: DeleteAgentSessionInput): Promise<void> {
