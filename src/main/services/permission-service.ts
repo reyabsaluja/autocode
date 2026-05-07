@@ -18,6 +18,8 @@ interface PendingPermissionRequest {
   toolUseID: string;
 }
 
+const MAX_PENDING_REQUESTS = 200;
+
 export function createPermissionService() {
   const pendingRequests = new Map<string, PendingPermissionRequest>();
   const sessionAllowlists = new Map<number, Set<string>>();
@@ -83,6 +85,19 @@ export function createPermissionService() {
       }
 
       return new Promise<PermissionResult>((resolve) => {
+        if (pendingRequests.size >= MAX_PENDING_REQUESTS) {
+          const oldest = pendingRequests.keys().next().value;
+          if (oldest !== undefined) {
+            const evicted = pendingRequests.get(oldest);
+            pendingRequests.delete(oldest);
+            evicted?.resolve({
+              behavior: 'deny',
+              message: 'Permission request was evicted due to queue overflow.',
+              toolUseID: evicted.toolUseID
+            });
+          }
+        }
+
         pendingRequests.set(requestId, { resolve, sessionId, toolName, toolUseID: options.toolUseID });
 
         const onAbort = () => {
