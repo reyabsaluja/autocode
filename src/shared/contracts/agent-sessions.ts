@@ -20,9 +20,9 @@ export const listAgentSessionsByTaskInputSchema = z.object({
 export const startAgentSessionInputSchema = z.object({
   awsCredentials: z
     .object({
-      accessKeyId: z.string(),
-      region: z.string(),
-      secretAccessKey: z.string()
+      accessKeyId: z.string().min(1),
+      region: z.string().min(1),
+      secretAccessKey: z.string().min(1)
     })
     .optional(),
   cols: terminalDimensionSchema.optional(),
