@@ -82,7 +82,7 @@ export const useChatProviderStore = create<ChatProviderState>()(
         chatModel: state.chatModel,
         reasoningEffort: state.reasoningEffort,
         awsCredentials: {
-          accessKeyId: state.awsCredentials.accessKeyId,
+          accessKeyId: '',
           secretAccessKey: '',
           region: state.awsCredentials.region
         }
