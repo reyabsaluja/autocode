@@ -68,15 +68,21 @@ export function buildInitialInputForProvider(
 const DENIED_ENV_KEYS = new Set([
   'DYLD_INSERT_LIBRARIES',
   'DYLD_LIBRARY_PATH',
+  'ELECTRON_DISABLE_SECURITY_WARNINGS',
+  'ELECTRON_ENABLE_LOGGING',
+  'ELECTRON_ENABLE_STACK_DUMPING',
+  'ELECTRON_EXTRA_LAUNCH_ARGS',
+  'ELECTRON_NO_ASAR',
   'ELECTRON_RUN_AS_NODE',
   'LD_LIBRARY_PATH',
   'LD_PRELOAD',
   'NODE_OPTIONS',
-  'NODE_PATH'
+  'NODE_PATH',
+  'PATH'
 ]);
 
 export function isEnvKeyDenied(key: string): boolean {
-  return DENIED_ENV_KEYS.has(key);
+  return DENIED_ENV_KEYS.has(key.toUpperCase());
 }
 
 export function mergeCustomEnvVars(
