@@ -16,6 +16,8 @@ interface PendingPermissionRequest {
   sessionId: number;
   toolName: string;
   toolUseID: string;
+  signal?: AbortSignal;
+  onAbort?: () => void;
 }
 
 const MAX_PENDING_REQUESTS = 200;
@@ -107,8 +109,6 @@ export function createPermissionService() {
           }
         }
 
-        pendingRequests.set(requestId, { resolve, sessionId, toolName, toolUseID: options.toolUseID });
-
         const onAbort = () => {
           if (!pendingRequests.has(requestId)) return;
           pendingRequests.delete(requestId);
@@ -119,6 +119,15 @@ export function createPermissionService() {
           });
           broadcastPermissionExpired(requestId);
         };
+
+        pendingRequests.set(requestId, {
+          resolve,
+          sessionId,
+          toolName,
+          toolUseID: options.toolUseID,
+          signal: options.signal,
+          onAbort
+        });
 
         if (options.signal.aborted) {
           onAbort();
@@ -138,6 +147,10 @@ export function createPermissionService() {
     }
 
     pendingRequests.delete(response.requestId);
+
+    if (pending.signal && pending.onAbort) {
+      pending.signal.removeEventListener('abort', pending.onAbort);
+    }
 
     if (response.behavior === 'allow') {
       if (response.alwaysAllow) {
