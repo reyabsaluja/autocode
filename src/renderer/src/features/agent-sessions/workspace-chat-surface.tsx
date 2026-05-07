@@ -620,11 +620,17 @@ const ChatItemView = memo(function ChatItemView({ item }: { item: ChatItem }) {
 function UserMessage({ text }: { text: string }) {
   const { onResend, onEdit } = useContext(ChatActionsContext);
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (timerRef.current !== null) clearTimeout(timerRef.current); };
+  }, []);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
     });
   }, [text]);
 
@@ -656,11 +662,17 @@ function UserMessage({ text }: { text: string }) {
 
 function AssistantMessage({ text, isStreaming }: { text: string; isStreaming?: boolean }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (timerRef.current !== null) clearTimeout(timerRef.current); };
+  }, []);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
     });
   }, [text]);
 
