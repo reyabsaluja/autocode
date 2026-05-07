@@ -1820,13 +1820,8 @@ function ChatModelSelector({
     const entry = getModelEntry(modelId);
     if (!entry) return;
 
-    const previousModel = chatModel;
     setChatModel(modelId);
     setIsOpen(false);
-
-    if (modelId !== previousModel) {
-      onStartNewChat?.();
-    }
   }
 
   return (
