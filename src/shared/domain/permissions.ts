@@ -67,7 +67,8 @@ export function classifyToolRisk(toolName: string, input: Record<string, unknown
   }
 
   if (toolName === 'Bash') {
-    const command = typeof input.command === 'string' ? input.command : '';
+    const rawCommand = typeof input.command === 'string' ? input.command : '';
+    const command = rawCommand.slice(0, 4096);
 
     for (const pattern of CRITICAL_COMMAND_PATTERNS) {
       if (pattern.test(command)) {
