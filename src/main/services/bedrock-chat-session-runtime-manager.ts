@@ -17,6 +17,7 @@ import {
   ensureAgentSessionTranscriptFile,
   formatAgentSessionTranscriptEntry
 } from './agent-session-transcript';
+import { isEnvKeyDenied } from './agent-session-provider';
 import { createPermissionService } from './permission-service';
 
 const BEDROCK_MODEL = 'us.anthropic.claude-opus-4-7';
@@ -120,13 +121,18 @@ export function createBedrockChatSessionRuntimeManager({
         if (!trimmed || trimmed.startsWith('#')) continue;
 
         if (trimmed.startsWith('unset ')) {
-          delete env[trimmed.slice(6).trim()];
+          const key = trimmed.slice(6).trim();
+          if (!isEnvKeyDenied(key)) {
+            delete env[key];
+          }
           continue;
         }
 
         const withoutExport = trimmed.startsWith('export ') ? trimmed.slice(7) : trimmed;
         const eqIdx = withoutExport.indexOf('=');
         if (eqIdx > 0) {
+          const key = withoutExport.slice(0, eqIdx);
+          if (isEnvKeyDenied(key)) continue;
           let value = withoutExport.slice(eqIdx + 1);
           if (
             value.length >= 2 &&
@@ -135,7 +141,7 @@ export function createBedrockChatSessionRuntimeManager({
           ) {
             value = value.slice(1, -1);
           }
-          env[withoutExport.slice(0, eqIdx)] = value;
+          env[key] = value;
         }
       }
     }

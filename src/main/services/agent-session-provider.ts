@@ -65,6 +65,20 @@ export function buildInitialInputForProvider(
   return buildInitialPrompt(title, description);
 }
 
+const DENIED_ENV_KEYS = new Set([
+  'DYLD_INSERT_LIBRARIES',
+  'DYLD_LIBRARY_PATH',
+  'ELECTRON_RUN_AS_NODE',
+  'LD_LIBRARY_PATH',
+  'LD_PRELOAD',
+  'NODE_OPTIONS',
+  'NODE_PATH'
+]);
+
+export function isEnvKeyDenied(key: string): boolean {
+  return DENIED_ENV_KEYS.has(key);
+}
+
 export function mergeCustomEnvVars(
   baseEnv: Record<string, string>,
   customEnvVars: string
@@ -76,14 +90,20 @@ export function mergeCustomEnvVars(
     if (!trimmed || trimmed.startsWith('#')) continue;
 
     if (trimmed.startsWith('unset ')) {
-      delete env[trimmed.slice(6).trim()];
+      const key = trimmed.slice(6).trim();
+      if (!isEnvKeyDenied(key)) {
+        delete env[key];
+      }
       continue;
     }
 
     const withoutExport = trimmed.startsWith('export ') ? trimmed.slice(7) : trimmed;
     const eqIdx = withoutExport.indexOf('=');
     if (eqIdx > 0) {
-      env[withoutExport.slice(0, eqIdx)] = withoutExport.slice(eqIdx + 1);
+      const key = withoutExport.slice(0, eqIdx);
+      if (!isEnvKeyDenied(key)) {
+        env[key] = withoutExport.slice(eqIdx + 1);
+      }
     }
   }
 
