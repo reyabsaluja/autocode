@@ -30,6 +30,12 @@ export function createPermissionService() {
     clearSession
   };
 
+  function broadcastPermissionExpired(requestId: string): void {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(agentSessionChannels.permissionExpired, requestId);
+    }
+  }
+
   function createCanUseToolCallback(sessionId: number) {
     return async (
       toolName: string,
@@ -90,23 +96,28 @@ export function createPermissionService() {
           if (oldest !== undefined) {
             const evicted = pendingRequests.get(oldest);
             pendingRequests.delete(oldest);
-            evicted?.resolve({
-              behavior: 'deny',
-              message: 'Permission request was evicted due to queue overflow.',
-              toolUseID: evicted.toolUseID
-            });
+            if (evicted) {
+              evicted.resolve({
+                behavior: 'deny',
+                message: 'Permission request was evicted due to queue overflow.',
+                toolUseID: evicted.toolUseID
+              });
+              broadcastPermissionExpired(oldest);
+            }
           }
         }
 
         pendingRequests.set(requestId, { resolve, sessionId, toolName, toolUseID: options.toolUseID });
 
         const onAbort = () => {
+          if (!pendingRequests.has(requestId)) return;
           pendingRequests.delete(requestId);
           resolve({
             behavior: 'deny',
             message: 'Permission request was cancelled.',
             toolUseID: options.toolUseID
           });
+          broadcastPermissionExpired(requestId);
         };
 
         if (options.signal.aborted) {
@@ -165,6 +176,7 @@ export function createPermissionService() {
         message: 'Session was terminated.',
         toolUseID: pending.toolUseID
       });
+      broadcastPermissionExpired(requestId);
     }
   }
 }

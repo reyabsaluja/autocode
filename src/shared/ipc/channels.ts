@@ -2,6 +2,7 @@ export const agentSessionChannels = {
   delete: 'agentSessions:delete',
   event: 'agentSessions:event',
   listByTask: 'agentSessions:listByTask',
+  permissionExpired: 'agentSessions:permissionExpired',
   permissionRequest: 'agentSessions:permissionRequest',
   permissionResponse: 'agentSessions:permissionResponse',
   readTranscriptTail: 'agentSessions:readTranscriptTail',

@@ -84,6 +84,9 @@ export interface AutocodeApi {
       taskId: number,
       callback: (event: AgentSessionEvent) => void
     ) => () => void;
+    subscribePermissionExpired: (
+      callback: (requestId: string) => void
+    ) => () => void;
     subscribePermissionRequests: (
       callback: (request: PermissionRequest) => void
     ) => () => void;

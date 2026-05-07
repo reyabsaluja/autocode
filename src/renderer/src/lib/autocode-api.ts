@@ -31,6 +31,8 @@ export const autocodeApi: AutocodeApi = {
     start: (input) => getAutocodeApi().agentSessions.start(input),
     stop: (input) => getAutocodeApi().agentSessions.stop(input),
     subscribe: (taskId, callback) => getAutocodeApi().agentSessions.subscribe(taskId, callback),
+    subscribePermissionExpired: (callback) =>
+      getAutocodeApi().agentSessions.subscribePermissionExpired(callback),
     subscribePermissionRequests: (callback) =>
       getAutocodeApi().agentSessions.subscribePermissionRequests(callback)
   },

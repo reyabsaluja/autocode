@@ -7,6 +7,7 @@ import {
   agentSessionEventResultSchema,
   listAgentSessionsByTaskInputSchema,
   listAgentSessionsByTaskResultSchema,
+  permissionExpiredResultSchema,
   permissionRequestResultSchema,
   permissionResponseInputSchema,
   permissionResponseResultSchema,
@@ -161,6 +162,12 @@ const api: AutocodeApi = {
 
           callback(event);
         }
+      ),
+    subscribePermissionExpired: (callback) =>
+      subscribeValidatedIpc(
+        agentSessionChannels.permissionExpired,
+        permissionExpiredResultSchema,
+        callback
       ),
     subscribePermissionRequests: (callback) =>
       subscribeValidatedIpc(

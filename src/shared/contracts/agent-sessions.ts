@@ -85,6 +85,7 @@ export const readAgentSessionTranscriptTailResultSchema = z.object({
   lastEventSeq: z.number().int().nonnegative()
 });
 export const agentSessionEventResultSchema = agentSessionEventSchema;
+export const permissionExpiredResultSchema = z.string();
 export const permissionRequestResultSchema = permissionRequestSchema;
 export const permissionResponseInputSchema = permissionResponseSchema;
 export const permissionResponseResultSchema = z.void();
