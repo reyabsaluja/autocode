@@ -1,4 +1,4 @@
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes } from 'react';
+import { Component, createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import {
   Brain,
   Check,
@@ -40,6 +40,17 @@ import {
 import { ClaudePresetIcon, CodexPresetIcon } from '../../lib/provider-preset-icons';
 import { PermissionApprovalDialog } from './permission-approval-dialog';
 import { usePermissionSubscription } from './use-permission-subscription';
+
+class MarkdownErrorBoundary extends Component<{ children: ReactNode; fallbackText: string }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return <pre className="whitespace-pre-wrap font-mono text-[12px] text-white/60">{this.props.fallbackText}</pre>;
+    }
+    return this.props.children;
+  }
+}
 
 interface ChatActions {
   onResend: (text: string) => void;
@@ -707,14 +718,16 @@ function AssistantMessage({ text, isStreaming }: { text: string; isStreaming?: b
   return (
     <div className="group/assistant">
       <div className="chat-markdown prose prose-invert max-w-none font-geist text-[13.5px] leading-[1.7] text-white/90">
-        <Streamdown
-          plugins={streamdownPlugins}
-          components={streamdownComponents}
-          controls={streamdownControls}
-          isAnimating={isStreaming}
-        >
-          {text}
-        </Streamdown>
+        <MarkdownErrorBoundary fallbackText={text}>
+          <Streamdown
+            plugins={streamdownPlugins}
+            components={streamdownComponents}
+            controls={streamdownControls}
+            isAnimating={isStreaming}
+          >
+            {text}
+          </Streamdown>
+        </MarkdownErrorBoundary>
       </div>
       {!isStreaming ? (
         <div className="mt-1 flex items-center gap-0.5 opacity-0 transition group-hover/assistant:opacity-100">
