@@ -3,24 +3,37 @@ import { useEffect } from 'react';
 import { autocodeApi } from '../../lib/autocode-api';
 import { usePermissionStore } from '../../stores/permission-store';
 
-let activeSubscribers = 0;
-let unsubscribe: (() => void) | null = null;
+interface SubscriptionState {
+  activeSubscribers: number;
+  unsubscribe: (() => void) | null;
+}
+
+const STATE_KEY = '__permissionSubscriptionState';
+
+function getState(): SubscriptionState {
+  const g = globalThis as unknown as Record<string, unknown>;
+  if (!g[STATE_KEY]) {
+    g[STATE_KEY] = { activeSubscribers: 0, unsubscribe: null };
+  }
+  return g[STATE_KEY] as SubscriptionState;
+}
 
 export function usePermissionSubscription() {
   useEffect(() => {
-    activeSubscribers += 1;
+    const state = getState();
+    state.activeSubscribers += 1;
 
-    if (activeSubscribers === 1) {
-      unsubscribe = autocodeApi.agentSessions.subscribePermissionRequests((request) => {
+    if (state.activeSubscribers === 1) {
+      state.unsubscribe = autocodeApi.agentSessions.subscribePermissionRequests((request) => {
         usePermissionStore.getState().addRequest(request);
       });
     }
 
     return () => {
-      activeSubscribers -= 1;
-      if (activeSubscribers === 0 && unsubscribe) {
-        unsubscribe();
-        unsubscribe = null;
+      state.activeSubscribers -= 1;
+      if (state.activeSubscribers === 0 && state.unsubscribe) {
+        state.unsubscribe();
+        state.unsubscribe = null;
       }
     };
   }, []);
