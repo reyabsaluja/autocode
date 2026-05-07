@@ -52,12 +52,12 @@ const AUTO_APPROVE_TOOLS = new Set([
   'Read',
   'Glob',
   'Grep',
-  'WebSearch',
-  'WebFetch'
+  'WebSearch'
 ]);
 
 const MEDIUM_RISK_TOOLS = new Set([
   'Edit',
+  'WebFetch',
   'Write'
 ]);
 

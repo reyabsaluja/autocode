@@ -8,12 +8,12 @@ describe('classifyToolRisk', () => {
     expect(classifyToolRisk('Glob', { pattern: '*.ts' })).toBe('low');
     expect(classifyToolRisk('Grep', { pattern: 'foo' })).toBe('low');
     expect(classifyToolRisk('WebSearch', { query: 'test' })).toBe('low');
-    expect(classifyToolRisk('WebFetch', { url: 'http://example.com' })).toBe('low');
   });
 
-  test('classifies Edit and Write as medium', () => {
+  test('classifies Edit, Write, and WebFetch as medium', () => {
     expect(classifyToolRisk('Edit', { file_path: '/tmp/foo' })).toBe('medium');
     expect(classifyToolRisk('Write', { file_path: '/tmp/foo' })).toBe('medium');
+    expect(classifyToolRisk('WebFetch', { url: 'http://example.com' })).toBe('medium');
   });
 
   test('classifies regular Bash commands as high', () => {
