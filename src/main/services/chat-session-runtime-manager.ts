@@ -150,8 +150,12 @@ export function createChatSessionRuntimeManager({
           : 'Codex failed to respond to this chat turn.';
       await writeSystemMessage(sessionId, transcriptPath, message);
     } finally {
-      runtime.turnAbort = null;
-      publishWorkspaceInspectionChange?.(internalSession.taskId);
+      if (runtimes.has(sessionId)) {
+        runtime.turnAbort = null;
+      }
+      if (agentSessionRepository.findById(sessionId)) {
+        publishWorkspaceInspectionChange?.(internalSession.taskId);
+      }
     }
   }
 
