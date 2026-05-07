@@ -574,6 +574,18 @@ export function createBedrockChatSessionRuntimeManager({
 
     runtimes.delete(sessionId);
     sessionQueues.delete(sessionId);
+
+    const session = agentSessionRepository.findInternalById(sessionId);
+    if (session && (session.status === 'starting' || session.status === 'running')) {
+      const nextSession = agentSessionRepository.finalize({
+        endedAt: new Date().toISOString(),
+        exitCode: null,
+        lastError: null,
+        sessionId,
+        status: 'terminated'
+      });
+      emitSnapshot(nextSession);
+    }
   }
 
   async function deleteSession(sessionId: number): Promise<void> {
